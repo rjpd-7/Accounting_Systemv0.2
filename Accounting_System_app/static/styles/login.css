@@ -1,0 +1,72 @@
+body{
+    background-color: #FFF8F6;
+    padding: 0;
+    margin: 0;
+}
+
+/* Login Page */
+
+.top_section {
+    height: 80px;
+    background-color: #8E110B;
+    margin-bottom: 120px;
+}
+
+.login_container {
+    margin: 50px;
+    margin-inline: auto;
+    background-color: #fef9f9;
+    width: 332px;
+    height: 232px;
+    border-radius: 20px;
+    box-shadow: 1px 2px 12px gray;
+}
+
+#login_topbar {
+    background-color: #8E110B;
+    border-radius: 20px 20px 0 0;
+    width: auto;
+    margin: auto;
+    height: 53px;
+    float: absolute;
+    display: flex;
+    justify-content: center;
+}
+
+#login_topbar p {
+    color: #FFF8F6;
+    text-align: center;
+    margin: auto;
+    font-size: 20px;
+    font-family: Inter;
+}
+
+.input_box{
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+
+.input_box input {
+    border-radius: 10px;
+    padding: 6px;
+    margin: 10px;
+    border: 0.5px solid;
+    width: 250px;
+    font-size: 16px;
+    box-shadow: #311413;
+}
+
+.loginBTN {
+    border-radius: 10px;
+    padding: 6px;
+    background-color: #8E110B;
+    color: #FFF8F6;
+    font-size: 20px;
+    border: none;
+    width: 100px;
+    font-family: Inter;
+    cursor: pointer;
+}

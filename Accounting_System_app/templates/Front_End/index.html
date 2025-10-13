@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'styles/styles.css' %}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+    <title>Home Page</title>
+</head>
+<body>
+    <!------ Sidebar ------>
+    <div class="container_sidebar">
+        <div class="sidebar">
+            <nav class="nav flex-column">
+                <ul>
+                    <li>
+                        <a class="nav-link py-3 border-bottom rounded-0" id="menu" href="#">
+                            <span class="icon">
+                                <i class="bi bi-list"></i>
+                            </span>
+                            <span class="description">Menu</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link active py-3 border-bottom rounded-0" href="{% url 'AccountingSystem:index' %}" >
+                            <span class="icon">
+                                <i class="bi bi-house"></i>
+                            </span>
+                            <span class="description">Home</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link py-3 border-bottom rounded-0" href="{% url 'AccountingSystem:journals' %}">
+                            <span class="icon">
+                                <i class="bi bi-journal-bookmark"></i>
+                            </span>
+                            <span class="description">Journal</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link py-3 border-bottom rounded-0" href="{% url 'AccountingSystem:ledgers' %}">
+                            <span class="icon">
+                                <i class="bi bi-cash-stack"></i>
+                            </span>
+                            <span class="description">Balance</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link py-3 border-bottom rounded-0" href="{% url 'AccountingSystem:accounts' %}">
+                            <span class="icon">
+                                <i class="bi bi-file-earmark-spreadsheet"></i>
+                            </span>
+                            <span class="description">Accounts</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link" href="{% url 'AccountingSystem:files' %}">
+                            <span class="icon">
+                                <i class="bi bi-folder2"></i>
+                            </span>
+                            <span class="description">Files</span>
+                        </a>
+                    </li>
+                </ul>        
+            </nav>
+        </div>
+    </div>
+    <!------ Sidebar End ------>
+
+    <!------ Main Page ------>
+    <main class="main-content">
+        <h2>Accounting System</h2>
+    </main>
+    <!------ Main Page End ------>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script src="scripts/scripts.js"></script>
+</body>
+</html>
