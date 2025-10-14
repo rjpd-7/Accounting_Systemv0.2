@@ -31,3 +31,25 @@ class Accounts(models.Model):
     date_created = models.DateTimeField(default=datetime.today)
     account_name = models.TextField(max_length=None, null=False)
     account_descriptions = models.TextField(max_length=None)
+
+    # DB Table is accounting_system_app_accounts
+
+class ChartOfAccounts(models.Model):
+    account_type_choices = [
+        ("Assets", "Assets")
+        ("Liabilities", "Liabilities")
+        ("Equity", "Equity")
+        ("Revenue", "Revenue")
+        ("Expenses", "Expenses")
+    ]
+    
+    date_created = models.DateTimeField(default=datetime.today)
+    account_code = models.IntegerField(unique=True, max_length=6)
+    account_name = models.TextField(max_length=None, null=False)
+    account_type = models.TextField(max_length=None, null=False, choices=account_type_choices)
+
+    class Meta:
+        db_table = "accounts_table"
+
+class JournalEntries(models.Model):
+    pass
