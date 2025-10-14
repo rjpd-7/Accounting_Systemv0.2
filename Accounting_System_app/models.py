@@ -33,3 +33,19 @@ class Accounts(models.Model):
     account_descriptions = models.TextField(max_length=None)
 
 # Chart Of Accounts Table
+class ChartOfAccounts(models.Model):
+    account_type_choices = [
+        ("Assets", "Assets"),
+        ("Liabilities", "Liabilities"),
+        ("Equity", "Equity"),
+        ("Revenue", "Revenue"),
+        ("Expenses", "Expenses"),
+    ]
+    
+    date_created = models.DateTimeField(default=datetime.today)
+    account_code = models.CharField(unique=True, max_length=20, null=False)
+    account_name = models.TextField(max_length=None, null=False)
+    account_type = models.TextField(max_length=None, null=False, choices=account_type_choices)
+
+    class Meta:
+        db_table = "accounts_table"
