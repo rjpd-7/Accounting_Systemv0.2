@@ -48,8 +48,5 @@ class ChartOfAccounts(models.Model):
     account_name = models.TextField(max_length=None, null=False)
     account_type = models.TextField(max_length=None, null=False, choices=account_type_choices)
 
-    class Meta:
-        db_table = "accounts_table"
-
 class JournalEntries(models.Model):
     pass
