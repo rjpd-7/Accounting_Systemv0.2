@@ -49,3 +49,7 @@ class ChartOfAccounts(models.Model):
 
     class Meta:
         db_table = "accounts_table"
+
+# Journal Entries Table
+class JournalEntry(models.Model):
+    pass
