@@ -30,4 +30,4 @@ class AccountGroups(models.Model):
 class Accounts(models.Model):
     date_created = models.DateTimeField(default=datetime.today)
     account_name = models.TextField(max_length=None, null=False)
-    account_description = group_description = models.TextField(max_length=None)
+    account_descriptions = models.TextField(max_length=None)
