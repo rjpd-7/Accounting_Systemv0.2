@@ -44,7 +44,7 @@ class ChartOfAccounts(models.Model):
     ]
     
     date_created = models.DateTimeField(default=datetime.today)
-    account_code = models.IntegerField(unique=True, max_length=6)
+    account_code = models.CharField(unique=True, max_length=20)
     account_name = models.TextField(max_length=None, null=False)
     account_type = models.TextField(max_length=None, null=False, choices=account_type_choices)
 
