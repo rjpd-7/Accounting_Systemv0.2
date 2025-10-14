@@ -36,11 +36,11 @@ class Accounts(models.Model):
 
 class ChartOfAccounts(models.Model):
     account_type_choices = [
-        ("Assets", "Assets")
-        ("Liabilities", "Liabilities")
-        ("Equity", "Equity")
-        ("Revenue", "Revenue")
-        ("Expenses", "Expenses")
+        ("Assets", "Assets"),
+        ("Liabilities", "Liabilities"),
+        ("Equity", "Equity"),
+        ("Revenue", "Revenue"),
+        ("Expenses", "Expenses"),
     ]
     
     date_created = models.DateTimeField(default=datetime.today)
