@@ -22,8 +22,12 @@ class AccountGroups(models.Model):
     date_created = models.DateTimeField(default=datetime.today)
     group_name = models.TextField(max_length=None, null=False)
     group_description = models.TextField(max_length=None)
-    group_type = models.TextField(max_length=None, choices=type_choices)
+    group_type = models.TextField(max_length=None, choices=type_choices, null=False)
 
     class Meta:
         db_table = "account_groups"
 
+class Accounts(models.Model):
+    date_created = models.DateTimeField(default=datetime.today)
+    account_name = models.TextField(max_length=None, null=False)
+    account_description = group_description = models.TextField(max_length=None)
