@@ -14,4 +14,6 @@ urlpatterns = [
      path("journals/", views.journals, name="journals"),
      path("ledgers/", views.general_ledger, name="ledgers"),
      path("files/", views.files, name="files"),
+     path("create_account/", views.create_account, name="create_account"),
+     path("insert_journals/", views.insert_journals, name="insert_journals"),
 ]
