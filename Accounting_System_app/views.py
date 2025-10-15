@@ -42,10 +42,15 @@ def create_account(request):
 
 # Update Account Function
 def update_account(request, id):
-    selected_account = ChartOfAccounts.objects.get(pk = id)
+    selected_account = ChartOfAccounts.objects.get(pk=id)
+    if request.method == "POST":
+        selected_account.account_name = request.POST.get("account_name", selected_account.account_name)
+        selected_account.save()
+        return redirect("AccountingSystem:accounts")
     update_form = UpdateAccountsForm(instance=selected_account)
-
-    
+    return render(request, "Front_End/accounts.html", {
+        "update_form": update_form
+    })
 
 # Journal Entries Page
 def journals(request):
