@@ -12,3 +12,8 @@ class ChartOfAccountsForm(forms.ModelForm):
     class Meta:
         model = ChartOfAccounts
         fields = ['account_code', 'account_name', 'account_type', 'debit_credit']
+
+class UpdateAccountsForm(forms.ModelForm):
+    class Meta:
+        model = ChartOfAccounts
+        fields = ['account_name']

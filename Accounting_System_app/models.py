@@ -53,6 +53,9 @@ class ChartOfAccounts(models.Model):
     account_type = models.TextField(max_length=None, null=False, choices=account_type_choices)
     debit_credit = models.TextField(max_length=None, null=True, choices=debit_credit_choices)
 
+    #def __str__(self):
+    #    return self.account_name, self.account_type
+
     class Meta:
         db_table = "accounts_table"
 

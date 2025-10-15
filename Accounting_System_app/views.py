@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts
 from django.contrib.auth import authenticate, login, logout
-from .forms import USNAccountsForm, ChartOfAccountsForm
+from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
 
 # Create your views here.
 
@@ -39,6 +39,13 @@ def create_account(request):
     account.save()
 
     return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
+
+# Update Account Function
+def update_account(request, id):
+    selected_account = ChartOfAccounts.objects.get(pk = id)
+    update_form = UpdateAccountsForm(instance=selected_account)
+
+    
 
 # Journal Entries Page
 def journals(request):
