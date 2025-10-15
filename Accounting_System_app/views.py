@@ -33,6 +33,10 @@ def create_account(request):
     account_code_submit = request.POST['account_code']
     account_name_submit = request.POST['account_name']
     account_type_submit = request.POST['account_type']
+    account = ChartOfAccounts(account_code = account_code_submit, account_name = account_name_submit, account_type = account_type_submit)
+    account.save()
+
+    return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
 # Journal Entries Page
 def journals(request):
