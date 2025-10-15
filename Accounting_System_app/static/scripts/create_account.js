@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Handle form submit
     document.getElementById("account_form").addEventListener("submit", (e) => {
-        e.preventDefault();
+        //e.preventDefault();
 
         let account_code = document.getElementById("account_code").value;
         let account_name = document.getElementById("account_name").value;
@@ -51,8 +51,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         alert(`Account Created!\nAccount Code: ${account_code}\nAccount Name: ${account_name}\nAccount Type: ${account_type}`);
 
+        // Increment code_counter
+        localStorage.setItem('code_counter', parseInt(localStorage.getItem('code_counter'), 10) + 1);
         // Reset form and generate next code
-        e.target.reset();
-        document.getElementById("account_code").value = generateAccountCode();
+        //e.target.reset();
+        //document.getElementById("account_code").value = generateAccountCode();
+
     });
 });

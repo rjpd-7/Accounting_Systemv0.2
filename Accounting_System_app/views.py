@@ -25,8 +25,10 @@ def logout_view(request):
 
 # Chart Of Accounts Page
 def chart_of_accounts(request):
-
-    return render(request, "Front_end/accounts.html")
+    results = ChartOfAccounts.objects.all()
+    return render(request, "Front_End/accounts.html", {
+        "accounts" : results
+    })
 
 # Create Account Function
 def create_account(request):

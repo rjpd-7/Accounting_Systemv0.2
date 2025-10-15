@@ -82,6 +82,7 @@
             <table class="table table-bordered">
                 <thead>
                     <tr>
+                        <th>Date Created</th>
                         <th>Account Code</th>
                         <th>Account Name</th>
                         <th>Account Type</th>
@@ -90,6 +91,7 @@
                 <tbody>
                     {% for account in accounts %}
                     <tr>
+                        <td>{{ account.date_created }}</td>
                         <td>{{ account.account_code}}</td>
                         <td>{{ account.account_name}}</td>
                         <td>{{ account.account_type}}</td>
