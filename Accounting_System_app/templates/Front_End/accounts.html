@@ -101,7 +101,7 @@
                             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#EDITstaticBackdrop"  data-id="{{ account.id }}" data-name="{{ account.account_name }}">
                                 Edit
                             </button>
-                            <form action="{% url 'AccountingSystem:delete_account' account.id%}" method="post" class="d-inline">
+                            <form action="{% url 'AccountingSystem:delete_account' account.id%}" method="post" class="d-inline" onsubmit="return confirmDeleteAccount('{{ account.account_name }}');">
                                 {% csrf_token %}
                                 <button name="delete" class="btn btn-danger">
                                     Delete
@@ -198,5 +198,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
     <script src="{% static 'scripts/create_account.js' %}"></script>
     <script src="{% static 'scripts/update_account.js' %}"></script>
+    <script src="{% static 'scripts/delete_account.js' %}"></script>
 </body>
 </html>
