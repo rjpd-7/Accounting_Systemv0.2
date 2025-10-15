@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts
 from django.contrib.auth import authenticate, login, logout
-from .forms import USNAccountsForm
+from .forms import USNAccountsForm, ChartOfAccountsForm
 
 # Create your views here.
 
@@ -30,7 +30,8 @@ def chart_of_accounts(request):
 
 # Create Account Function
 def create_account(request):
-    pass
+    if request.method == "POST":
+        pass
 
 # Journal Entries Page
 def journals(request):
