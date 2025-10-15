@@ -47,10 +47,8 @@ def update_account(request, id):
         selected_account.account_name = request.POST.get("account_name", selected_account.account_name)
         selected_account.save()
         return redirect("AccountingSystem:accounts")
-    update_form = UpdateAccountsForm(instance=selected_account)
-    return render(request, "Front_End/accounts.html", {
-        "update_form": update_form
-    })
+    
+# Delete Account Function
 
 # Journal Entries Page
 def journals(request):
