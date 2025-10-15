@@ -16,5 +16,6 @@ urlpatterns = [
      path("files/", views.files, name="files"),
      path("create_account/", views.create_account, name="create_account"),
      path("update_account/<int:id>/", views.update_account, name="update_account"),
+     path("delete_account/<int:id>/", views.delete_account, name="delete_account"),
      path("insert_journals/", views.insert_journals, name="insert_journals"),
 ]

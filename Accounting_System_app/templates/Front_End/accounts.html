@@ -101,9 +101,12 @@
                             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#EDITstaticBackdrop"  data-id="{{ account.id }}" data-name="{{ account.account_name }}">
                                 Edit
                             </button>
-                            <button name="delete" class="btn btn-danger">
-                                Delete
-                            </button>
+                            <form action="{% url 'AccountingSystem:delete_account' account.id%}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button name="delete" class="btn btn-danger">
+                                    Delete
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}

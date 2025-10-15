@@ -49,6 +49,13 @@ def update_account(request, id):
         return redirect("AccountingSystem:accounts")
     
 # Delete Account Function
+def delete_account(request, id):
+    try:
+        account = ChartOfAccounts.objects.get(pk=id)
+        account.delete()
+    except ChartOfAccounts.DoesNotExist:
+        pass
+    return redirect("AccountingSystem:accounts")
 
 # Journal Entries Page
 def journals(request):
