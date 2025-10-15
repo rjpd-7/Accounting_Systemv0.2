@@ -1,12 +1,58 @@
-// Auto Generate Account Code based on account type
-if(!localStorage.getItem('code_counter')){
-    localStorage.setItem('code_counter', 0);
-}
+document.addEventListener("DOMContentLoaded", function () {
+    if(!localStorage.getItem('code_counter')){
+        localStorage.setItem('code_counter', 0);
+    }
 
-function generateAccountCode(){
-    let last_number = localStorage.getItem('code_counter');
-}
+    function generateAccountCode(){
+        let type_of_acc = document.getElementById("account_type").value;
+        let last_number = parseInt(localStorage.getItem('code_counter'), 10);
 
-document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("account_code")
+        if(type_of_acc === "Assets"){
+            return (100000 + last_number).toString();
+        }
+        else if(type_of_acc === "Liabilities"){
+            return (200000 + last_number).toString();
+        }
+        else if(type_of_acc === "Equity"){
+            return (300000 + last_number).toString();
+        }
+        else if(type_of_acc === "Revenue"){
+            return (400000 + last_number).toString();
+        }
+        else if(type_of_acc === "Expenses"){
+            return (500000 + last_number).toString();
+        }
+        return "";
+    }
+
+    // Set account code when modal opens
+    document.getElementById('staticBackdrop').addEventListener('shown.bs.modal', function () {
+         console.log("Modal opened"); // Debug log
+        document.getElementById("account_code").value = generateAccountCode();
+    });
+
+    // Update account code when type changes
+    document.getElementById("account_type").addEventListener("change", () => {
+        document.getElementById("account_code").value = generateAccountCode();
+    });
+
+    // Handle form submit
+    document.getElementById("account_form").addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        let account_code = document.getElementById("account_code").value;
+        let account_name = document.getElementById("account_name").value;
+        let account_type = document.getElementById("account_type").value;
+
+        if (!account_name || !account_type) {
+            alert("Please complete all fields.");
+            return;
+        }
+
+        alert(`Account Created!\nAccount Code: ${account_code}\nAccount Name: ${account_name}\nAccount Type: ${account_type}`);
+
+        // Reset form and generate next code
+        e.target.reset();
+        document.getElementById("account_code").value = generateAccountCode();
+    });
 });

@@ -109,7 +109,7 @@
         </div>
         <div class="modal-body">
             <div class="account-form">
-                <form action="{% url 'AccountingSystem:create_account' %}" method="post">
+                <form action="{% url 'AccountingSystem:create_account' %}" method="post" id="account_form">
                     {% csrf_token %}
                     <!-- Create Account -->
                     <table>
@@ -123,9 +123,9 @@
                         <tbody>
                             <tr>
                                 <td><input id="account_code" type="text" name="account_code" readonly required></td>
-                                <td><input type="text" name="account_name" required></td>
+                                <td><input id="account_name" type="text" name="account_name" required></td>
                                 <td>
-                                    <select name="account_type" required>
+                                    <select name="account_type" id="account_type" required>
                                         <option value="Assets">Assets</option>
                                         <option value="Liabilities">Liabilities</option>
                                         <option value="Equity">Equity</option>
@@ -155,6 +155,6 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-    <script src="scripts/create_account.js"></script>
+    <script src="{% static 'scripts/create_account.js' %}"></script>
 </body>
 </html>
