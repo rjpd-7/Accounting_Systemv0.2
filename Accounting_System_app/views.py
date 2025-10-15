@@ -30,8 +30,9 @@ def chart_of_accounts(request):
 
 # Create Account Function
 def create_account(request):
-    if request.method == "POST":
-        pass
+    account_code_submit = request.POST['account_code']
+    account_name_submit = request.POST['account_name']
+    account_type_submit = request.POST['account_type']
 
 # Journal Entries Page
 def journals(request):

@@ -11,4 +11,4 @@ class USNAccountsForm(forms.ModelForm):
 class ChartOfAccountsForm(forms.ModelForm):
     class Meta:
         model = ChartOfAccounts
-        fields = ['date_created', 'account_code', 'account_name', 'account_type', 'debit_credit']
+        fields = ['account_code', 'account_name', 'account_type', 'debit_credit']
