@@ -9,8 +9,13 @@ urlpatterns = [
      path("", views.login_view, name="login"),
      path("index/", views.index, name="index"),
      path("login/", views.login_view, name="login"),
+     path("logout/", views.logout_view, name="logout"),
      path("accounts/", views.chart_of_accounts, name="accounts"),
      path("journals/", views.journals, name="journals"),
      path("ledgers/", views.general_ledger, name="ledgers"),
      path("files/", views.files, name="files"),
+     path("create_account/", views.create_account, name="create_account"),
+     path("update_account/<int:id>/", views.update_account, name="update_account"),
+     path("delete_account/<int:id>/", views.delete_account, name="delete_account"),
+     path("insert_journals/", views.insert_journals, name="insert_journals"),
 ]

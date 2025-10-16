@@ -18,7 +18,7 @@ class AccountGroups(models.Model):
         ("Credit", "Credit"),
     ]
     
-    date_created = models.DateTimeField(default=datetime.today)
+    date_created = models.DateTimeField(auto_now_add=True)
     group_name = models.TextField(max_length=None, null=False)
     group_description = models.TextField(max_length=None)
     group_type = models.TextField(max_length=None, choices=type_choices, null=False)
@@ -28,7 +28,7 @@ class AccountGroups(models.Model):
 
 # Accounts Table
 class Accounts(models.Model):
-    date_created = models.DateTimeField(default=datetime.today)
+    date_created = models.DateTimeField(auto_now_add=True)
     account_name = models.TextField(max_length=None, null=False)
     account_descriptions = models.TextField(max_length=None)
 
@@ -41,11 +41,15 @@ class ChartOfAccounts(models.Model):
         ("Revenue", "Revenue"),
         ("Expenses", "Expenses"),
     ]
-    
-    date_created = models.DateTimeField(default=datetime.today)
+
+    date_created = models.DateTimeField(auto_now_add=True)
     account_code = models.CharField(unique=True, max_length=20, null=False)
-    account_name = models.TextField(max_length=None, null=False)
-    account_type = models.TextField(max_length=None, null=False, choices=account_type_choices)
+    account_name = models.CharField(max_length=255, null=False)
+    account_type = models.CharField(max_length=255, null=False, choices=account_type_choices)
+    account_description = models.TextField(max_length=None, null=True)
+
+    #def __str__(self):
+    #    return self.account_name, self.account_type
 
     class Meta:
         db_table = "accounts_table"
