@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Journal Table functions.
     var addRowBtn = document.getElementById('add-journal-row');
     var journalEntryBody = document.getElementById('journal-entry-body');
+    var allAccountsSelect = document.getElementById('all-accounts-select');
 
     function updateAccountTypeAndRestrict(selectElem) {
         var row = selectElem.closest('tr');
