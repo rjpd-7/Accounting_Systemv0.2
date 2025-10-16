@@ -41,17 +41,12 @@ class ChartOfAccounts(models.Model):
         ("Revenue", "Revenue"),
         ("Expenses", "Expenses"),
     ]
-    
-    debit_credit_choices = [
-        ("Debit", "Debit"),
-        ("Credit", "Credit"),
-    ]
 
     date_created = models.DateTimeField(auto_now_add=True)
     account_code = models.CharField(unique=True, max_length=20, null=False)
-    account_name = models.TextField(max_length=None, null=False)
-    account_type = models.TextField(max_length=None, null=False, choices=account_type_choices)
-    debit_credit = models.TextField(max_length=None, null=True, choices=debit_credit_choices)
+    account_name = models.CharField(max_length=255, null=False)
+    account_type = models.CharField(max_length=255, null=False, choices=account_type_choices)
+    account_description = models.TextField(max_length=None, null=True)
 
     #def __str__(self):
     #    return self.account_name, self.account_type

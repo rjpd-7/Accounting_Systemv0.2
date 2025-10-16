@@ -59,8 +59,10 @@ def delete_account(request, id):
 
 # Journal Entries Page
 def journals(request):
-
-    return render(request, "Front_end/journal.html")
+    accounts = ChartOfAccounts.objects.all()
+    return render(request, "Front_end/journal.html", {
+        "accounts" : accounts
+    })
 
 def insert_journals(request):
     pass
