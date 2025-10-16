@@ -86,6 +86,7 @@
                         <th>Account Code</th>
                         <th>Account Name</th>
                         <th>Account Type</th>
+                        <th>Account Description</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -93,12 +94,18 @@
                     {% for account in accounts %}
                     <tr>
                         <td>{{ account.date_created }}</td>
-                        <td>{{ account.account_code}}</td>
-                        <td>{{ account.account_name}}</td>
-                        <td>{{ account.account_type}}</td>
+                        <td>{{ account.account_code }}</td>
+                        <td>{{ account.account_name }}</td>
+                        <td>{{ account.account_type }}</td>
+                        <td>{{ account.account_description }}</td>
                         <td>
                             <!-- Edit Button trigger modal -->
-                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#EDITstaticBackdrop"  data-id="{{ account.id }}" data-name="{{ account.account_name }}">
+                            <button type="button" class="btn btn-primary" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#EDITstaticBackdrop"  
+                                data-id="{{ account.id }}" 
+                                data-name="{{ account.account_name }}" 
+                                data-description="{{ account.account_description|default_if_none:'' }}">
                                 Edit
                             </button>
                             <form action="{% url 'AccountingSystem:delete_account' account.id%}" method="post" class="d-inline" onsubmit="return confirmDeleteAccount('{{ account.account_name }}');">
@@ -155,6 +162,8 @@
                             </tr>
                         </tbody>
                     </table>
+                    <label for="account_description">Description:</label>
+                    <input id="account_description" name="account_description" type="text">
                     
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -175,14 +184,16 @@
             <form method="POST" id="updateAccountForm">
                 {% csrf_token %}
                 <div class="modal-header">
-                <h5 class="modal-title" id="EDITstaticBackdropLabel">Update Account Name</h5>
+                <h5 class="modal-title" id="EDITstaticBackdropLabel">Update Account Name and Account Description</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                 <input type="hidden" name="account_id" id="update_account_id">
                 <div class="mb-3">
                     <label for="update_account_name" class="form-label">Account Name</label>
-                    <input type="text" class="form-control" id="update_account_name" name="account_name" required>
+                    <input type="text" class="form-control" id="update_account_name" name="account_name" required> <br>
+                    <label for="update_account_description" class="form-label">Account Description</label>
+                    <input type="text" class="form-control" id="update_account_description" name="account_description">
                 </div>
                 </div>
                 <div class="modal-footer">

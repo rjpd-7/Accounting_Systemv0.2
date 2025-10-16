@@ -2,6 +2,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     var edit_buttons = document.querySelectorAll('button[data-bs-target="#EDITstaticBackdrop"]');
     var updateAccountName = document.getElementById('update_account_name');
+    var updateAccountDescription = document.getElementById('update_account_description');
     var updateAccountId = document.getElementById('update_account_id');
     var updateForm = document.getElementById('updateAccountForm');
     var oldAccountName = "";
@@ -10,15 +11,16 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             oldAccountName = btn.getAttribute('data-name');
             updateAccountName.value = oldAccountName;
+            updateAccountDescription.value = btn.getAttribute('data-description') || "";
             updateAccountId.value = btn.getAttribute('data-id');
             updateForm.action = '/update_account/' + btn.getAttribute('data-id') + '/'; // Adjust URL as needed
         });
     });
 
-    // Alerts with old and updated account name
-    updateForm.addEventListener('submit', function() {
+    updateForm.addEventListener('submit', function(e) {
         if (!updateAccountName.value.trim()) {
             alert('Account name cannot be empty!');
+            e.preventDefault();
             return;
         }
         alert('Account name has been updated!\nOld Name: ' + oldAccountName + '\nNew Name: ' + updateAccountName.value.trim());

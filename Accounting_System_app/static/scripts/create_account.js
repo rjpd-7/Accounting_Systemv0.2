@@ -27,7 +27,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Set account code when modal opens
     document.getElementById('staticBackdrop').addEventListener('shown.bs.modal', function () {
-         console.log("Modal opened"); // Debug log
         document.getElementById("account_code").value = generateAccountCode();
     });
 
