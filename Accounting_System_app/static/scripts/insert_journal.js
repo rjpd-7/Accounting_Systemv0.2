@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var debitInput = row.querySelector('input[name="debit"]');
         var creditInput = row.querySelector('input[name="credit"]');
         var selectedOption = selectElem.options[selectElem.selectedIndex];
-        var type = selectedOption.getAttribute('data-type') || "";
+         var type = selectedOption ? selectedOption.getAttribute('data-type') : "";
 
         // Show type
         typeInput.value = type;
@@ -58,14 +58,16 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     addRowBtn.addEventListener('click', function () {
-        var firstRow = journalEntryBody.querySelector('tr');
-        var newRow = firstRow.cloneNode(true);
+        var newRow = document.createElement('tr');
+        var selectHtml = '<select name="account_name" required>' + allAccountsSelect.innerHTML + '</select>';
 
-        // Clear input values in the new row
-        newRow.querySelectorAll('input').forEach(function(input) {
-            input.value = '';
-        });
-
+        newRow.innerHTML = `
+            <td>${selectHtml}</td>
+            <td><input type="text" name="account_type" readonly></td>
+            <td><input type="number" name="debit" step="0.01" min="0"></td>
+            <td><input type="number" name="credit" step="0.01" min="0"></td>
+            <td><button type="button" class="btn btn-danger btn-sm remove-row">Remove</button></td>
+        `;
         // Add remove button
         var actionCell = newRow.querySelector('td:last-child');
         actionCell.innerHTML = '<button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>';
