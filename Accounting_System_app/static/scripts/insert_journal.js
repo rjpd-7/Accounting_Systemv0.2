@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
         localStorage.setItem('journal_code_counter', 0);
     }
 
+    // Journal Code Generation
     function generateJournalCode(){
         let last_number = parseInt(localStorage.getItem('journal_code_counter'), 10);
         // Incremental part, padded to 10 digits
@@ -17,6 +18,37 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("journal_code").value = generateJournalCode();
     });
 
+    //Journal Table functions.
+    var addRowBtn = document.getElementById('add-journal-row');
+    var journalEntryBody = document.getElementById('journal-entry-body');
+
+    addRowBtn.addEventListener('click', function () {
+        // Clone the first row
+        var firstRow = journalEntryBody.querySelector('tr');
+        var newRow = firstRow.cloneNode(true);
+
+        // Clear input values in the new row
+        newRow.querySelectorAll('input').forEach(function(input) {
+            input.value = '';
+        });
+
+        // Add remove button if not present
+        var actionCell = newRow.querySelector('td:last-child');
+        actionCell.innerHTML = '<button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>';
+
+        journalEntryBody.appendChild(newRow);
+    });
+
+    // Delegate remove row button click
+    journalEntryBody.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-row')) {
+            var row = e.target.closest('tr');
+            if (journalEntryBody.rows.length > 1) {
+                row.remove();
+            }
+        }
+    });
+
     // Handle form submit
     document.getElementById("journal_form").addEventListener("submit", (e) => {
         //e.preventDefault();
@@ -28,7 +60,7 @@ document.addEventListener("DOMContentLoaded", function () {
         //    return;
         //}
 
-        alert(`Account Created!\nAccount Code  : ${account_code}\nAccount Name : ${account_name}\nAccount Type   : ${account_type}`);
+        alert(`Journal Entry Created!\nAccount Code  : ${account_code}\nAccount Name : ${account_name}\nAccount Type   : ${account_type}`);
 
         // Increment code_counter
         localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);

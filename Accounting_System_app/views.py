@@ -36,7 +36,7 @@ def create_account(request):
     account_name_submit = request.POST['account_name']
     account_type_submit = request.POST['account_type']
     account_description_submit = request.POST['account_description']
-    account = ChartOfAccounts(account_code = account_code_submit, account_name = account_name_submit, account_type = account_type_submit,account_description = account_description_submit)
+    account = ChartOfAccounts(account_code = account_code_submit, account_name = account_name_submit, account_type = account_type_submit, account_description = account_description_submit)
     account.save()
 
     return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
@@ -46,7 +46,7 @@ def update_account(request, id):
     selected_account = ChartOfAccounts.objects.get(pk=id)
     if request.method == "POST":
         selected_account.account_name = request.POST.get("account_name", selected_account.account_name)
-        selected_account.account_description = request.POST.get("account_name", selected_account.account_description)
+        selected_account.account_description = request.POST.get("account_description", selected_account.account_description)
         selected_account.save()
         return redirect("AccountingSystem:accounts")
     

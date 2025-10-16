@@ -42,13 +42,14 @@ document.addEventListener("DOMContentLoaded", function () {
         let account_code = document.getElementById("account_code").value;
         let account_name = document.getElementById("account_name").value;
         let account_type = document.getElementById("account_type").value;
+        let account_description = document.getElementById("account_description").value;
 
         if (!account_name || !account_type) {
             alert("Please complete all fields.");
             return;
         }
 
-        alert(`Account Created!\nAccount Code  : ${account_code}\nAccount Name : ${account_name}\nAccount Type   : ${account_type}`);
+        alert(`Account Created!\nAccount Code  : ${account_code}\nAccount Name : ${account_name}\nAccount Type   : ${account_type}\n\nAccount Description: ${account_description}`);
 
         // Increment code_counter
         localStorage.setItem('code_counter', parseInt(localStorage.getItem('code_counter'), 10) + 1);
