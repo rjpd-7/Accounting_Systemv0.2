@@ -114,7 +114,7 @@
             </table>
         </div>
 
-        <!-- Create Journal Modal -->
+        <!-- Insert Journal Modal -->
         <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -138,6 +138,7 @@
                         <thead>
                             <tr>
                                 <th>Account Name</th>
+                                <th>Account Type</th>
                                 <th>Debit</th>
                                 <th>Credit</th>
                                 <th>Action</th>
@@ -148,11 +149,14 @@
                                 <td>
                                     <select name="account_name" required>
                                         {% for account in accounts %}
-                                        <option value="{{ account.account_name }}">{{ account.account_name }}</option>
+                                        <option value="{{ account.account_name }}" data-type="{{ account.account_type }}">{{ account.account_name }}</option>
                                         {% empty %}
                                         <option value="" disabled>No Accounts Created</option>
                                         {% endfor %}
                                     </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="account_type" readonly>
                                 </td>
                                 <td><input type="number" name="debit" step="0.01" min="0" required></td>
                                 <td><input type="number" name="credit" step="0.01" min="0" readonly></td>
