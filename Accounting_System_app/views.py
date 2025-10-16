@@ -46,6 +46,7 @@ def update_account(request, id):
     selected_account = ChartOfAccounts.objects.get(pk=id)
     if request.method == "POST":
         selected_account.account_name = request.POST.get("account_name", selected_account.account_name)
+        selected_account.account_description = request.POST.get("account_name", selected_account.account_description)
         selected_account.save()
         return redirect("AccountingSystem:accounts")
     
