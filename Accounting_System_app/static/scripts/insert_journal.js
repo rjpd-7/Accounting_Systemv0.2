@@ -30,7 +30,14 @@ document.addEventListener("DOMContentLoaded", function () {
         // Clear input values in the new row
         newRow.querySelectorAll('input').forEach(function(input) {
             input.value = '';
+            input.removeAttribute('readonly');
         });
+
+        // Enable credit input for new rows
+        var creditInput = newRow.querySelector('input[name="credit"]');
+        if (creditInput) {
+            creditInput.removeAttribute('readonly');
+        }
 
         // Add remove button if not present
         var actionCell = newRow.querySelector('td:last-child');
