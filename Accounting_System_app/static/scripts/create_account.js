@@ -49,7 +49,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        alert(`Account Created!\nAccount Code: ${account_code}\nAccount Name: ${account_name}\nAccount Type: ${account_type}`);
+        alert(`Account Created!\nAccount Code  : ${account_code}\nAccount Name : ${account_name}\nAccount Type   : ${account_type}`);
 
         // Increment code_counter
         localStorage.setItem('code_counter', parseInt(localStorage.getItem('code_counter'), 10) + 1);
