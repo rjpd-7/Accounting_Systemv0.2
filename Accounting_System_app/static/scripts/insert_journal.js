@@ -22,6 +22,8 @@ document.addEventListener("DOMContentLoaded", function () {
     var addRowBtn = document.getElementById('add-journal-row');
     var journalEntryBody = document.getElementById('journal-entry-body');
     var allAccountsSelect = document.getElementById('all-accounts-select');
+    var totalDebitField = document.getElementById('total_debit');
+    var totalCreditField = document.getElementById('total_credit');
 
     function updateAccountTypeAndRestrict(selectElem) {
         var row = selectElem.closest('tr');
@@ -29,7 +31,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var debitInput = row.querySelector('input[name="debit"]');
         var creditInput = row.querySelector('input[name="credit"]');
         var selectedOption = selectElem.options[selectElem.selectedIndex];
-         var type = selectedOption ? selectedOption.getAttribute('data-type') : "";
+        var type = selectedOption ? selectedOption.getAttribute('data-type') : "";
 
         // Show type
         typeInput.value = type;
@@ -47,7 +49,30 @@ document.addEventListener("DOMContentLoaded", function () {
             debitInput.removeAttribute('readonly');
             creditInput.removeAttribute('readonly');
         }
+
+        calculateTotals();
     }
+
+    // Calculate Totals
+    function calculateTotals() {
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        journalEntryBody.querySelectorAll('input[name="debit"]').forEach(input => {
+            totalDebit += parseFloat(input.value) || 0;
+        });
+        journalEntryBody.querySelectorAll('input[name="credit"]').forEach(input => {
+            totalCredit += parseFloat(input.value) || 0;
+        });
+
+        totalDebitField.value = totalDebit
+        totalCreditField.value = totalCredit;
+    }
+
+    // Real Time Totals calculation
+    document.querySelectorAll('#journal-entry-body input[name="debit"], #journal-entry-body input[name="credit"]').forEach(input => {
+        input.addEventListener('input', calculateTotals);
+    });
 
     // Initial setup for all rows
     document.querySelectorAll('#journal-entry-body select[name="account_name"]').forEach(function(selectElem) {
@@ -88,6 +113,7 @@ document.addEventListener("DOMContentLoaded", function () {
             var row = e.target.closest('tr');
             if (journalEntryBody.rows.length > 1) {
                 row.remove();
+                calculateTotals();
             }
         }
     });
