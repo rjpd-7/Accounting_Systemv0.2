@@ -85,7 +85,7 @@
             <table class="table table-bordered">
                 <thead>
                     <tr>
-                        <th>Date Created</th>
+                        <th>Date Created/Updated</th>
                         <th>Journal Code</th>
                         <th>Date</th>
                         <th>Account Name</th>
@@ -119,6 +119,10 @@
                                 </button>
                                 <button name="delete" class="btn btn-danger" value="">Delete</button>
                             </td>
+                    </tr>
+                     {% empty %}
+                    <tr>
+                        <p>No Journal Entries are created.</p>
                     </tr>
                 {% endfor %}
                 </tbody>
@@ -220,7 +224,7 @@
         <div class="modal fade" id="EDITstaticBackdrop" tabindex="-1" aria-labelledby="EDITstaticBackdropLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
-                <form method="POST" id="updateAccountForm">
+                <form method="POST" id="updateJournalForm">
                     {% csrf_token %}
                     <div class="modal-header">
                     <h5 class="modal-title" id="EDITstaticBackdropLabel">Update Account Name and Account Description</h5>

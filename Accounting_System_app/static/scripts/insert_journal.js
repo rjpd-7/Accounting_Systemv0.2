@@ -147,20 +147,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Handle form submit
     document.getElementById("journal_form").addEventListener("submit", (e) => {
-        // e.preventDefault(); // Uncomment for AJAX, keep commented for normal submit
+        // e.preventDefault();
 
-        let journal_code = document.getElementById("journal_code").value;
-        let journal_date = document.getElementById("entry-date").value;
+        // Get numeric values — these come in as strings
+        const total_debit = parseFloat(document.getElementById("total_debit").value) || 0;
+        const total_credit = parseFloat(document.getElementById("total_credit").value) || 0;
 
-        if (totalDebit !== totalCredit) {
+        // Check equality with numbers, not strings
+        if (total_debit !== total_credit) {
+            e.preventDefault(); // stop form submission
             alert("Total Debit and Credit must be equal before saving!");
-            return false;
+            return;
         }
-
-        alert(`Journal Entry Created!\nJournal Code: ${journal_code}`);
 
         // Increment code_counter
         localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
+        
+        // Optional success message
+        alert(`Journal Entry Created!}`);
     });
 
     // Reset the form when closed

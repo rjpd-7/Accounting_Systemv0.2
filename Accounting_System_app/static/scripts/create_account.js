@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let account_description = document.getElementById("account_description").value;
 
         if (!account_name || !account_type) {
+            e.preventDefault();
             alert("Please complete all fields.");
             return;
         }
