@@ -114,7 +114,7 @@ def insert_journals(request):
                 account=account,
                 debit=float(debit or 0),
                 credit=float(credit or 0)
-                
+
             )
 
             journal_entry.save()
@@ -123,6 +123,10 @@ def insert_journals(request):
     # GET request
     accounts = ChartOfAccounts.objects.all()
     return render(request, 'journal_form.html', {'accounts': accounts})
+
+# Update Journal
+def update_journal(request, id):
+    pass
 
 # General Ledger Page
 def general_ledger(request):
