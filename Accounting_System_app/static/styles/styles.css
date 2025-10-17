@@ -168,3 +168,7 @@ body {
 .journal_description {
     width: 100%;
 }
+
+#journal_border {
+    border: 2px solid black;
+}

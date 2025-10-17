@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Journal Code Generation
     function generateJournalCode(){
-        let last_number = parseInt(localStorage.getItem('journal_code_counter'), 10);
+        let last_number = parseInt(localStorage.getItem('journal_code_counter'), 10) + 1;
         let incremental = last_number.toString().padStart(10, '0');
         return 'JE-' + incremental;
     }
@@ -27,9 +27,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function updateAccountTypeAndRestrict(selectElem) {
         var row = selectElem.closest('tr');
-        var typeInput = row.querySelector('input[name="account_type[]"]');
-        var debitInput = row.querySelector('input[name="debit[]"]');
-        var creditInput = row.querySelector('input[name="credit[]"]');
+        var typeInput = row.querySelector('input[name="account_type"]');
+        var debitInput = row.querySelector('input[name="debit"]');
+        var creditInput = row.querySelector('input[name="credit"]');
         var selectedOption = selectElem.options[selectElem.selectedIndex];
         var type = selectedOption ? selectedOption.getAttribute('data-type') : "";
 
@@ -58,10 +58,10 @@ document.addEventListener("DOMContentLoaded", function () {
         let totalDebit = 0;
         let totalCredit = 0;
 
-        journalEntryBody.querySelectorAll('input[name="debit[]"]').forEach(input => {
+        journalEntryBody.querySelectorAll('input[name="debit"]').forEach(input => {
             totalDebit += parseFloat(input.value) || 0;
         });
-        journalEntryBody.querySelectorAll('input[name="credit[]"]').forEach(input => {
+        journalEntryBody.querySelectorAll('input[name="credit"]').forEach(input => {
             totalCredit += parseFloat(input.value) || 0;
         });
 
@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function clearDebitAndCreditInputs() {
-        journalEntryBody.querySelectorAll('input[name="debit[]"], input[name="credit[]"]').forEach(input => {
+        journalEntryBody.querySelectorAll('input[name="debit"], input[name="credit"]').forEach(input => {
             input.value = '';
         });
         calculateTotals();
@@ -92,13 +92,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Real Time Totals calculation
     function attachInputListeners(row) {
-        row.querySelectorAll('input[name="debit[]"], input[name="credit[]"]').forEach(input => {
+        row.querySelectorAll('input[name="debit"], input[name="credit"]').forEach(input => {
             input.addEventListener('input', calculateTotals);
         });
     }
 
     // Initial setup for all rows
-    document.querySelectorAll('#journal-entry-body select[name="account_name[]"]').forEach(function(selectElem) {
+    document.querySelectorAll('#journal-entry-body select[name="account_name"]').forEach(function(selectElem) {
         selectElem.addEventListener('change', function() {
             updateAccountTypeAndRestrict(this);
         });
@@ -112,13 +112,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     addRowBtn.addEventListener('click', function () {
         var newRow = document.createElement('tr');
-        var selectHtml = '<select name="account_name[]" required>' + allAccountsSelect.innerHTML + '</select>';
+        var selectHtml = '<select name="account_name" required>' + allAccountsSelect.innerHTML + '</select>';
 
         newRow.innerHTML = `
             <td>${selectHtml}</td>
-            <td><input type="text" name="account_type[]" readonly></td>
-            <td><input type="number" name="debit[]" step="0.01" min="0"></td>
-            <td><input type="number" name="credit[]" step="0.01" min="0"></td>
+            <td><input type="text" name="account_type" readonly></td>
+            <td><input type="number" name="debit" step="0.01" min="0"></td>
+            <td><input type="number" name="credit" step="0.01" min="0"></td>
             <td><button type="button" class="btn btn-danger btn-sm remove-row">Remove</button></td>
         `;
         // Add remove button
@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", function () {
         actionCell.innerHTML = '<button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>';
 
         // Add event listener for new row's select
-        var newSelect = newRow.querySelector('select[name="account_name[]"]');
+        var newSelect = newRow.querySelector('select[name="account_name"]');
         newSelect.addEventListener('change', function() {
             updateAccountTypeAndRestrict(this);
         });
@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("journal_code").value = generateJournalCode();
 
     // Reset account type restrictions for the first row
-    const firstSelect = journalEntryBody.querySelector('select[name="account_name[]"]');
+    const firstSelect = journalEntryBody.querySelector('select[name="account_name"]');
     if (firstSelect) updateAccountTypeAndRestrict(firstSelect);
 
 });

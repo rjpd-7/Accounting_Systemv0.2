@@ -67,9 +67,11 @@ def delete_account(request, id):
 
 # Journal Entries Page
 def journals(request):
+    accounts = ChartOfAccounts.objects.all()
     journal_headers = JournalHeader.objects.all()
     journal_entries = JournalEntry.objects.all()
     return render(request, "Front_end/journal.html", {
+        "accounts" : accounts,
         "journal_headers" : journal_headers,
         "journal_entries" : journal_entries,
     })
@@ -79,10 +81,9 @@ def insert_journals(request):
     if request.method == "POST":
         journal_code = request.POST["journal_code"]
         date_submit = request.POST['entry-date']
-        account_ids = request.POST.getlist("account_name[]")
-        account_types = request.POST.getlist("account_type[]")
-        debits = request.POST.getlist("debit[]")
-        credits = request.POST.getlist("credit[]")
+        account_ids = request.POST.getlist("account_name")
+        debits = request.POST.getlist("debit")
+        credits = request.POST.getlist("credit")
 
         # Creates Journal Header
         header = JournalHeader.objects.create(
@@ -92,7 +93,7 @@ def insert_journals(request):
         header.save()
 
         # Loops through the rows and create Journal Entries
-        for account_id, debit, credit in zip_longest(account_ids, debits, credits, fillvalue=0):
+        for account_id, debit, credit in zip_longest(account_ids, debits, credits):
             if not account_id:  # skip empty rows
                 continue
             
