@@ -54,6 +54,22 @@ class ChartOfAccounts(models.Model):
     class Meta:
         db_table = "accounts_table"
 
+# Journal Headers Table
+class JournalHeader(models.Model):
+    journal_date_created = models.DateTimeField(auto_now_add=True)
+    entry_no = models.CharField(max_length=20, unique=True)
+    entry_date = models.DateField(default=date.today)
+
+    class Meta:
+        db_table = "journal_headers_table"
+
 # Journal Entries Table
 class JournalEntry(models.Model):
-    pass
+    journal_header = models.ForeignKey(JournalHeader, on_delete=models.CASCADE, related_name="entries")
+    account = models.ForeignKey(ChartOfAccounts, on_delete=models.RESTRICT)
+    debit = models.DecimalField(max_digits=15, decimal_places=5, default=0.00)
+    credit = models.DecimalField(max_digits=15, decimal_places=5, default=0.00)
+    description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = "journal_entries_table"
