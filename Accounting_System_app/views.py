@@ -169,9 +169,18 @@ def get_journal_details(request, header_id):
 
     return JsonResponse(data)
 
-# Update Journal
+# Update Journal Entry
 def update_journal(request, id):
     pass
+
+# Delete Journal Entry
+def delete_journal(request, id):
+    try:
+        journal_header = JournalHeader.objects.get(pk=id)
+        journal_header.delete()
+    except JournalHeader.DoesNotExist:
+        pass
+    return redirect("AccountingSystem:journals")
 
 # General Ledger Page
 def general_ledger(request):
