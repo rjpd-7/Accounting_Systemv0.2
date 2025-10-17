@@ -69,10 +69,21 @@ document.addEventListener("DOMContentLoaded", function () {
         totalCreditField.value = totalCredit;
     }
 
+    function clearDebitAndCreditInputs() {
+        journalEntryBody.querySelectorAll('input[name="debit"], input[name="credit"]').forEach(input => {
+            input.value = '';
+        });
+        calculateTotals();
+    }
+
+    document.getElementById('clear-amounts-btn').addEventListener('click', clearDebitAndCreditInputs);
+
     // Real Time Totals calculation
-    document.querySelectorAll('#journal-entry-body input[name="debit"], #journal-entry-body input[name="credit"]').forEach(input => {
-        input.addEventListener('input', calculateTotals);
-    });
+    function attachInputListeners(row) {
+        row.querySelectorAll('input[name="debit"], input[name="credit"]').forEach(input => {
+            input.addEventListener('input', calculateTotals);
+        });
+    }
 
     // Initial setup for all rows
     document.querySelectorAll('#journal-entry-body select[name="account_name"]').forEach(function(selectElem) {
@@ -80,6 +91,11 @@ document.addEventListener("DOMContentLoaded", function () {
             updateAccountTypeAndRestrict(this);
         });
         updateAccountTypeAndRestrict(selectElem);
+    });
+
+    // Real time row input for both debit and credit
+    journalEntryBody.querySelectorAll('tr').forEach(row => {
+        attachInputListeners(row);
     });
 
     addRowBtn.addEventListener('click', function () {
@@ -104,6 +120,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         updateAccountTypeAndRestrict(newSelect);
 
+        attachInputListeners(newRow);
         journalEntryBody.appendChild(newRow);
     });
 
@@ -123,6 +140,12 @@ document.addEventListener("DOMContentLoaded", function () {
         // e.preventDefault(); // Uncomment for AJAX, keep commented for normal submit
 
         let journal_code = document.getElementById("journal_code").value;
+
+        if (totalDebit !== totalCredit) {
+            alert("Total Debit and Credit must be equal before saving!");
+            return false;
+        }
+
         alert(`Journal Entry Created!\nJournal Code: ${journal_code}`);
 
         // Increment code_counter
