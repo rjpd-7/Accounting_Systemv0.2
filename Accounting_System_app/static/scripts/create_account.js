@@ -58,4 +58,16 @@ document.addEventListener("DOMContentLoaded", function () {
         //document.getElementById("account_code").value = generateAccountCode();
 
     });
+    
+    // Reset the form when closed
+    document.getElementById('staticBackdrop').addEventListener('hidden.bs.modal', function () {
+        const form = document.getElementById('account_form');
+
+        // Reset the entire form
+        form.reset();
+
+        // Reset journal code
+        document.getElementById("account_code").value = generateAccountCode();
+
+    });
 });

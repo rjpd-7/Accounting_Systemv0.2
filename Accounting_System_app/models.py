@@ -48,8 +48,8 @@ class ChartOfAccounts(models.Model):
     account_type = models.CharField(max_length=255, null=False, choices=account_type_choices)
     account_description = models.TextField(max_length=None, null=True)
 
-    #def __str__(self):
-    #    return self.account_name, self.account_type
+    def __str__(self):
+        return self.account_name, self.account_type
 
     class Meta:
         db_table = "accounts_table"
@@ -59,6 +59,9 @@ class JournalHeader(models.Model):
     journal_date_created = models.DateTimeField(auto_now_add=True)
     entry_no = models.CharField(max_length=20, unique=True)
     entry_date = models.DateField(default=date.today)
+
+    def __str__(self):
+        return f"{self.entry_no} ({self.entry_date})"
 
     class Meta:
         db_table = "journal_headers_table"
@@ -70,6 +73,9 @@ class JournalEntry(models.Model):
     debit = models.DecimalField(max_digits=15, decimal_places=5, default=0.00)
     credit = models.DecimalField(max_digits=15, decimal_places=5, default=0.00)
     description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.account.account_name} ({self.debit} / {self.credit})"
 
     class Meta:
         db_table = "journal_entries_table"

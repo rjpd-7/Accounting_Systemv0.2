@@ -2,9 +2,10 @@ from django.http import HttpResponseRedirect
 from django import forms
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
+from itertools import zip_longest
 
 # Create your views here.
 
@@ -30,18 +31,23 @@ def chart_of_accounts(request):
         "accounts" : results
     })
 
-# Create Account Function
+# Create Account Function to Backend
 def create_account(request):
     account_code_submit = request.POST['account_code']
     account_name_submit = request.POST['account_name']
     account_type_submit = request.POST['account_type']
     account_description_submit = request.POST['account_description']
-    account = ChartOfAccounts(account_code = account_code_submit, account_name = account_name_submit, account_type = account_type_submit, account_description = account_description_submit)
+    account = ChartOfAccounts(
+        account_code = account_code_submit, 
+        account_name = account_name_submit, 
+        account_type = account_type_submit, 
+        account_description = account_description_submit
+        )
     account.save()
 
     return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
-# Update Account Function
+# Update Account Function to Backend
 def update_account(request, id):
     selected_account = ChartOfAccounts.objects.get(pk=id)
     if request.method == "POST":
@@ -50,7 +56,7 @@ def update_account(request, id):
         selected_account.save()
         return redirect("AccountingSystem:accounts")
     
-# Delete Account Function
+# Delete Account Function to Backend
 def delete_account(request, id):
     try:
         account = ChartOfAccounts.objects.get(pk=id)
@@ -61,13 +67,52 @@ def delete_account(request, id):
 
 # Journal Entries Page
 def journals(request):
-    accounts = ChartOfAccounts.objects.all()
+    journal_headers = JournalHeader.objects.all()
+    journal_entries = JournalEntry.objects.all()
     return render(request, "Front_end/journal.html", {
-        "accounts" : accounts
+        "journal_headers" : journal_headers,
+        "journal_entries" : journal_entries,
     })
 
+# Insert Journal Function to Backend
 def insert_journals(request):
-    pass
+    if request.method == "POST":
+        journal_code = request.POST["journal_code"]
+        date_submit = request.POST['entry-date']
+        account_ids = request.POST.getlist("account_name[]")
+        account_types = request.POST.getlist("account_type[]")
+        debits = request.POST.getlist("debit[]")
+        credits = request.POST.getlist("credit[]")
+
+        # Creates Journal Header
+        header = JournalHeader.objects.create(
+            entry_no = journal_code,
+            entry_date = date_submit
+        ) 
+        header.save()
+
+        # Loops through the rows and create Journal Entries
+        for account_id, debit, credit in zip_longest(account_ids, debits, credits, fillvalue=0):
+            if not account_id:  # skip empty rows
+                continue
+            
+            account = ChartOfAccounts.objects.get(pk=account_id)
+            debit = float(debit or 0)
+            credit = float(credit or 0)
+
+            journal_entry =JournalEntry.objects.create(
+                journal_header = header,
+                account = account,
+                debit = debit,
+                credit = credit
+            )
+            journal_entry.save()
+
+        return redirect('AccountingSystem:journals')  # or render success message
+
+    # GET request
+    accounts = ChartOfAccounts.objects.all()
+    return render(request, 'journal_form.html', {'accounts': accounts})
 
 # General Ledger Page
 def general_ledger(request):
