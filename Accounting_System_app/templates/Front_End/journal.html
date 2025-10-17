@@ -83,30 +83,21 @@
         <!---Show Journal Entries if there are any --->
         <div class="display_table">
             <table class="table table-bordered">
-                {% regroup journal_entries by journal_header as journal_groups %}
-
                 {% for group in journal_groups %}
                 <table class="table table-bordered mb-4">
                     <thead class="table-light">
                         <tr>
-                            <th colspan="1">
-                                <strong>Journal Code:</strong> {{ group.grouper.entry_no }}
-                            </th colspan="2">
-                            <th>
-                                <strong>Date Created:</strong> {{ group.grouper.journal_date_created }}
-                            </th>
-                            <th colspan="2">
+                            <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
+                            <th><strong>Date Created/Updated:</strong> {{ group.header.journal_date_created }}</th>
+                            <th colspan="2" class="text-end">
                                 <button type="button" class="btn btn-primary btn-sm"
                                     data-bs-toggle="modal"
                                     data-bs-target="#EDITstaticBackdrop"
-                                    data-id="{{ journal_entry.id }}"
-                                    data-name="{{ journal_entry.account.account_name }}"
-                                    data-debit="{{ journal_entry.debit }}"
-                                    data-credit="{{ journal_entry.credit }}"
-                                    data-description="{{ journal_entry.journal_header.journal_description|default_if_none:'' }}">
+                                    data-id="{{ group.header.id }}">
                                     Edit
-                                </button> &nbsp;
-                                <button name="delete" class="btn btn-danger btn-sm" value="{{ journal_entry.id }}">Delete</button>           
+                                </button>
+                                &nbsp;
+                                <button name="delete" class="btn btn-danger btn-sm" value="{{ group.header.id }}">Delete</button>
                             </th>
                         </tr>
                         <tr>
@@ -116,27 +107,22 @@
                             <th>Credit</th>
                         </tr>
                     </thead>
+
                     <tbody>
-                        {% with total_debit=0 total_credit=0 %}
-                        {% for journal_entry in group.list %}
-                            {% with 
-                                total_debit=total_debit|add:journal_entry.debit 
-                                total_credit=total_credit|add:journal_entry.credit 
-                            %}
-                            <tr id="journal_border">
-                                <td>{{ journal_entry.journal_header.entry_date }}</td>
-                                <td>{{ journal_entry.account.account_name }}</td>
-                                <td>{{ journal_entry.debit|floatformat:2 }}</td>
-                                <td>{{ journal_entry.credit|floatformat:2 }}</td>
-                            </tr>
-                            {% endwith %}
-                        {% endfor %}
+                        {% for journal_entry in group.entries %}
                         <tr>
-                            <td colspan="2"><strong>Description:</strong> {{ group.grouper.journal_description }}</td>
-                            <td>{{ total_debit|floatformat:2 }}</td>
-                            <td>{{ total_credit|floatformat:2 }}</td>
+                            <td>{{ journal_entry.journal_header.entry_date }}</td>
+                            <td>{{ journal_entry.account.account_name }}</td>
+                            <td>{{ journal_entry.debit|floatformat:2 }}</td>
+                            <td>{{ journal_entry.credit|floatformat:2 }}</td>
                         </tr>
-                        {% endwith %}
+                        {% endfor %}
+                        <tr class="{% if group.total_debit == group.total_credit %}table-success{% else %}table-danger{% endif %}">
+                            <td colspan="1"><strong>Description:</strong> {{ group.header.journal_description }}</td>                            
+                            <td colspan="1" class="text-end">Totals = </td>
+                            <td><strong>{{ group.total_debit|floatformat:2 }}</strong></td>
+                            <td><strong>{{ group.total_credit|floatformat:2 }}</strong></td>
+                        </tr>
                     </tbody>
                 </table>
                 {% empty %}

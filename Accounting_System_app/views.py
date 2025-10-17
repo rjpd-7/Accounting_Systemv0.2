@@ -6,6 +6,7 @@ from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, Jour
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
 from itertools import zip_longest
+from django.db.models import Sum
 
 # Create your views here.
 
@@ -68,13 +69,28 @@ def delete_account(request, id):
 # Journal Entries Page
 def journals(request):
     accounts = ChartOfAccounts.objects.all()
-    journal_headers = JournalHeader.objects.all()
-    journal_entries = JournalEntry.objects.all()
-    return render(request, "Front_end/journal.html", {
-        "accounts" : accounts,
-        "journal_headers" : journal_headers,
-        "journal_entries" : journal_entries,
-    })
+    journal_entries = JournalEntry.objects.select_related('journal_header', 'account')
+    journal_groups = []
+
+    headers = JournalHeader.objects.all()
+
+    for header in headers:
+        entries = journal_entries.filter(journal_header=header)
+        totals = entries.aggregate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit')
+        )
+        journal_groups.append({
+            'header': header,
+            'entries': entries,
+            'total_debit': totals['total_debit'] or 0,
+            'total_credit': totals['total_credit'] or 0
+        })
+
+    return render(request, 'Front_end/journal.html', {
+        'journal_groups': journal_groups,
+        "accounts" : accounts
+        })
 
 # Insert Journal Function to Backend
 def insert_journals(request):
@@ -121,8 +137,8 @@ def insert_journals(request):
         return redirect('AccountingSystem:journals')  # or render success message
 
     # GET request
-    accounts = ChartOfAccounts.objects.all()
-    return render(request, 'journal_form.html', {'accounts': accounts})
+    #accounts = ChartOfAccounts.objects.all()
+    #return render(request, 'journal_form.html', {'accounts': accounts})
 
 # Update Journal
 def update_journal(request, id):
