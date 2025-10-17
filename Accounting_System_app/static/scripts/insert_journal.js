@@ -163,4 +163,28 @@ document.addEventListener("DOMContentLoaded", function () {
         // Increment code_counter
         localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
     });
+
+    // Reset the form when closed
+    document.getElementById('staticBackdrop').addEventListener('hidden.bs.modal', function () {
+    const form = document.getElementById('journal_form');
+
+    // Reset the entire form
+    form.reset();
+
+    // Remove all rows except the first one
+    const rows = journalEntryBody.querySelectorAll('tr');
+    rows.forEach((row, index) => {
+        if (index !== 0) row.remove();
+    });
+
+    // Clear debit/credit and totals
+    clearDebitAndCreditInputs();
+
+    // Reset journal code
+    document.getElementById("journal_code").value = generateJournalCode();
+
+    // Reset account type restrictions for the first row
+    const firstSelect = journalEntryBody.querySelector('select[name="account_name"]');
+    if (firstSelect) updateAccountTypeAndRestrict(firstSelect);
+});
 });
