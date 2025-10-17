@@ -67,6 +67,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
         totalDebitField.value = totalDebit
         totalCreditField.value = totalCredit;
+
+        if (totalDebit === totalCredit && totalDebit !== 0) {
+            totalDebitField.style.backgroundColor = "#d4edda"; // light green
+            totalCreditField.style.backgroundColor = "#d4edda";
+            totalDebitField.style.color = "#155724"; // dark green text
+            totalCreditField.style.color = "#155724";
+        } else {
+            totalDebitField.style.backgroundColor = "#f8d7da"; // light red
+            totalCreditField.style.backgroundColor = "#f8d7da";
+            totalDebitField.style.color = "#721c24"; // dark red text
+            totalCreditField.style.color = "#721c24";
+        }
     }
 
     function clearDebitAndCreditInputs() {
