@@ -216,6 +216,33 @@
         </div>
         <!-- Insert Journal Modal End -->
 
+        <!--EDIT Account Modal -->
+        <div class="modal fade" id="EDITstaticBackdrop" tabindex="-1" aria-labelledby="EDITstaticBackdropLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                <form method="POST" id="updateAccountForm">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                    <h5 class="modal-title" id="EDITstaticBackdropLabel">Update Account Name and Account Description</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                    <input type="hidden" name="account_id" id="update_account_id">
+                    <div class="mb-3">
+                        <label for="update_account_name" class="form-label">Account Name</label>
+                        <input type="text" class="form-control" id="update_account_name" name="account_name" required> <br>
+                        <label for="update_account_description" class="form-label">Account Description</label>
+                        <input type="text" class="form-control" id="update_account_description" name="account_description">
+                    </div>
+                    </div>
+                    <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Update</button>
+                    </div>
+                </form>
+                </div>
+            </div>
+        </div>
+        <!-- End EDIT Modal -->
         
 
     </main>
