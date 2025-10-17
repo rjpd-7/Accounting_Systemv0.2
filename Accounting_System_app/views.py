@@ -81,9 +81,10 @@ def insert_journals(request):
     if request.method == "POST":
         journal_code = request.POST["journal_code"]
         date_submit = request.POST['entry-date']
-        account_ids = request.POST['account_name']
-        debits = request.POST['debit']
-        credits = request.POST['credit']
+        account_ids = request.POST.getlist('account_name')
+        debits = request.POST.getlist('debit')
+        credits = request.POST.getlist('credit')
+        descriptions = request.POST['journal_description']
 
         # Creates Journal Header
         header = JournalHeader.objects.create(
@@ -93,15 +94,19 @@ def insert_journals(request):
         header.save()
 
         # Loops through the rows and create Journal Entries
-        for i, (account_id, debit, credit) in enumerate(zip(account_ids, debits, credits)):
-            # Skip empty rows
+        for i in range(len(account_ids)):
+            account_id = account_ids[i]
+            debit = debits[i] if i < len(debits) else ''
+            credit = credits[i] if i < len(credits) else ''
+
+            # Skip rows with no account or empty amounts
             if not account_id or (debit == '' and credit == ''):
                 continue
 
             try:
                 account = ChartOfAccounts.objects.get(pk=account_id)
             except ChartOfAccounts.DoesNotExist:
-                continue  # skip invalid account IDs
+                continue
 
             journal_entry = JournalEntry.objects.create(
                 journal_header=header,
@@ -109,8 +114,8 @@ def insert_journals(request):
                 debit=float(debit or 0),
                 credit=float(credit or 0)
             )
-            journal_entry.save()
 
+            journal_entry.save()
         return redirect('AccountingSystem:journals')  # or render success message
 
     # GET request
