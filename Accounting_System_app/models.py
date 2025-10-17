@@ -59,6 +59,7 @@ class JournalHeader(models.Model):
     journal_date_created = models.DateTimeField(auto_now_add=True)
     entry_no = models.CharField(max_length=20, unique=True)
     entry_date = models.DateField(default=date.today)
+    journal_description = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.entry_no} ({self.entry_date})"
