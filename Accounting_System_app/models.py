@@ -65,8 +65,8 @@ class JournalHeader(models.Model):
 
 # Journal Entries Table
 class JournalEntry(models.Model):
-    journal_header = models.ForeignKey(JournalHeader, on_delete=models.CASCADE, related_name="entries")
-    account = models.ForeignKey(ChartOfAccounts, on_delete=models.RESTRICT)
+    journal_header = models.ForeignKey(JournalHeader, on_delete=models.CASCADE, related_name="entries", default=1)
+    account = models.ForeignKey(ChartOfAccounts, on_delete=models.RESTRICT, default=1)
     debit = models.DecimalField(max_digits=15, decimal_places=5, default=0.00)
     credit = models.DecimalField(max_digits=15, decimal_places=5, default=0.00)
     description = models.TextField(blank=True, null=True)
