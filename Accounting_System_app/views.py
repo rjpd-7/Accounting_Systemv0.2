@@ -84,12 +84,13 @@ def insert_journals(request):
         account_ids = request.POST.getlist('account_name')
         debits = request.POST.getlist('debit')
         credits = request.POST.getlist('credit')
-        descriptions = request.POST['journal_description']
+        description = request.POST['journal_description']
 
         # Creates Journal Header
         header = JournalHeader.objects.create(
             entry_no = journal_code,
-            entry_date = date_submit
+            entry_date = date_submit,
+            journal_description = description,
         ) 
         header.save()
 
@@ -113,6 +114,7 @@ def insert_journals(request):
                 account=account,
                 debit=float(debit or 0),
                 credit=float(credit or 0)
+                
             )
 
             journal_entry.save()

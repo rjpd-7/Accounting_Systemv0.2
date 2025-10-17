@@ -104,7 +104,7 @@
                             <td>{{ journal_entry.account.account_name }} <br></td>
                             <td>{{ journal_entry.debit|floatformat:2 }} <br></td>
                             <td>{{ journal_entry.credit|floatformat:2 }} <br></td>
-                            <td>{{ journal_entry.description }} </td>
+                            <td>{{ journal_entry.journal_header.description }} </td>
                             <td>
                                 <!-- Edit Button trigger modal -->
                                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#EDITstaticBackdrop"  data-id="{{ journal.id }}" data-name="{{ journal.account_name }}">
