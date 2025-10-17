@@ -5,18 +5,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Journal Code Generation
     function generateJournalCode(){
-        let last_number = parseInt(localStorage.getItem('journal_code_counter'), 10) + 1;
+        let last_number = parseInt(localStorage.getItem('journal_code_counter'), 10);
         let incremental = last_number.toString().padStart(10, '0');
         return 'JE-' + incremental;
     }
 
-    // Generate journal code once insert journal modal opens
-    // If you use a modal, adjust the selector accordingly
-    // document.getElementById('staticBackdrop').addEventListener('shown.bs.modal', function () {
-    //     document.getElementById("journal_code").value = generateJournalCode();
-    // });
-    // Or just set on page load:
-    document.getElementById("journal_code").value = generateJournalCode();
+    //Generate journal code once insert journal modal opens
+    document.getElementById('staticBackdrop').addEventListener('shown.bs.modal', function () {
+        document.getElementById("journal_code").value = generateJournalCode();
+        localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
+    });
 
     // Journal Table functions.
     var addRowBtn = document.getElementById('add-journal-row');
@@ -152,6 +150,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // e.preventDefault(); // Uncomment for AJAX, keep commented for normal submit
 
         let journal_code = document.getElementById("journal_code").value;
+        let journal_date = document.getElementById("entry-date").value;
 
         if (totalDebit !== totalCredit) {
             alert("Total Debit and Credit must be equal before saving!");
