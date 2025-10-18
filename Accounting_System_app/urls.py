@@ -6,7 +6,7 @@ app_name = "AccountingSystem"
 
 # URL configuration for Accounting_System.
 urlpatterns = [
-     path("", views.login_view, name="login"),
+     path("", views.login_view, name="login_view"),
      path("index/", views.index, name="index"),
      path("login/", views.login_view, name="login"),
      path("logout/", views.logout_view, name="logout"),

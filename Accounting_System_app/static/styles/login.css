@@ -2,6 +2,11 @@ body{
     background-color: #FFF8F6;
     padding: 0;
     margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f5f5f5;
 }
 
 /* Login Page */
@@ -13,13 +18,20 @@ body{
 }
 
 .login_container {
-    margin: 50px;
-    margin-inline: auto;
     background-color: #fef9f9;
-    width: 332px;
-    height: 232px;
+    padding: 30px 40px;            /* internal spacing */
+    width: 100%;
+    max-width: 400px;              /* controls form width */
     border-radius: 20px;
     box-shadow: 1px 2px 12px gray;
+}
+
+.login_container form {
+    width: 100%;
+}
+
+.login_container .btn  {
+    width: 100%;               /* make button fill the form width */
 }
 
 #login_topbar {

@@ -8,27 +8,45 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anta&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
     <title>Login Page</title>
 </head>
 <body class="loginPage">
     <div class="top_section">
         <nav class="navbar">
-
         </nav>
     </div>
+
     <div class="login_container">
-        <div id="login_topbar">
-            <p>ACLC Accounting System</p>
+    <form action="{% url 'AccountingSystem:login' %}" method="POST">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="inputEmail3" class="form-label">USN</label>
+            <input type="text" name="usn" class="form-control" id="inputEmail3" required>
         </div>
-        <form action="{% url 'AccountingSystem:login' %}" method="POST">
-            {% csrf_token %}
-            <div class="input_box">
-                <input type="text" name="usn" id="usn" required placeholder="Enter USN" autofocus>
-                <input type="password" name="password" id="password" required placeholder="Enter Password">
-                <input type="submit" value="Login" class="loginBTN">
-            </div>
-        </form>
+
+        <div class="mb-3">
+            <label for="inputPassword3" class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" id="inputPassword3" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
     </div>
-    {{ message }}
+
+    {% if messages %}
+        <div>
+            {% for message in messages %}
+            <div class="alert 
+                {% if message.tags == 'error' %}alert-danger
+                {% elif message.tags == 'success' %}alert-success
+                {% else %}alert-info{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 </body>
 </html>

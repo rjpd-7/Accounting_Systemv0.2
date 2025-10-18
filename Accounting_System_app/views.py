@@ -13,17 +13,30 @@ from django.contrib import messages
 
 # Home Page
 def index(request):
-
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     return render(request, "Front_end/index.html")
 
 # Login Page
 def login_view(request):
-    
+    if request.method == "POST":
+        username = request.POST["usn"]
+        password = request.POST["password"]
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            messages.success(request, "Login Successful")
+            return HttpResponseRedirect(reverse("AccountingSystem:index"))
+        else:
+            messages.error(request, "Invalid credentials")
+            return render(request, "Front_End/login.html")
+        
     return render(request, "Front_End/login.html")
 
 # Directs to Login Page once logged out.
 def logout_view(request):
-    
+    logout(request)
+    messages.success(request, "Logout Successful")
     return render(request, "Front_End/login.html")
 
 # Chart Of Accounts Page
@@ -65,7 +78,6 @@ def delete_account(request, id):
         account.delete()
     except RestrictedError:
         messages.error(request, "Cannot delete this account because it is linked to journal entries.")
-    
     except ChartOfAccounts.DoesNotExist:
         messages.error(request, "Account not found")
     return redirect("AccountingSystem:accounts")
