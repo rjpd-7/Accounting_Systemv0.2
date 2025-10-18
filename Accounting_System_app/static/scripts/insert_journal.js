@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", function () {
         localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
         
         // Optional success message
-        alert(`Journal Entry Created!}`);
+        alert(`Journal Entry Created}`);
     });
 
     // Reset the form when closed

@@ -72,6 +72,18 @@
     <main class="main-content">
         <h2>Chart of Accounts</h2>
         <br>
+        {% if messages %}
+        <div>
+            {% for message in messages %}
+            <div class="alert 
+                {% if message.tags == 'error' %}alert-danger
+                {% elif message.tags == 'success' %}alert-success
+                {% else %}alert-info{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
         <!-- Button trigger modal -->
         <button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#staticBackdrop">
         Create Account

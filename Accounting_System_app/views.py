@@ -6,7 +6,8 @@ from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, Jour
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
 from itertools import zip_longest
-from django.db.models import Sum
+from django.db.models import Sum, RestrictedError
+from django.contrib import messages
 
 # Create your views here.
 
@@ -62,8 +63,11 @@ def delete_account(request, id):
     try:
         account = ChartOfAccounts.objects.get(pk=id)
         account.delete()
+    except RestrictedError:
+        messages.error(request, "Cannot delete this account because it is linked to journal entries.")
+    
     except ChartOfAccounts.DoesNotExist:
-        pass
+        messages.error(request, "Account not found")
     return redirect("AccountingSystem:accounts")
 
 # Journal Entries Page
