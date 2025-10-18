@@ -70,31 +70,51 @@
 
     <!------ Main Page ------>
     <main class="main-content">
-        <h2>General Ledger</h2>
         <br>
         <div class="display_table">
-            <table class="table table-bordered">
-                <thead>
+            <div class="container my-4">
+            <h3 class="text-center mb-4">General Ledger</h3>
+
+            <table class="table table-bordered table-striped table-hover align-middle shadow-sm">
+                <thead class="table-primary text-center">
                     <tr>
-                        <th>Date</th>
-                        <th>Account Name</th>
-                        <th>Debit</th>
-                        <th>Credit</th>
-                        <th>Balance</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Journal Code</th>
+                        <th scope="col">Account Title</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">Debit</th>
+                        <th scope="col">Credit</th>
+                        <th scope="col">Balance</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for journal in journals %}
+                    {% for entry in general_ledger %}
                     <tr>
-                        <td>{{ journal.date }}</td>
-                        <td>{{ journal.account_name_1 }}</td>
-                        <td>{{ journal.debit_1 }}</td>
-                        <td>{{ journal.credit_2 }}</td>
-                        <td>{{ journal.debit_1 }}</td>
+                        <td>{{ entry.journal_header.entry_date }}</td>
+                        <td>{{ entry.journal_header.entry_no }}</td>
+                        <td>{{ entry.account.account_name }}</td>
+                        <td>{{ entry.journal_header.journal_description }}</td>
+                        <td class="text-end">{{ entry.debit|floatformat:2 }}</td>
+                        <td class="text-end">{{ entry.credit|floatformat:2 }}</td>
+                        <td class="text-end">{{ entry.balance|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No entries found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-light fw-bold">
+                    <tr>
+                        <td colspan="4" class="text-end">Total</td>
+                        <td class="text-end">{{ total_debit|floatformat:2 }}</td>
+                        <td class="text-end">{{ total_credit|floatformat:2 }}</td>
+                        <td class="text-end">{{ ending_balance|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
             </table>
+
+
         </div>
     </main>
     <!------ Main Page End ------>
