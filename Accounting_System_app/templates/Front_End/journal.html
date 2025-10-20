@@ -241,7 +241,7 @@
             </div>
             <div class="modal-body">
                 <div class="journal-form">
-                <form action="{% url 'AccountingSystem:update_journal' %}" method="post" id="edit_journal_form">
+                <form method="post" id="edit_journal_form">
                     {% csrf_token %}
                     <!-- Entry Date -->
                     <label for="entry-date">Date:</label>

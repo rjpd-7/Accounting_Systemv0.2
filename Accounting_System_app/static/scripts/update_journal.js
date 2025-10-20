@@ -11,7 +11,18 @@ document.addEventListener("DOMContentLoaded", function () {
     const editDescription = document.getElementById('journal_description');
     const editBody = document.getElementById('edit-journal-entry-body');
 
-     document.querySelectorAll('.edit-btn').forEach(button => {
+    edit_buttons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            oldAccountName = btn.getAttribute('data-name');
+            updateAccountName.value = oldAccountName;
+            oldAccountDescription = btn.getAttribute('data-description') || "";
+            updateAccountDescription.value = oldAccountDescription
+            updateAccountId.value = btn.getAttribute('data-id');
+            updateForm.action = '/update_account/' + btn.getAttribute('data-id') + '/'; // Adjust URL as needed
+        });
+    }); 
+    
+    document.querySelectorAll('.edit-btn').forEach(button => {
         button.addEventListener('click', function() {
             // Get journal info from button
             const journalId = this.getAttribute('data-id');
