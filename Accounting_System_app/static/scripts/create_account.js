@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Set account code when modal opens
     document.getElementById('staticBackdrop').addEventListener('shown.bs.modal', function () {
-        localStorage.setItem('code_counter', parseInt(localStorage.getItem('code_counter'), 10) + 1);
+        //localStorage.setItem('code_counter', parseInt(localStorage.getItem('code_counter'), 10) + 1);
         document.getElementById("account_code").value = generateAccountCode();
     });
 
@@ -39,6 +39,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Handle form submit
     document.getElementById("account_form").addEventListener("submit", (e) => {
         //e.preventDefault();
+        localStorage.setItem('code_counter', parseInt(localStorage.getItem('code_counter'), 10) + 1);
 
         let account_code = document.getElementById("account_code").value;
         let account_name = document.getElementById("account_name").value;
@@ -54,7 +55,6 @@ document.addEventListener("DOMContentLoaded", function () {
         alert(`Account Created!\nAccount Code  : ${account_code}\nAccount Name : ${account_name}\nAccount Type   : ${account_type}\n\nAccount Description: ${account_description}`);
 
         // Increment code_counter
-        localStorage.setItem('code_counter', parseInt(localStorage.getItem('code_counter'), 10) + 1);
         // Reset form and generate next code
         //e.target.reset();
         //document.getElementById("account_code").value = generateAccountCode();

@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", function () {
     //Generate journal code once insert journal modal opens
     document.getElementById('staticBackdrop').addEventListener('shown.bs.modal', function () {
         document.getElementById("journal_code").value = generateJournalCode();
-        localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
+        //localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
     });
 
     // Journal Table functions.
@@ -149,46 +149,53 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("journal_form").addEventListener("submit", (e) => {
         // e.preventDefault();
 
+        // Increment code_counter
+        localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
+
         // Get numeric values — these come in as strings
         const total_debit = parseFloat(document.getElementById("total_debit").value) || 0;
         const total_credit = parseFloat(document.getElementById("total_credit").value) || 0;
 
-        // Check equality with numbers, not strings
+        // Checks if there are 0 values
+        if (total_debit === 0) {
+            e.preventDefault(); // stop form submission
+            alert("Please enter amount!");
+            return;
+        }
+
+        // Checks if totals match
         if (total_debit !== total_credit) {
             e.preventDefault(); // stop form submission
             alert("Total Debit and Credit must be equal before saving!");
             return;
         }
-
-        // Increment code_counter
-        localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
         
         // Optional success message
-        alert(`Journal Entry Created}`);
+        alert(`Journal Entry Created`);
     });
 
     // Reset the form when closed
     document.getElementById('staticBackdrop').addEventListener('hidden.bs.modal', function () {
-    const form = document.getElementById('journal_form');
+        const form = document.getElementById('journal_form');
 
-    // Reset the entire form
-    form.reset();
+        // Reset the entire form
+        form.reset();
 
-    // Remove all rows except the first one
-    const rows = journalEntryBody.querySelectorAll('tr');
-    rows.forEach((row, index) => {
-        if (index !== 0) row.remove();
+        // Remove all rows except the first one
+        const rows = journalEntryBody.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            if (index !== 0) row.remove();
+        });
+
+        // Clear debit/credit and totals
+        clearDebitAndCreditInputs();
+
+        // Reset journal code
+        document.getElementById("journal_code").value = generateJournalCode();
+
+        // Reset account type restrictions for the first row
+        const firstSelect = journalEntryBody.querySelector('select[name="account_name"]');
+        if (firstSelect) updateAccountTypeAndRestrict(firstSelect);
+
     });
-
-    // Clear debit/credit and totals
-    clearDebitAndCreditInputs();
-
-    // Reset journal code
-    document.getElementById("journal_code").value = generateJournalCode();
-
-    // Reset account type restrictions for the first row
-    const firstSelect = journalEntryBody.querySelector('select[name="account_name"]');
-    if (firstSelect) updateAccountTypeAndRestrict(firstSelect);
-
-});
 });

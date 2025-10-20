@@ -119,7 +119,7 @@
                             </th>
                         </tr>
                         <tr>
-                            <th>Date</th>
+                            <th>Date: {{ group.header.entry_date }}</th>
                             <th>Account Name</th>
                             <th>Debit</th>
                             <th>Credit</th>
@@ -129,7 +129,7 @@
                     <tbody>
                         {% for journal_entry in group.entries %}
                         <tr>
-                            <td>{{ journal_entry.journal_header.entry_date }}</td>
+                            <td></td>
                             <td>{{ journal_entry.account.account_name }}</td>
                             <td>{{ journal_entry.debit|floatformat:2 }}</td>
                             <td>{{ journal_entry.credit|floatformat:2 }}</td>
