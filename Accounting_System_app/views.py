@@ -100,25 +100,9 @@ def journals(request):
             total_credit=Sum('credit')
         )
 
-        entries_list = []
-        for entry in entries:
-            entries_list.append({
-                "entry_id": entry.id,
-                "journal_date": str(header.journal_date_created or ""),
-                "description": header.journal_description or "",
-                "account_id": entry.account.id if entry.account else None,
-                "account_name": entry.account.account_name if entry.account else "",
-                "account_type": entry.account.account_type if entry.account else "",
-                "debit": float(entry.debit or 0),
-                "credit": float(entry.credit or 0),
-            })
-
-        entries_json = json.dumps(entries_list, cls=DjangoJSONEncoder)
-
         journal_groups.append({
             'header': header,
             'entries': entries,
-            'entries_json': entries_json,
             'total_debit': totals['total_debit'] or 0,
             'total_credit': totals['total_credit'] or 0
         })

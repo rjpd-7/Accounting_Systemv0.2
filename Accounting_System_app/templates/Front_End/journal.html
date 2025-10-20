@@ -111,6 +111,7 @@
                                     >
                                     Edit
                                 </button>
+
                                 <!-- Hidden table to store entry data -->
                                 <table class="d-none" id="entries_{{ group.header.id }}">
                                     {% for entry in group.entries %}
@@ -326,7 +327,7 @@
                     <button type="button" id="edit-clear-amounts-btn" class="btn btn-warning btn-sm">Clear Amounts</button>
                     <br>
                     <br>
-                    <select id="edit-all-accounts-select" name="edit_account_name" style="display:none;">
+                    <select id="edit-all-accounts-select" name="edit_account_name" style="display:none;" required>
                         {% for account in accounts %}
                             <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}">{{ account.account_name }}</option>
                         {% endfor %}

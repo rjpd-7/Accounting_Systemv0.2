@@ -135,13 +135,13 @@ document.addEventListener("DOMContentLoaded", function () {
         const desc = $(this).data('description');
 
         // Fill header fields
-        $('#edit-entry-date').val(date);
+        $('#edit-entry-date').val(date.split('T')[0]);
         $('#edit_journal_description').val(desc);
 
         const tbody = $('#edit-journal-entry-body');
         tbody.empty();
 
-        // Loop through hidden rows
+        // Populate modal rows from hidden table data
         $(`#entries_${headerId} tr`).each(function(index) {
             const accountId = $(this).data('account-id');
             const accountName = $(this).data('account-name');
@@ -149,12 +149,17 @@ document.addEventListener("DOMContentLoaded", function () {
             const debit = $(this).data('debit');
             const credit = $(this).data('credit');
 
-            // Create table row
+            // Use different dropdowns for first vs. later rows
+            const accountOptions =
+                index === 0
+                    ? $('#edit_selected-accounts_name').html()
+                    : $('#edit-all-accounts-select').html();
+
             const row = `
-                <tr>
+                <tr ${index === 0 ? 'class="fixed-row"' : ''}>
                     <td>
                         <select class="form-select edit_account_name" name="edit_account_name" required>
-                            ${$('#edit-all-accounts-select').html()}
+                            ${accountOptions}
                         </select>
                     </td>
                     <td><input type="text" class="form-control" name="edit_account_type" value="${accountType}" readonly></td>
@@ -166,15 +171,27 @@ document.addEventListener("DOMContentLoaded", function () {
                 </tr>
             `;
             tbody.append(row);
-
-            // Set selected account
             tbody.find('tr:last select').val(accountId);
         });
 
-        $('#EDITstaticBackdrop').modal('show');
-
         calculateEditTotals();
-
+        $('#EDITstaticBackdrop').modal('show');
+    });
+    // Prevent deleting the first row
+    $(document).on('click', '.remove-row', function() {
+        const row = $(this).closest('tr');
+        if (!row.hasClass('fixed-row')) {
+            row.remove();
+        }
+    });
+    // Update account type when account name changes
+    $(document).on('change', '.edit_account_name', function() {
+        document.querySelectorAll('#edit-journal-entry-body select[name="edit_account_name"]').forEach(function(selectElem) {
+        selectElem.addEventListener('change', function() {
+            updateEditAccountTypeAndRestrict(this);
+        });
+            updateEditAccountTypeAndRestrict(selectElem);
+        });
     });
 
     document.getElementById("edit_journal_form").addEventListener("submit", (e) => {
