@@ -14,10 +14,6 @@
     <title>Login Page</title>
 </head>
 <body class="loginPage">
-    <div class="top_section">
-        <nav class="navbar">
-        </nav>
-    </div>
 
     <div class="card shadow p-4" style="width: 22rem; border-radius: 1rem;">
         <h4 class="text-center mb-4">Login</h4>
@@ -38,20 +34,21 @@
             </div>
             <button type="submit" class="btn btn-primary w-100">Login</button>
         </form>
-    </div>
+        <br>
 
-    {% if messages %}
-        <div>
-            {% for message in messages %}
-            <div class="alert 
-                {% if message.tags == 'error' %}alert-danger
-                {% elif message.tags == 'success' %}alert-success
-                {% else %}alert-info{% endif %}">
-                {{ message }}
-            </div>
-            {% endfor %}
-        </div>
-    {% endif %}
+            {% if messages %}
+                <div>
+                    {% for message in messages %}
+                    <div class="alert 
+                        {% if message.tags == 'error' %}alert-danger
+                        {% elif message.tags == 'success' %}alert-success
+                        {% else %}alert-info{% endif %}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+    </div>
 
 
     <script>
