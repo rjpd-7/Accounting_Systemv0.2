@@ -129,12 +129,59 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // Handle form submit
-    document.getElementById("journal_form").addEventListener("submit", (e) => {
+   $(document).on('click', '#edit_button', function() {
+        const headerId = $(this).data('id');
+        const date = $(this).data('date');
+        const desc = $(this).data('description');
+
+        // Fill header fields
+        $('#edit-entry-date').val(date);
+        $('#edit_journal_description').val(desc);
+
+        const tbody = $('#edit-journal-entry-body');
+        tbody.empty();
+
+        // Loop through hidden rows
+        $(`#entries_${headerId} tr`).each(function(index) {
+            const accountId = $(this).data('account-id');
+            const accountName = $(this).data('account-name');
+            const accountType = $(this).data('account-type');
+            const debit = $(this).data('debit');
+            const credit = $(this).data('credit');
+
+            // Create table row
+            const row = `
+                <tr>
+                    <td>
+                        <select class="form-select edit_account_name" name="edit_account_name" required>
+                            ${$('#edit-all-accounts-select').html()}
+                        </select>
+                    </td>
+                    <td><input type="text" class="form-control" name="edit_account_type" value="${accountType}" readonly></td>
+                    <td><input type="number" class="form-control" name="edit_debit" value="${debit}" step="0.01" min="0"></td>
+                    <td><input type="number" class="form-control" name="edit_credit" value="${credit}" step="0.01" min="0"></td>
+                    <td>
+                        ${index > 0 ? '<button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>' : ''}
+                    </td>
+                </tr>
+            `;
+            tbody.append(row);
+
+            // Set selected account
+            tbody.find('tr:last select').val(accountId);
+        });
+
+        $('#EDITstaticBackdrop').modal('show');
+
+        calculateEditTotals();
+
+    });
+
+    document.getElementById("edit_journal_form").addEventListener("submit", (e) => {
         // e.preventDefault();
         // Get numeric values — these come in as strings
-        const total_debit = parseFloat(document.getElementById("total_debit").value) || 0;
-        const total_credit = parseFloat(document.getElementById("total_credit").value) || 0;
+        const total_debit = parseFloat(document.getElementById("edit_total_debit").value) || 0;
+        const total_credit = parseFloat(document.getElementById("edit_total_credit").value) || 0;
 
         // Checks if there are 0 values
         if (total_debit === 0) {

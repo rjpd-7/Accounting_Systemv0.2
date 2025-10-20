@@ -99,16 +99,29 @@
                             <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
                             <th><strong>Date Created/Updated:</strong> {{ group.header.journal_date_created }}</th>
                             <th colspan="2" class="text-end">
-                                <button type="button" class="btn btn-primary btn-sm"
+                                <button type="button" class="btn btn-primary btn-sm" id="edit_button"
                                     data-bs-toggle="modal" 
                                     data-bs-target="#EDITstaticBackdrop"  
                                     data-id="{{ group.header.id }}"
-                                     data-entries='[{% for entry in group.list %}
-                                            {"account_id": "{{ entry.account.id }}", "account_name": "{{ entry.account.account_name }}", "account_type": "{{ entry.account.account_type }}", "debit": "{{ entry.debit }}", "credit": "{{ entry.credit }}"}
-                                            {% if not forloop.last %},{% endif %}
-                                        {% endfor %}]'>
+                                    data-date="{{ group.header.journal_date_created }}"
+                                    data-description="{{ group.header.journal_description }}"
+                                    data-totaldebit="{{ group.total_debit }}"
+                                    data-totalcredit="{{ group.total_credit }}"
+                                    data-entrycount="{{ group.entries.count }}"
+                                    >
                                     Edit
                                 </button>
+                                <!-- Hidden table to store entry data -->
+                                <table class="d-none" id="entries_{{ group.header.id }}">
+                                    {% for entry in group.entries %}
+                                        <tr data-account-id="{{ entry.account.id }}"
+                                            data-account-name="{{ entry.account.account_name }}"
+                                            data-account-type="{{ entry.account.account_type }}"
+                                            data-debit="{{ entry.debit }}"
+                                            data-credit="{{ entry.credit }}">
+                                        </tr>
+                                    {% endfor %}
+                                </table>
                                 &nbsp;
                                 <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
                                     {% csrf_token %}
@@ -252,7 +265,7 @@
                 <div class="journal-form">
                 <form method="post" id="edit_journal_form">
                     {% csrf_token %}
-                    
+
                     <!-- Entry Date -->
                     <label for="entry-date">Date:</label>
                     <input type="date" id="edit-entry-date" name="edit_entry-date" required><br><br>
@@ -270,6 +283,7 @@
                         </thead>
                         <tbody id="edit-journal-entry-body">
                             <tr>
+                                <input type="hidden" id="je_id" name="je_id">
                                 <td>
                                     <select id="edit_selected-account_name" name="edit_account_name" required>
                                         {% for account in accounts %}

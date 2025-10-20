@@ -8,6 +8,9 @@ from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError
 from django.contrib import messages
+from django.core.serializers.json import DjangoJSONEncoder
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 # Create your views here.
 
@@ -96,9 +99,26 @@ def journals(request):
             total_debit=Sum('debit'),
             total_credit=Sum('credit')
         )
+
+        entries_list = []
+        for entry in entries:
+            entries_list.append({
+                "entry_id": entry.id,
+                "journal_date": str(header.journal_date_created or ""),
+                "description": header.journal_description or "",
+                "account_id": entry.account.id if entry.account else None,
+                "account_name": entry.account.account_name if entry.account else "",
+                "account_type": entry.account.account_type if entry.account else "",
+                "debit": float(entry.debit or 0),
+                "credit": float(entry.credit or 0),
+            })
+
+        entries_json = json.dumps(entries_list, cls=DjangoJSONEncoder)
+
         journal_groups.append({
             'header': header,
             'entries': entries,
+            'entries_json': entries_json,
             'total_debit': totals['total_debit'] or 0,
             'total_credit': totals['total_credit'] or 0
         })
@@ -186,9 +206,27 @@ def get_journal_details(request, header_id):
     return JsonResponse(data)
 
 # Update Journal Entry
+@csrf_exempt
 def update_journal(request):
     if request.method == 'POST':
-        id = request.POST.get('id')
+        try:
+            entries = json.loads(request.POST.get('entries', '[]'))
+
+            for entry in entries:
+                entry_id = entry.get('entry_id')
+                debit = entry.get('debit')
+                credit = entry.get('credit')
+
+                # Update only if entry exists
+                JournalEntry.objects.filter(id=entry_id).update(
+                    debit=debit,
+                    credit=credit
+                )
+
+            return JsonResponse({'status': 'success', 'updated': len(entries)})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
 
 # Delete Journal Entry
 def delete_journal(request, id):
