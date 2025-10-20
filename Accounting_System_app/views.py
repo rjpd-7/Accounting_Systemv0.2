@@ -186,8 +186,9 @@ def get_journal_details(request, header_id):
     return JsonResponse(data)
 
 # Update Journal Entry
-def update_journal(request, id):
-    pass
+def update_journal(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
 
 # Delete Journal Entry
 def delete_journal(request, id):
