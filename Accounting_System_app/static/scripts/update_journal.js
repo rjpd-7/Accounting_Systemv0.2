@@ -128,18 +128,23 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
     });
-
+    
    $(document).on('click', '#edit_button', function() {
         const headerId = $(this).data('id');
         const date = $(this).data('date');
         const desc = $(this).data('description');
 
+        let d = new Date(date);
+        let datestring = d.getFullYear().toString().padStart(4, '0') + '-' + (d.getMonth()+1).toString().padStart(2, '0') + '-' + d.getDate().toString().padStart(2, '0');
+        
+
         // Fill header fields
-        $('#edit-entry-date').val(date.split('T')[0]);
+        $('#edit-entry-date').val(datestring);
         $('#edit_journal_description').val(desc);
 
         const tbody = $('#edit-journal-entry-body');
         tbody.empty();
+
 
         // Populate modal rows from hidden table data
         $(`#entries_${headerId} tr`).each(function(index) {
@@ -149,10 +154,10 @@ document.addEventListener("DOMContentLoaded", function () {
             const debit = $(this).data('debit');
             const credit = $(this).data('credit');
 
-            // Use different dropdowns for first vs. later rows
+            // Use different dropdowns for first and. later rows
             const accountOptions =
                 index === 0
-                    ? $('#edit_selected-accounts_name').html()
+                    ? $('#edit-debit-accounts').html()
                     : $('#edit-all-accounts-select').html();
 
             const row = `
@@ -184,15 +189,7 @@ document.addEventListener("DOMContentLoaded", function () {
             row.remove();
         }
     });
-    // Update account type when account name changes
-    $(document).on('change', '.edit_account_name', function() {
-        document.querySelectorAll('#edit-journal-entry-body select[name="edit_account_name"]').forEach(function(selectElem) {
-        selectElem.addEventListener('change', function() {
-            updateEditAccountTypeAndRestrict(this);
-        });
-            updateEditAccountTypeAndRestrict(selectElem);
-        });
-    });
+
 
     document.getElementById("edit_journal_form").addEventListener("submit", (e) => {
         // e.preventDefault();

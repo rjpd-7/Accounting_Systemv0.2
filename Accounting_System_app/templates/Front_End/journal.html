@@ -103,7 +103,7 @@
                                     data-bs-toggle="modal" 
                                     data-bs-target="#EDITstaticBackdrop"  
                                     data-id="{{ group.header.id }}"
-                                    data-date="{{ group.header.journal_date_created }}"
+                                    data-date="{{ group.header.entry_date }}"
                                     data-description="{{ group.header.journal_description }}"
                                     data-totaldebit="{{ group.total_debit }}"
                                     data-totalcredit="{{ group.total_credit }}"
@@ -125,6 +125,26 @@
                                         </tr>
                                     {% endfor %}
                                 </table>
+
+                                <!-- Hidden select for all accounts -->
+                                <select id="edit-all-accounts-select" hidden>
+                                    {% for account in accounts %}
+                                        <option value="{{ account.id }}" data-type="{{ account.account_type }}">
+                                            {{ account.account_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+
+                                <!-- Hidden select for debit-only accounts (Assets & Expenses) -->
+                                <select id="edit-debit-accounts" hidden>
+                                    {% for account in accounts %}
+                                        {% if account.account_type == "Assets" or account.account_type == "Expenses" %}
+                                            <option value="{{ account.id }}" data-type="{{ account.account_type }}">
+                                                {{ account.account_name }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
                                 &nbsp;
                                 <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
                                     {% csrf_token %}
