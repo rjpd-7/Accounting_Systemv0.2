@@ -199,10 +199,10 @@
                     {% csrf_token %}
                     <!-- Journal Code -->
                      <label for="journal_code">Journal Code:</label>
-                    <input id="journal_code" type="text" name="journal_code" readonly required> <br><br>
+                    <input id="journal_code" type="text" name="journal_code" class="form-control" readonly required> <br>
                     <!-- Entry Date -->
                     <label for="entry-date">Date:</label>
-                    <input type="date" id="entry-date" name="entry-date" required><br><br>
+                    <input type="date" id="entry-date" name="entry-date" class="form-control" required> <br>
 
                     <!-- Journal Entry Table -->
                     <table class="table table-bordered border-dark" id="journal-entry-table">
@@ -218,7 +218,7 @@
                         <tbody id="journal-entry-body">
                             <tr>
                                 <td>
-                                    <select id="selected-account_name" name="account_name" required>
+                                    <select id="selected-account_name" class="form-select" name="account_name" required>
                                         {% for account in accounts %}
                                             {% if account.account_type == "Assets" or account.account_type == "Expenses" %}
                                                 <option value="{{ account.id }}" data-type="{{ account.account_type }}">{{ account.account_name }}</option>
@@ -229,10 +229,10 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <input type="text" id="account_type" name="account_type" readonly>
+                                    <input type="text" id="account_type" name="account_type" class="form-control" readonly>
                                 </td>
-                                <td><input type="number" id="debit" name="debit" step="0.01" min="0"></td>
-                                <td><input type="number" id="credit" name="credit" step="0.01" min="0" readonly></td>
+                                <td><input type="number" id="debit" name="debit" step="0.01" min="0" class="form-control"></td>
+                                <td><input type="number" id="credit" name="credit" step="0.01" min="0" class="form-control" readonly></td>
                                 <td>
                                     <!-- Remove row button will be added by JS -->
                                 </td>
@@ -243,15 +243,15 @@
                         <tr>
                             <td><!-- Description -->
                                 <label for="description">Description:</label><br>
-                                <input type="text" id="journal_description" name="journal_description" placeholder="E.g., Rent payment, invoice received..." required> <br><br>
+                                <input type="text" id="journal_description" name="journal_description" class="form-control" placeholder="E.g., Rent payment, invoice received..." required> <br><br>
                             </td>
                             <td>
                                 <label for="total">Total Debit:</label>
-                                <input type="number" id="total_debit" name="total_debit" readonly>
+                                <input type="number" id="total_debit" name="total_debit" class="form-control" readonly>
                             </td>
                             <td>
                                 <label for="total">Total Credit:</label>
-                                <input type="number" id="total_credit" name="total_credit" readonly>
+                                <input type="number" id="total_credit" name="total_credit" class="form-control" readonly>
                             </td>
                         </tr>
                     </table>
@@ -259,7 +259,7 @@
                     <button type="button" id="clear-amounts-btn" class="btn btn-warning btn-sm">Clear Amounts</button>
                     <br>
                     <br>
-                    <select id="all-accounts-select" name="account_name" style="display:none;">
+                    <select id="all-accounts-select" name="account_name" class="form-control" style="display:none;">
                         {% for account in accounts %}
                             <option value="{{ account.id }}" data-type="{{ account.account_type }}">{{ account.account_name }}</option>
                         {% endfor %}
@@ -291,7 +291,7 @@
 
                     <!-- Entry Date -->
                     <label for="entry-date">Date:</label>
-                    <input type="date" id="edit-entry-date" name="edit_entry-date" required><br><br>
+                    <input type="date" id="edit-entry-date" name="edit_entry-date" class="form-control" required> <br>
 
                     <!-- Journal Entry Table -->
                     <table class="table table-bordered border-dark" id="edit-journal-entry-table">
@@ -333,15 +333,15 @@
                         <tr>
                             <td><!-- Description -->
                                 <label for="description">Description:</label><br>
-                                <input type="text" id="edit_journal_description" name="edit_journal_description" placeholder="E.g., Rent payment, invoice received..." required> <br><br>
+                                <input type="text" id="edit_journal_description" name="edit_journal_description" class="form-control" placeholder="E.g., Rent payment, invoice received..." required> <br><br>
                             </td>
                             <td>
                                 <label for="total">Total Debit:</label>
-                                <input type="number" id="edit_total_debit" name="edit_total_debit" readonly>
+                                <input type="number" id="edit_total_debit" name="edit_total_debit" class="form-control" readonly>
                             </td>
                             <td>
                                 <label for="total">Total Credit:</label>
-                                <input type="number" id="edit_total_credit" name="edit_total_credit" readonly>
+                                <input type="number" id="edit_total_credit" name="edit_total_credit" class="form-control" readonly>
                             </td>
                         </tr>
                     </table>

@@ -110,13 +110,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     addRowBtn.addEventListener('click', function () {
         var newRow = document.createElement('tr');
-        var selectHtml = '<select name="account_name" required>' + allAccountsSelect.innerHTML + '</select>';
+        var selectHtml = '<select name="account_name" class="form-control" required>' + allAccountsSelect.innerHTML + '</select>';
 
         newRow.innerHTML = `
             <td>${selectHtml}</td>
-            <td><input type="text" name="account_type" readonly></td>
-            <td><input type="number" name="debit" step="0.01" min="0"></td>
-            <td><input type="number" name="credit" step="0.01" min="0"></td>
+            <td><input type="text" name="account_type" class="form-control" readonly></td>
+            <td><input type="number" name="debit" step="0.01" min="0" class="form-control"></td>
+            <td><input type="number" name="credit" step="0.01" min="0" class="form-control"></td>
             <td><button type="button" class="btn btn-danger btn-sm remove-row">Remove</button></td>
         `;
         // Add remove button
