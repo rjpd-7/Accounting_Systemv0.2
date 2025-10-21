@@ -19,6 +19,6 @@ urlpatterns = [
      path("delete_account/<int:id>/", views.delete_account, name="delete_account"),
      path("insert_journals/", views.insert_journals, name="insert_journals"),
      path("get_journal/<int:id>/", views.get_journal_details, name="get_journal"),
-     path("update_journal/", views.update_journal, name="update_journal"),
+     path("update_journal/<int:id>/", views.update_journal, name="update_journal"),
      path("delete_journal/<int:id>/", views.delete_journal, name="delete_journal"),
 ]

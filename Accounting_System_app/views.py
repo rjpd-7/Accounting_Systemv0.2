@@ -1,12 +1,13 @@
 from django.http import HttpResponseRedirect, JsonResponse, Http404
 from django import forms
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError
+from django.db import transaction
 from django.contrib import messages
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.csrf import csrf_exempt
@@ -171,9 +172,9 @@ def get_journal_details(request, header_id):
 
     data = {
         "id": header.id,
-        "journal_code": header.journal_code,
+        "journal_code": header.entry_no,
         "entry_date": header.entry_date.strftime("%Y-%m-%d") if header.entry_date else "",
-        "description": header.description or "",
+        "description": header.journal_description or "",
         "entries": []
     }
 
@@ -190,27 +191,89 @@ def get_journal_details(request, header_id):
     return JsonResponse(data)
 
 # Update Journal Entry
-@csrf_exempt
-def update_journal(request):
-    if request.method == 'POST':
-        try:
-            entries = json.loads(request.POST.get('entries', '[]'))
+def update_journal(request, id):
+    header = get_object_or_404(JournalHeader, pk=id)
 
-            for entry in entries:
-                entry_id = entry.get('entry_id')
-                debit = entry.get('debit')
-                credit = entry.get('credit')
+    if request.method != "POST":
+        return redirect(reverse("AccountingSystem:journals"))  # adjust name
 
-                # Update only if entry exists
-                JournalEntry.objects.filter(id=entry_id).update(
-                    debit=debit,
-                    credit=credit
-                )
+    # collect posted rows (names used in your update modal)
+    account_values = request.POST.getlist('edit_account_name')
+    debits = request.POST.getlist('edit_debit')
+    credits = request.POST.getlist('edit_credit')
 
-            return JsonResponse({'status': 'success', 'updated': len(entries)})
+    # header fields
+    entry_date = request.POST.get('edit_entry-date') or request.POST.get('entry_date')
+    description = request.POST.get('edit_journal_description') or request.POST.get('journal_description')
 
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
+    # sanitize amounts and compute totals
+    total_debit = 0
+    total_credit = 0
+    parsed_debits = []
+    parsed_credits = []
+    for d in debits:
+        val = float(d) if d not in (None, '', 'NaN') else 0.0
+        parsed_debits.append(val)
+        total_debit += val
+    for c in credits:
+        val = float(c) if c not in (None, '', 'NaN') else 0.0
+        parsed_credits.append(val)
+        total_credit += val
+
+    # validation
+    if total_debit == 0:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Please enter amount!'})
+        return redirect(reverse("AccountingSystem:journals"))
+
+    if round(total_debit, 2) != round(total_credit, 2):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Total Debit and Credit must be equal!'})
+        # set a message or handle as needed
+        return redirect(reverse("AccountingSystem:journals"))
+
+    # perform update inside transaction
+    with transaction.atomic():
+        # update header
+        if entry_date:
+            header.entry_date = entry_date
+        header.journal_description = description or header.description
+        header.save()
+
+        # remove existing entries
+        JournalEntry.objects.filter(journal_header=header).delete()
+
+        # recreate entries
+        for i, acc_val in enumerate(account_values):
+            # get amounts for this row
+            debit = parsed_debits[i] if i < len(parsed_debits) else 0.0
+            credit = parsed_credits[i] if i < len(parsed_credits) else 0.0
+            # skip empty rows (no account selected) or rows with no amounts
+            if not acc_val or (debit == 0 and credit == 0):
+                continue
+
+            # try to resolve account by PK first, fallback to name
+            account = None
+            try:
+                account = ChartOfAccounts.objects.get(pk=int(acc_val))
+            except (ValueError, ChartOfAccounts.DoesNotExist):
+                account = ChartOfAccounts.objects.filter(account_name=acc_val).first()
+
+            # if account still not found, skip
+            if not account:
+                continue
+
+            JournalEntry.objects.create(
+                journal_header=header,
+                account=account,
+                debit=debit,
+                credit=credit
+            )
+
+    # respond
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True})
+    return redirect(reverse("AccountingSystem:journals"))
 
 # Delete Journal Entry
 def delete_journal(request, id):

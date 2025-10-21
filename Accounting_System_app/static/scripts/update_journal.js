@@ -151,6 +151,21 @@ document.addEventListener("DOMContentLoaded", function () {
         const date = $(this).data('date');
         const desc = $(this).data('description');
 
+        // set form action (use your URL pattern)
+        var form = document.getElementById('edit_journal_form');
+        if (form) {
+            form.action = '/update_journal/' + encodeURIComponent(headerId) + '/';
+            // OR if you want a hidden field:
+            var hid = form.querySelector('input[name="header_id"]');
+            if (!hid) {
+            hid = document.createElement('input');
+            hid.type = 'hidden';
+            hid.name = 'header_id';
+            form.appendChild(hid);
+            }
+            hid.value = headerId;
+        }
+
         // format date to yyyy-mm-dd
         let d = new Date(date);
         let datestring = d.getFullYear().toString().padStart(4, '0') + '-' + (d.getMonth()+1).toString().padStart(2, '0') + '-' + d.getDate().toString().padStart(2, '0');
