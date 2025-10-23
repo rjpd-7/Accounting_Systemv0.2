@@ -89,8 +89,13 @@ body{
 .password-container i {
     position: absolute;
     right: 10px;
-    top: 50%;
+    top: 30%;
     transform: translateY(-50%);
     cursor: pointer;
-    color: gray;
+    opacity: 100%;
+}
+
+.password-container button {
+    background-color: #FFF8F6;
+    border: #FFF8F6;
 }

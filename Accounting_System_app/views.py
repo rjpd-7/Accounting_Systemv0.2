@@ -161,35 +161,6 @@ def insert_journals(request):
     #accounts = ChartOfAccounts.objects.all()
     #return render(request, 'journal_form.html', {'accounts': accounts})
 
-# Get Journal Details
-def get_journal_details(request, header_id):
-    try:
-        header = JournalHeader.objects.get(id=header_id)
-    except JournalHeader.DoesNotExist:
-        raise Http404("Journal not found")
-
-    entries = JournalEntry.objects.filter(journal_header=header)
-
-    data = {
-        "id": header.id,
-        "journal_code": header.entry_no,
-        "entry_date": header.entry_date.strftime("%Y-%m-%d") if header.entry_date else "",
-        "description": header.journal_description or "",
-        "entries": []
-    }
-
-    for e in entries:
-        data["entries"].append({
-            "id": e.id,
-            "account_id": e.account.id if e.account else "",
-            "account_name": e.account.account_name if e.account else "",
-            "account_type": e.account.account_type if e.account else "",
-            "debit": float(e.debit or 0),
-            "credit": float(e.credit or 0),
-        })
-
-    return JsonResponse(data)
-
 # Update Journal Entry
 def update_journal(request, id):
     header = get_object_or_404(JournalHeader, pk=id)
