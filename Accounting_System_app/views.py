@@ -6,12 +6,14 @@ from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, Jour
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
 from itertools import zip_longest
-from django.db.models import Sum, RestrictedError
+from django.db.models import Sum, RestrictedError, Q, Value, DecimalField
+from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.contrib import messages
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.csrf import csrf_exempt
 import json
+from datetime import datetime
 
 # Create your views here.
 
@@ -257,31 +259,145 @@ def delete_journal(request, id):
 
 # General Ledger Page
 def general_ledger(request):
-    ledger_entries = JournalEntry.objects.all()
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    # build a Q filter for JournalEntry -> JournalHeader.entry_date
+    date_q = Q()
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+            date_q &= Q(journalentry__journal_header__entry_date__gte=start_date)
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+            date_q &= Q(journalentry__journal_header__entry_date__lte=end_date)
+    except (ValueError, TypeError):
+        # ignore invalid dates and treat as no filter
+        start_str = end_str = None
+        date_q = Q()
+
+    # annotate accounts with sums filtered by date_q
+    accounts_summary = ChartOfAccounts.objects.annotate(
+    total_debit=Coalesce(Sum('journalentry__debit'), Value(0), output_field=DecimalField()),
+    total_credit=Coalesce(Sum('journalentry__credit'), Value(0), output_field=DecimalField()),
+).order_by('account_code')
+
+    ledger_rows = []
+    total_debit = 0
+    total_credit = 0
+
+    for acc in accounts_summary:
+        debit = float(acc.total_debit or 0)
+        credit = float(acc.total_credit or 0)
+        balance = debit - credit
+        ledger_rows.append({
+            'account': acc,
+            'debit': debit,
+            'credit': credit,
+            'balance': balance,
+        })
+        total_debit += debit
+        total_credit += credit
 
     context = {
-    'general_ledger': ledger_entries,   # list of ledger rows
-    'total_debit': sum(e.debit for e in ledger_entries),
-    'total_credit': sum(e.credit for e in ledger_entries),
-    'ending_balance': sum(e.debit - e.credit for e in ledger_entries),
-}
-
-    return render(request, "Front_end/ledger.html", context)
+        'general_ledger': ledger_rows,
+        'total_debit': total_debit,
+        'total_credit': total_credit,
+        'ending_balance': total_debit - total_credit,
+        'start_date': start_str,
+        'end_date': end_str,
+    }
+    return render(request, "Front_End/ledger.html", context)
 
 # Trial Balance Function
 def trial_balance(request):
-    ledger_entries = JournalEntry.objects.all()
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    # build a Q filter for JournalEntry -> JournalHeader.entry_date
+    date_q = Q()
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+            date_q &= Q(journalentry__journal_header__entry_date__gte=start_date)
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+            date_q &= Q(journalentry__journal_header__entry_date__lte=end_date)
+    except (ValueError, TypeError):
+        # ignore invalid dates and treat as no filter
+        start_str = end_str = None
+        date_q = Q()
+
+    # annotate accounts with sums filtered by date_q
+    accounts_summary = ChartOfAccounts.objects.annotate(
+    total_debit=Coalesce(Sum('journalentry__debit'), Value(0), output_field=DecimalField()),
+    total_credit=Coalesce(Sum('journalentry__credit'), Value(0), output_field=DecimalField()),
+).order_by('account_code')
+
+    ledger_rows = []
+    total_debit = 0
+    total_credit = 0
+
+    for acc in accounts_summary:
+        debit = float(acc.total_debit or 0)
+        credit = float(acc.total_credit or 0)
+        balance = debit - credit
+        ledger_rows.append({
+            'account': acc,
+            'debit': debit,
+            'credit': credit,
+            'balance': balance,
+        })
+        total_debit += debit
+        total_credit += credit
 
     context = {
-    'general_ledger': ledger_entries,   # list of ledger rows
-    'total_debit': sum(e.debit for e in ledger_entries),
-    'total_credit': sum(e.credit for e in ledger_entries),
-    'ending_balance': sum(e.debit - e.credit for e in ledger_entries),
-}
+        'general_ledger': ledger_rows,
+        'total_debit': total_debit,
+        'total_credit': total_credit,
+        'ending_balance': total_debit - total_credit,
+        'start_date': start_str,
+        'end_date': end_str,
+    }
+    return render(request, "Front_End/ledger.html", context)
 
-    return render(request, "Front_end/ledger.html", context)
+# Individual Accounts Transaction Compilation
+def ledger_account_transactions(request, account_id):
+    account = get_object_or_404(ChartOfAccounts, pk=account_id)
 
-# Files Page
-def files(request):
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+    entries = JournalEntry.objects.select_related('journal_header').filter(account=account).order_by('journal_header__entry_date', 'journal_header__id')
 
-    return render(request, "Front_end/files.html")
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+            entries = entries.filter(journal_header__entry_date__gte=start_date)
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+            entries = entries.filter(journal_header__entry_date__lte=end_date)
+    except (ValueError, TypeError):
+        # ignore invalid dates and do not filter
+        pass
+
+    transactions = []
+    for e in entries:
+        transactions.append({
+            'journal_header_id': e.journal_header.id if e.journal_header else None,
+            'entry_no': e.journal_header.entry_no if e.journal_header else '',
+            'entry_date': e.journal_header.entry_date.isoformat() if e.journal_header and e.journal_header.entry_date else '',
+            'description': e.journal_header.journal_description if e.journal_header else '',
+            'debit': float(e.debit or 0),
+            'credit': float(e.credit or 0),
+        })
+
+    return JsonResponse({
+        'success': True,
+        'account': {
+            'id': account.id,
+            'code': account.account_code,
+            'name': account.account_name,
+            'type': account.account_type,
+        },
+        'transactions': transactions
+    })
