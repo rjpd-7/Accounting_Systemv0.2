@@ -18,7 +18,7 @@
             <nav class="nav flex-column">
                 <ul>
                     <li>
-                        <a class="nav-link py-3 border-bottom rounded-0" id="menu" href="#">
+                        <a class="nav-link" id="menu" href="#">
                             <span class="icon">
                                 <i class="bi bi-list"></i>
                             </span>
@@ -26,7 +26,7 @@
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link py-3 border-bottom rounded-0" href="{% url 'AccountingSystem:index' %}" >
+                        <a class="nav-link" href="{% url 'AccountingSystem:index' %}" >
                             <span class="icon">
                                 <i class="bi bi-house"></i>
                             </span>
@@ -34,7 +34,7 @@
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link py-3 border-bottom rounded-0" href="{% url 'AccountingSystem:accounts' %}">
+                        <a class="nav-link" href="{% url 'AccountingSystem:accounts' %}">
                             <span class="icon">
                                 <i class="bi bi-file-earmark-spreadsheet"></i>
                             </span>
@@ -42,7 +42,7 @@
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link py-3 border-bottom rounded-0" href="{% url 'AccountingSystem:journals' %}">
+                        <a class="nav-link" href="{% url 'AccountingSystem:journals' %}">
                             <span class="icon">
                                 <i class="bi bi-journal-bookmark"></i>
                             </span>
@@ -50,7 +50,7 @@
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link py-3 border-bottom rounded-0" href="{% url 'AccountingSystem:ledgers' %}">
+                        <a class="nav-link" href="{% url 'AccountingSystem:ledgers' %}">
                             <span class="icon">
                                 <i class="bi bi-card-list"></i>
                             </span>
@@ -62,7 +62,7 @@
                             <span class="icon">
                                 <i class="bi bi-cash-stack"></i>
                             </span>
-                            <span class="description">Trial Balance</span>
+                            <span class="description">Balance</span>
                         </a>
                     </li>
                     <li>
@@ -95,12 +95,13 @@
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-primary">Filter</button>
-            <a href="{% url 'AccountingSystem:ledgers' %}" class="btn btn-outline-secondary">Clear</a>
+            <a href="{% url 'AccountingSystem:balance' %}" class="btn btn-outline-secondary">Clear</a>
         </div>
         </form>
+
         <div class="display_table">
-                <div class="container my-4">
-                <h3 class="text-center mb-4"></h3>
+            <div class="container my-4">
+            <h3 class="text-center mb-4"></h3>
     
                 <table class="table table-bordered table-striped table-hover align-middle shadow-sm">
                     <thead class="table-primary text-center">
@@ -140,6 +141,8 @@
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+        </div>
     </main>
     <!------ Main Page End ------>
 
