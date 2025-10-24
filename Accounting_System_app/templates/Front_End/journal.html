@@ -259,7 +259,7 @@
                     <button type="button" id="clear-amounts-btn" class="btn btn-warning btn-sm">Clear Amounts</button>
                     <br>
                     <br>
-                    <select id="all-accounts-select" name="account_name" class="form-control" style="display:none;">
+                    <select id="all-accounts-select" name="account_name" class="form-select" style="display:none;">
                         {% for account in accounts %}
                             <option value="{{ account.id }}" data-type="{{ account.account_type }}">{{ account.account_name }}</option>
                         {% endfor %}

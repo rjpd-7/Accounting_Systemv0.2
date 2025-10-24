@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     addRowBtn.addEventListener('click', function () {
         var newRow = document.createElement('tr');
-        var selectHtml = '<select name="account_name" class="form-control" required>' + allAccountsSelect.innerHTML + '</select>';
+        var selectHtml = '<select name="account_name" class="form-select" required>' + allAccountsSelect.innerHTML + '</select>';
 
         newRow.innerHTML = `
             <td>${selectHtml}</td>
