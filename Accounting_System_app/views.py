@@ -268,6 +268,19 @@ def general_ledger(request):
 
     return render(request, "Front_end/ledger.html", context)
 
+# Trial Balance Function
+def trial_balance(request):
+    ledger_entries = JournalEntry.objects.all()
+
+    context = {
+    'general_ledger': ledger_entries,   # list of ledger rows
+    'total_debit': sum(e.debit for e in ledger_entries),
+    'total_credit': sum(e.credit for e in ledger_entries),
+    'ending_balance': sum(e.debit - e.credit for e in ledger_entries),
+}
+
+    return render(request, "Front_end/ledger.html", context)
+
 # Files Page
 def files(request):
 
