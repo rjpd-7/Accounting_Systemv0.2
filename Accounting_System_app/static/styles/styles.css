@@ -169,3 +169,10 @@ body {
     width: 100%;
 }
 
+.tr.ledger-row, .ledger-row {
+    cursor: pointer;
+}
+.ledger-row:hover {
+    background-color: rgba(0,0,0,0.03);
+}
+

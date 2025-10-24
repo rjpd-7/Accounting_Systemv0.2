@@ -123,7 +123,7 @@
             </table>
 
 
-            <!-- Modal: shows transactions for selected account -->
+            <!-- Account Transactions Modal -->
             <div class="modal fade" id="ledgerAccountModal" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-lg">
                 <div class="modal-content">
@@ -133,8 +133,8 @@
                     </div>
                     <div class="modal-body">
                     <div id="ledgerAccountInfo" class="mb-2"></div>
-                    <table class="table table-sm">
-                        <thead>
+                    <table class="table table-bordered table-hover align-middle shadow-sm">
+                        <thead class="table-primary text-center">
                         <tr>
                             <th>Entry No</th>
                             <th>Date</th>
@@ -146,7 +146,7 @@
                         <tbody id="ledger-transactions-body"></tbody>
                         <tfoot>
                         <tr>
-                            <th colspan="3" class="text-end">Totals</th>
+                            <th colspan="3" class="text-end">Total</th>
                             <th id="ledger-modal-total-debit" class="text-end">0.00</th>
                             <th id="ledger-modal-total-credit" class="text-end">0.00</th>
                         </tr>
