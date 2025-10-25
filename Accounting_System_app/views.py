@@ -363,3 +363,65 @@ def ledger_account_transactions(request, account_id):
         },
         'transactions': transactions
     })
+
+
+# Trial Balance within the General Ledger
+def trial_balance_json(request):
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    # build date filter for annotations
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    accounts_qs = ChartOfAccounts.objects.annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    result = []
+    for acc in accounts_qs:
+        # get transactions for this account in date range
+        tx_qs = JournalEntry.objects.select_related('journal_header').filter(account=acc)
+        if start_date:
+            tx_qs = tx_qs.filter(journal_header__entry_date__gte=start_date)
+        if end_date:
+            tx_qs = tx_qs.filter(journal_header__entry_date__lte=end_date)
+        tx_qs = tx_qs.order_by('journal_header__entry_date', 'journal_header__id')
+
+        transactions = []
+        for e in tx_qs:
+            transactions.append({
+                'journal_header_id': e.journal_header.id if e.journal_header else None,
+                'entry_no': getattr(e.journal_header, 'entry_no', '') if e.journal_header else '',
+                'entry_date': e.journal_header.entry_date.isoformat() if e.journal_header and e.journal_header.entry_date else None,
+                'description': getattr(e.journal_header, 'journal_description', '') if e.journal_header else '',
+                'debit': float(e.debit or 0),
+                'credit': float(e.credit or 0),
+            })
+
+        result.append({
+            'id': acc.id,
+            'code': getattr(acc, 'account_code', ''),
+            'name': getattr(acc, 'account_name', ''),
+            'type': getattr(acc, 'account_type', ''),
+            'description': getattr(acc, 'account_description', ''),
+            'total_debit': float(acc.total_debit or 0),
+            'total_credit': float(acc.total_credit or 0),
+            'balance': float((acc.total_debit or 0) - (acc.total_credit or 0)),
+            'transactions': transactions,
+        })
+
+    return JsonResponse({'success': True, 'start_date': start_str, 'end_date': end_str, 'accounts': result})

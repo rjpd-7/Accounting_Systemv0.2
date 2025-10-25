@@ -81,6 +81,11 @@
     <main class="main-content">
         <h2>General Ledger</h2>
 
+        <div>
+            <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#trialBalanceModal">
+                <i class="bi bi-journal-text"></i> Trial Balance
+            </button>
+        </div>
         <br>
 
         <div class="display_table">
@@ -158,6 +163,46 @@
             </div>
 
         </div>
+
+         <!-- Trial Balance Modal -->
+        <div class="modal fade" id="trialBalanceModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <form id="trial-balance-form" class="needs-validation" novalidate>
+                        <div class="modal-header">
+                            <h5 class="modal-title">Trial Balance (Filter by Date)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-2 mb-3">
+                                <div class="col-auto">
+                                    <label for="tb-start-date" class="form-label">Start Date</label>
+                                    <input type="date" id="tb-start-date" name="start_date" class="form-control">
+                                </div>
+                                <div class="col-auto">
+                                    <label for="tb-end-date" class="form-label">End Date</label>
+                                    <input type="date" id="tb-end-date" name="end_date" class="form-control">
+                                </div>
+                                <div class="col-auto align-self-end">
+                                    <button type="submit" class="btn btn-primary">Generate</button>
+                                    <button type="button" id="tb-clear-btn" class="btn btn-secondary">Clear</button>
+                                </div>
+                            </div>
+
+                            <div id="tb-results">
+                                <!-- filled by JS: summary table per account with collapsible transactions -->
+                                <div class="text-muted">No data. Choose a date range and click Generate.</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
     </main>
     <!------ Main Page End ------>
 
@@ -168,5 +213,9 @@
         var ledgerTransactionsUrlTemplate = "{% url 'AccountingSystem:ledger_account_transactions' 0 %}";
     </script>
     <script src="{% static 'scripts/ledger.js' %}"></script>
+    <script>
+        var trialBalanceJsonUrl = "{% url 'AccountingSystem:trial_balance_json' %}";
+    </script>
+    <script src="{% static 'scripts/trial_balance_modal.js' %}"></script>
 </body>
 </html>
