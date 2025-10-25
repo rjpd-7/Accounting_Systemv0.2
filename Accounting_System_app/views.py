@@ -22,7 +22,17 @@ from decimal import Decimal
 def index(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
-    return render(request, "Front_end/index.html")
+    
+    total_accounts = ChartOfAccounts.objects.count()
+    total_journals = JournalHeader.objects.count()
+    total_entries = JournalEntry.objects.count()
+
+    context = {
+        'total_accounts': total_accounts,
+        'total_journals': total_journals,
+        'total_entries': total_entries,
+    }
+    return render(request, "Front_End/index.html", context)
 
 # Login Page
 def login_view(request):
