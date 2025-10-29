@@ -12,6 +12,10 @@ from django.db import transaction
 from django.contrib import messages
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.backends import BaseBackend
+from django.contrib.auth.hashers import check_password
+from django.contrib.auth.models import User
+from django.core.cache import cache
 import json
 from datetime import datetime
 from decimal import Decimal
@@ -36,18 +40,48 @@ def index(request):
 
 # Login Page
 def login_view(request):
+    MAX_ATTEMPTS = 3
+    ATTEMPT_WINDOW = 15 * 60   # seconds: how long to keep attempt count (15 minutes)
+    LOCKOUT_TIME = 5 * 60      # seconds: lockout duration (5 minutes)
+
+    def get_cache_keys(username):
+        return (f"login_attempts:{username}", f"login_lockout:{username}")
+
     if request.method == "POST":
-        username = request.POST["usn"]
-        password = request.POST["password"]
+        username = request.POST.get("usn", "").strip()
+        password = request.POST.get("password", "")
+
+        attempts_key, lockout_key = get_cache_keys(username)
+
+        # If locked out, inform user
+        if cache.get(lockout_key):
+            messages.error(request, "Account locked due to multiple failed login attempts. Try again later.")
+            return render(request, "Front_End/login.html")
+
         user = authenticate(request, username=username, password=password)
         if user is not None:
+            # Successful login -> clear counters and proceed
+            cache.delete(attempts_key)
+            cache.delete(lockout_key)
             login(request, user)
             messages.success(request, "Login Successful")
             return HttpResponseRedirect(reverse("AccountingSystem:index"))
         else:
-            messages.error(request, "Invalid credentials")
+            # Failed login -> increment attempts
+            attempts = cache.get(attempts_key, 0) + 1
+            cache.set(attempts_key, attempts, ATTEMPT_WINDOW)
+
+            remaining = MAX_ATTEMPTS - attempts
+            if remaining <= 0:
+                # Lock the account for LOCKOUT_TIME
+                cache.set(lockout_key, True, LOCKOUT_TIME)
+                cache.delete(attempts_key)
+                messages.error(request, f"Too many failed attempts. Account locked for {int(LOCKOUT_TIME/60)} minutes.")
+            else:
+                messages.error(request, f"Invalid credentials. {remaining} attempt(s) left.")
+
             return render(request, "Front_End/login.html")
-        
+
     return render(request, "Front_End/login.html")
 
 # Directs to Login Page once logged out.
@@ -58,6 +92,9 @@ def logout_view(request):
 
 # Chart Of Accounts Page
 def chart_of_accounts(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
     results = ChartOfAccounts.objects.all()
     return render(request, "Front_End/accounts.html", {
         "accounts" : results
@@ -101,6 +138,9 @@ def delete_account(request, id):
 
 # Journal Entries Page
 def journals(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
     accounts = ChartOfAccounts.objects.all()
     journal_entries = JournalEntry.objects.select_related('journal_header', 'account')
     journal_groups = []
@@ -270,6 +310,9 @@ def delete_journal(request, id):
 
 # General Ledger Page
 def general_ledger(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
 

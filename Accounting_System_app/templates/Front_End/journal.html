@@ -220,9 +220,7 @@
                                 <td>
                                     <select id="selected-account_name" class="form-select" name="account_name" required>
                                         {% for account in accounts %}
-                                            {% if account.account_type == "Assets" or account.account_type == "Expenses" %}
                                                 <option value="{{ account.id }}" data-type="{{ account.account_type }}">{{ account.account_name }}</option>
-                                            {% endif %}
                                                 {% empty %}
                                                 <option value="" disabled>No Accounts Created</option>
                                         {% endfor %}
