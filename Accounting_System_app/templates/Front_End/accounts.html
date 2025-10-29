@@ -97,6 +97,10 @@
         <button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#staticBackdrop">
         Create Account
         </button>
+
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
+            <i class="bi bi-info-circle-fill"></i>
+        </button>
         <br>
         <br>
         <!-- Display Table -->
@@ -227,6 +231,95 @@
     </div>
     <!-- End EDIT Modal -->
 
+
+    <!--Information Modal -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="exampleModalLabel">Chart of Accounts Basic Guide</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p style="text-align: justify;">
+                    <strong>Chart of accounts : </strong> A chart of accounts (COA) is an index of all of the financial accounts in a company's general ledger. In short, it is an organizational tool that lists by category and line item all of the financial transactions that a company conducted during a specific accounting period.
+                </p>
+                <br>
+                <p>
+                    <strong>Different Account Types : </strong> Assets, Liabilities, Equity, Revenue, Expenses.
+                </p>
+                <p>
+                    <strong>Common Accounts for each Account Type: </strong>
+                </p>
+                <table class="table table-bordered border-dark">
+                    <thead>
+                        <th>Assets</th>
+                        <th>Liabilities</th>
+                        <th>Equity</th>
+                        <th>Revenue</th>
+                        <th>Expenses</th>
+                    </thead>
+                    <tbody>
+                        <td> <!-- Assets -->
+                            <ul>
+                                <li>Cash</li>
+                                <li>Savings Account</li>
+                                <li>Petty Cash Balance</li>
+                                <li>Accounts Receivable</li>
+                                <li>Undeposited Funds</li>
+                                <li>Inventory Assets</li>
+                                <li>Prepaid Insurance</li>
+                                <li>Vehicles</li>
+                                <li>Buildings</li>
+                            </ul>
+                        </td>
+                        <td> <!-- Liabilties -->
+                            <ul>
+                                <li>Company Credit Card</li>
+                                <li>Accrued Liabilities</li>
+                                <li>Accounts Payable</li>
+                                <li>Payroll Liabilities</li>
+                                <li>Notes Payable</li>
+                            </ul>
+                        </td>
+                        <td> <!-- Equity -->
+                            <ul>
+                                <li>Common Stock</li>
+                                <li>Preferred Stock</li>
+                                <li>Retained Earnings</li>
+                            </ul>
+                        </td>
+                        <td> <!-- Revenue -->
+                            <ul>
+                                <li>Sales Revenue</li>
+                                <li>Sales Return and Allowances</li>
+                                <li>Interest Income</li>
+                                <li>Rental Income</li>
+                                <li>Gain on Sale of Assets</li>
+                            </ul>
+                        </td>
+                        <td> <!-- Expenses -->
+                            <ul>
+                                <li>Cost of Goods</li>
+                                <li>Salaries and Wages</li>
+                                <li>Rent and Utilities</li>
+                                <li>Marketing and Advertising</li>
+                                <li>Insurance</li>
+                                <li>Depreciation</li>
+                                <li>Supplies</li>
+                                <li>Repairs and Maintenance</li>
+                            </ul>
+                        </td>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+            </div>
+        </div>
+    </div>
+    <!--End of Information Modal -->
 
     </main>
     <!------ Main Page End ------>
