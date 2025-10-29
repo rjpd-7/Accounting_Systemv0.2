@@ -146,6 +146,7 @@ def journals(request):
     journal_groups = []
 
     headers = JournalHeader.objects.all()
+    headers = JournalHeader.objects.order_by('-entry_date', '-id')
 
     for header in headers:
         entries = journal_entries.filter(journal_header=header)

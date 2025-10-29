@@ -1,0 +1,178 @@
+body {
+    background-color: #FFF8F6;
+    padding: 0;
+    margin: 0;
+}
+
+/* Homepage/Dashboard */
+#menu {
+    background-color: #5D2321;
+}
+
+/* Collapsed sidebar */
+.sidebar.collapsed {
+    width: 70px; /* Only enough for icons */
+}
+
+/* Hide description text when collapsed */
+.sidebar.collapsed .description {
+    display: none;
+}
+
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 60px;
+    background-color: #8E110B;
+    transition: width 0.3s ease;
+    overflow: hidden;
+    box-sizing: border-box;
+
+}
+
+.sidebar:hover {
+    width: 200px;
+}
+
+.sidebar ul {
+    position: relative;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    row-gap: 1rem;
+}
+
+.sidebar ul li {
+    list-style: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.sidebar ul li a {
+    color: #FFF8F6;
+}
+
+.sidebar a.active {
+    background-color: #311413;
+}
+
+.sidebar ul li a:hover {
+    background-color: #720b05;
+    color: #FFF8F6;
+    transition: 0.3s ease;
+}
+
+.sidebar .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 20px;
+    color: #FFF8F6;
+    text-decoration: none;
+}
+
+.sidebar .description {
+    font-size: 20px;
+    padding-left: .5rem;
+}
+
+.main-content {
+    height: 100%;
+    margin-left: 200px;
+    padding: 20px;
+}
+
+/* Main Journal Content */
+/* Journal Form */
+.journal-form table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+}
+.journal-form th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+}
+.journal-form th {
+    background-color: #f4f4f4;
+}
+.journal-form input[type="number"] {
+    width: 100%;
+}
+
+/* Display Table CSS  */
+
+.display_table {
+    color: #311413;
+}
+
+/*  Configuration for smaller device width   */
+
+@media (max-width: 480px) {
+    .sidebar {
+        width: 60px;
+    }
+
+    .sidebar .description {
+        display: none;
+    }
+
+    .sidebar .nav-link {
+        justify-content: center;
+    }
+
+    .main-content {
+        margin-left: 60px;
+    }
+}
+
+/* Create account modal form */
+.account-form table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+}
+.account-form th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+}
+.account-form th {
+    background-color: #f4f4f4;
+}
+.account-form input{
+    width: 100%;
+}
+
+/* Insert Journal modal form */
+.journal-form table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+}
+.journal-form th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+}
+.journal-form th {
+    background-color: #f4f4f4;
+}
+.journal-form input{
+    width: 100%;
+}
+
+.journal_description {
+    width: 100%;
+}
+
+.tr.ledger-row, .ledger-row {
+    cursor: pointer;
+}
+.ledger-row:hover {
+    background-color: rgba(0,0,0,0.03);
+}
+
