@@ -107,6 +107,18 @@ def create_account(request):
     account_name_submit = request.POST['account_name']
     account_type_submit = request.POST['account_type']
     account_description_submit = request.POST['account_description']
+
+     # Validate required fields
+    if not account_name_submit:
+        messages.error(request, "Account name is required.")
+        return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
+
+    # Check uniqueness (case-insensitive)
+    if ChartOfAccounts.objects.filter(account_name__iexact=account_name_submit).exists():
+        messages.error(request, f'Account "{account_name_submit}" already exists.')
+        return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
+
+
     account = ChartOfAccounts(
         account_code = account_code_submit, 
         account_name = account_name_submit, 
@@ -147,7 +159,7 @@ def journals(request):
     journal_groups = []
 
     headers = JournalHeader.objects.all()
-    headers = JournalHeader.objects.order_by('-entry_date', '-id')
+    headers = JournalHeader.objects.order_by('-journal_date_created', '-id')
 
     for header in headers:
         entries = journal_entries.filter(journal_header=header)
