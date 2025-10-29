@@ -368,14 +368,65 @@
         
         <!-- Information Modal for Journal Entries -->
         <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                 <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Modal title</h1>
+                    <h1 class="modal-title fs-5" id="exampleModalLabel">Journal Entries Basic Guide</h1>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    ...
+                    <p style="text-align: justify;">
+                        A <strong>Journal Entry</strong> records a financial transaction, made up of one or more lines (debits and credits) that must balance (total debits = total credits). The account names are from the <strong>Chart of Accounts</strong>. 
+                    </p>
+                    <p>First row should be a debit input.</p>
+                    <p>Last row should be a credit input.</p>
+                    <p>There shouldn't be empty debit and credit values</p>
+                    <table class="table table-bordered border-dark">
+                    <thead>
+                        <tr>
+                            <th>Account Name</th>
+                            <th>Account Type</th>
+                            <th>Debit</th>
+                            <th>Credit</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                                <td>
+                                    <select id="edit_selected-account_name" name="edit_account_name" class="form-select" aria-readonly="true">
+                                            <option value=""></option>
+                                    </select>
+                                </td>
+                                <td><input type="text" id="edit_account_type" name="edit_account_type" class="form-control" readonly></td>
+                                <td><input type="number" id="edit_debit" name="edit_debit" step="0.01" min="0" class="form-control" readonly></td>
+                                <td><input type="number" id="edit_credit" name="edit_credit" step="0.01" min="0" class="form-control" readonly></td>
+                                <td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <table class="table table-bordered">
+                    <tr>
+                        <td>
+                            <label for="description">Description:</label><br>
+                            <input type="text" id="{% if mode == 'edit' %}edit_journal_description{% else %}journal_description{% endif %}"
+                                name="{% if mode == 'edit' %}edit_journal_description{% else %}journal_description{% endif %}"
+                                class="form-control" placeholder="E.g., Rent payment, invoice received..." required>
+                        </td>
+                        <td>
+                            <label>Total Debit:</label>
+                            <input type="number" id="{% if mode == 'edit' %}edit_total_debit{% else %}total_debit{% endif %}" name="{% if mode == 'edit' %}edit_total_debit{% else %}total_debit{% endif %}" class="form-control" readonly>
+                        </td>
+                        <td>
+                            <label>Total Credit:</label>
+                            <input type="number" id="{% if mode == 'edit' %}edit_total_credit{% else %}total_credit{% endif %}" name="{% if mode == 'edit' %}edit_total_credit{% else %}total_credit{% endif %}" class="form-control" readonly>
+                        </td>
+                    </tr>
+                </table>
+
+                
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
