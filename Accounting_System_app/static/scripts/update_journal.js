@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return opt ? (opt.getAttribute('data-type') || opt.getAttribute('data-type_edit') || "") : "";
     }
 
-    // Update account type display and apply debit/credit restrictions
+    // Update account type display and (optionally) restrict — keeps existing behavior
     function updateEditAccountTypeAndRestrict(selectElem) {
         if (!selectElem) return;
         var row = selectElem.closest('tr');
@@ -26,21 +26,21 @@ document.addEventListener("DOMContentLoaded", function () {
         var type = optionType(selectedOption);
 
         if (typeInput) typeInput.value = type;
-
-        if (debitInput && creditInput) {
-            if (type === "Assets" || type === "Expenses") {
-                debitInput.removeAttribute('readonly');
+        var firstRow = journalEntryBody ? journalEntryBody.querySelector('tr') : null;
+        var isFirstRow = firstRow && row === firstRow;
+        if (isFirstRow) {
+            // make last behavior consistent: first row must be debit-only
+            if (creditInput) {
                 creditInput.value = '';
                 creditInput.setAttribute('readonly', 'true');
-            } else if (type === "Liabilities" || type === "Equity" || type === "Revenue") {
-                creditInput.removeAttribute('readonly');
-                debitInput.value = '';
-                debitInput.setAttribute('readonly', 'true');
-            } else {
+            }
+            if (debitInput) {
                 debitInput.removeAttribute('readonly');
-                creditInput.removeAttribute('readonly');
             }
         }
+        // ensure mutual-exclusivity behavior applied
+        attachEditMutualExclusivity(row);
+
         calculateEditTotals();
     }
 
@@ -85,18 +85,145 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (clearAmountsBtn) clearAmountsBtn.addEventListener('click', clearEditDebitAndCreditInputs);
 
-    // Delegate change on selects to support dynamically added rows
+    // --- Numeric restrictions: block 'e', '+', '-' and sanitize paste ---
+    function addNumericRestrictions(input) {
+        if (!input) return;
+        if (input._numericKeydown) input.removeEventListener('keydown', input._numericKeydown);
+        input._numericKeydown = function (ev) {
+            if (!ev || !ev.key) return;
+            var k = ev.key;
+            if (k === 'e' || k === 'E' || k === '+' || k === '-') ev.preventDefault();
+        };
+        input.addEventListener('keydown', input._numericKeydown);
+
+        if (input._numericPaste) input.removeEventListener('paste', input._numericPaste);
+        input._numericPaste = function (ev) {
+            var data = (ev.clipboardData || window.clipboardData).getData('text') || '';
+            if (/[eE+\-]/.test(data)) {
+                ev.preventDefault();
+                var sanitized = data.replace(/[eE+\-]/g, '');
+                if (document.queryCommandSupported('insertText')) {
+                    document.execCommand('insertText', false, sanitized);
+                } else {
+                    input.value = input.value + sanitized;
+                }
+                calculateEditTotals();
+            }
+        };
+        input.addEventListener('paste', input._numericPaste);
+    }
+
+    
+    // Enforce mutual exclusivity on a row: if debit > 0 clear credit and vice-versa
+    function attachEditMutualExclusivity(row) {
+        if (!row) return;
+        var debit = row.querySelector('input[name="edit_debit"]');
+        var credit = row.querySelector('input[name="edit_credit"]');
+
+        // remove previous handlers
+        if (debit && debit._handler) debit.removeEventListener('input', debit._handler);
+        if (credit && credit._handler) credit.removeEventListener('input', credit._handler);
+
+        addNumericRestrictions(debit);
+        addNumericRestrictions(credit);
+
+        if (debit) {
+            debit._handler = function () {
+                var d = parseFloat(debit.value) || 0;
+                if (d > 0 && credit) {
+                    if (credit.value && credit.value.trim() !== '') credit.value = '';
+                }
+                calculateEditTotals();
+            };
+            debit.addEventListener('input', debit._handler);
+        }
+
+        if (credit) {
+            credit._handler = function () {
+                var c = parseFloat(credit.value) || 0;
+                if (c > 0 && debit) {
+                    if (debit.value && debit.value.trim() !== '') debit.value = '';
+                }
+                calculateEditTotals();
+            };
+            credit.addEventListener('input', credit._handler);
+        }
+
+        // ensure totals recalc on manual edits
+        [debit, credit].forEach(function (inp) {
+            if (!inp) return;
+            if (inp._totalsHandler) inp.removeEventListener('input', inp._totalsHandler);
+            inp._totalsHandler = calculateEditTotals;
+            inp.addEventListener('input', inp._totalsHandler);
+        });
+
+        // initial cleanup if both populated
+        if (debit && credit) {
+            var d0 = parseFloat(debit.value) || 0;
+            var c0 = parseFloat(credit.value) || 0;
+            if (d0 > 0 && c0 > 0) {
+                // default: keep debit and clear credit (adjust if needed)
+                credit.value = '';
+            }
+        }
+    }
+
+    // Public helper so prefill code can apply behaviors after inserting rows
+    window.applyEditRowBehavior = function (row) {
+        if (!row) return;
+        var sel = row.querySelector('select[name="edit_account_name"], select.edit_account_name');
+        if (sel) {
+            // ensure change updates display and restrictions
+            sel.addEventListener('change', function () {
+                updateEditAccountTypeAndRestrict(this);
+            });
+            // set display now
+            updateEditAccountTypeAndRestrict(sel);
+        }
+        attachEditMutualExclusivity(row);
+    };
+
+    // utility: apply behaviors to all rows (call after prefill)
+    window.applyEditBehaviorToAllRows = function () {
+        if (!journalEntryBody) return;
+        journalEntryBody.querySelectorAll('tr').forEach(function (r) {
+            window.applyEditRowBehavior(r);
+        });
+        calculateEditTotals();
+    };
+
+    // Delegated handlers to support first row and dynamically added rows
     if (journalEntryBody) {
-        journalEntryBody.addEventListener('change', function(e) {
-            if (e.target && e.target.matches('select[name="edit_account_name"], select.edit_account_name')) {
-                updateEditAccountTypeAndRestrict(e.target);
+        // input delegation for mutual exclusivity and totals (covers first row)
+        journalEntryBody.addEventListener('input', function (e) {
+            var t = e.target;
+            if (!t) return;
+            if (t.matches('input[name="edit_debit"]')) {
+                var row = t.closest('tr');
+                if (!row) return;
+                var credit = row.querySelector('input[name="edit_credit"]');
+                var d = parseFloat(t.value) || 0;
+                if (d > 0 && credit && credit.value) credit.value = '';
+                calculateEditTotals();
+                return;
+            }
+            if (t.matches('input[name="edit_credit"]')) {
+                var row2 = t.closest('tr');
+                if (!row2) return;
+                var debit = row2.querySelector('input[name="edit_debit"]');
+                var c = parseFloat(t.value) || 0;
+                if (c > 0 && debit && debit.value) debit.value = '';
+                calculateEditTotals();
+                return;
             }
         });
 
-        // Delegate input events for totals
-        journalEntryBody.addEventListener('input', function(e) {
-            if (e.target && (e.target.matches('input[name="edit_debit"]') || e.target.matches('input[name="edit_credit"]'))) {
-                calculateEditTotals();
+        // change delegation for selects
+        journalEntryBody.addEventListener('change', function (e) {
+            var t = e.target;
+            if (!t) return;
+            if (t.matches('select[name="edit_account_name"], select.edit_account_name')) {
+                updateEditAccountTypeAndRestrict(t);
             }
         });
     }
@@ -106,6 +233,8 @@ document.addEventListener("DOMContentLoaded", function () {
         journalEntryBody.querySelectorAll('select[name="edit_account_name"], select.edit_account_name').forEach(function(sel) {
             updateEditAccountTypeAndRestrict(sel);
         });
+        // also ensure numeric restrictions & mutual exclusivity applied to existing inputs
+        window.applyEditBehaviorToAllRows();
         calculateEditTotals();
     }
 
@@ -114,7 +243,7 @@ document.addEventListener("DOMContentLoaded", function () {
         addRowBtn.addEventListener('click', function () {
             var newRow = document.createElement('tr');
             var optionsHtml = allAccountsSelect ? allAccountsSelect.innerHTML : '';
-            var selectHtml = '<select class="form-select" name="edit_account_name" required>' + optionsHtml + '</select>';
+            var selectHtml = '<select class="form-select edit_account_name" name="edit_account_name" required>' + optionsHtml + '</select>';
 
             newRow.innerHTML = `
                 <td>${selectHtml}</td>
@@ -125,9 +254,12 @@ document.addEventListener("DOMContentLoaded", function () {
             `;
             journalEntryBody.appendChild(newRow);
 
-            // set initial restrictions for the default selected option
-            var sel = newRow.querySelector('select[name="edit_account_name"]');
-            if (sel) updateEditAccountTypeAndRestrict(sel);
+            // apply behaviors to the new row
+            window.applyEditRowBehavior(newRow);
+
+            // trigger change so display updates based on the selected option (if any)
+            var sel = newRow.querySelector('select[name="edit_account_name"], select.edit_account_name');
+            if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
         });
     }
 
@@ -158,10 +290,10 @@ document.addEventListener("DOMContentLoaded", function () {
             // OR if you want a hidden field:
             var hid = form.querySelector('input[name="header_id"]');
             if (!hid) {
-            hid = document.createElement('input');
-            hid.type = 'hidden';
-            hid.name = 'header_id';
-            form.appendChild(hid);
+                hid = document.createElement('input');
+                hid.type = 'hidden';
+                hid.name = 'header_id';
+                form.appendChild(hid);
             }
             hid.value = headerId;
         }
@@ -202,7 +334,6 @@ document.addEventListener("DOMContentLoaded", function () {
             tbody.append(rowHtml);
 
             // set select value by accountId or accountName, then trigger change to apply restrictions
-            // set select value by accountId or accountName, then trigger change to apply restrictions
             var $lastSelect = tbody.find('tr:last select');
             if (accountId) {
                 $lastSelect.val(accountId);
@@ -216,9 +347,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
             }
 
-            // Ensure restrictions run for vanilla listeners:
-            // 1) dispatch a native change event (bubbles)
-            // 2) call the restriction function directly as a fallback
+            // Ensure restrictions and behaviors run for vanilla listeners:
             var domSelect = $lastSelect[0];
             if (domSelect) {
                 domSelect.dispatchEvent(new Event('change', { bubbles: true }));
@@ -228,6 +357,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
         });
+
+        // After prefill: attach behaviors to all rows (mutual exclusivity + numeric restrictions)
+        if (typeof window.applyEditBehaviorToAllRows === 'function') {
+            window.applyEditBehaviorToAllRows();
+        } else {
+            // fallback: calculate totals
+            calculateEditTotals();
+        }
 
         calculateEditTotals();
         $('#EDITstaticBackdrop').modal('show');
@@ -249,6 +386,31 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("Total Debit and Credit must be equal before saving!");
                 return;
             }
+
+            // optional: enforce last row credit as in insert if desired
+            var rows = journalEntryBody ? journalEntryBody.querySelectorAll('tr') : [];
+            if (rows.length) {
+                var lastRow = rows[rows.length - 1];
+                if (lastRow) {
+                    var lastCreditInput = lastRow.querySelector('input[name="edit_credit"]');
+                    var lastDebitInput = lastRow.querySelector('input[name="edit_debit"]');
+                    var lastCredit = lastCreditInput ? parseFloat(lastCreditInput.value) || 0 : 0;
+                    var lastDebit = lastDebitInput ? parseFloat(lastDebitInput.value) || 0 : 0;
+                    if (lastCredit <= 0) {
+                        e.preventDefault();
+                        alert("The last journal line must be a credit amount.");
+                        if (lastCreditInput) lastCreditInput.focus();
+                        return;
+                    }
+                    if (lastDebit > 0) {
+                        e.preventDefault();
+                        alert("The last journal line must only contain a credit. Clear the debit on the last row.");
+                        if (lastDebitInput) lastDebitInput.focus();
+                        return;
+                    }
+                }
+            }
+
             alert("Journal Entry Updated");
         });
     }

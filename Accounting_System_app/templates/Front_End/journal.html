@@ -138,11 +138,9 @@
                                 <!-- Hidden select for debit-only accounts (Assets & Expenses) -->
                                 <select id="edit-debit-accounts" hidden>
                                     {% for account in accounts %}
-                                        {% if account.account_type == "Assets" or account.account_type == "Expenses" %}
                                             <option value="{{ account.id }}" data-type="{{ account.account_type }}">
                                                 {{ account.account_name }}
                                             </option>
-                                        {% endif %}
                                     {% endfor %}
                                 </select>
                                 &nbsp;
@@ -308,9 +306,7 @@
                                 <td>
                                     <select id="edit_selected-account_name" name="edit_account_name" required>
                                         {% for account in accounts %}
-                                            {% if account.account_type == "Assets" or account.account_type == "Expenses" %}
                                                 <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}">{{ account.account_name }}</option>
-                                            {% endif %}
                                                 {% empty %}
                                                 <option value="" disabled>No Accounts Created</option>
                                         {% endfor %}

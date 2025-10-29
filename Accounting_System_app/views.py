@@ -96,6 +96,7 @@ def chart_of_accounts(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
 
     results = ChartOfAccounts.objects.all()
+    results = ChartOfAccounts.objects.order_by('-date_created', '-id')
     return render(request, "Front_End/accounts.html", {
         "accounts" : results
     })
