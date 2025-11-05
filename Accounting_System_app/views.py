@@ -144,7 +144,7 @@ def delete_account(request, id):
         account = ChartOfAccounts.objects.get(pk=id)
         account.delete()
     except RestrictedError:
-        messages.error(request, "Cannot delete this account because it is linked to journal entries.")
+        messages.error(request, "Cannot delete this account because it is linked to existing journal entries.")
     except ChartOfAccounts.DoesNotExist:
         messages.error(request, "Account not found")
     return redirect("AccountingSystem:accounts")
