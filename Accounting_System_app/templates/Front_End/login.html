@@ -14,42 +14,46 @@
     <title>Login Page</title>
 </head>
 <body class="loginPage">
+    <div class="login-wrap">
+        <div class="login-card">
+            <h2 style="text-align: center;">Teacher Login</h2>
 
-    <div class="card shadow p-4" style="width: 22rem; border-radius: 1rem;">
-        <h4 class="text-center mb-4">ACLC Accounting System</h4>
-        <form action="{% url 'AccountingSystem:login' %}" method="POST">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="username" class="form-label">USN</label>
-                <input type="text" class="form-control" id="username" name="usn" placeholder="Enter USN" required>
-            </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <div class="password-container">
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Enter password" required>
-                    <button type="button" class="btn btn-secondary-light" id="togglePassword">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-danger w-100">Login</button>
-        </form>
-        <br>
-
-            {% if messages %}
-                <div>
-                    {% for message in messages %}
-                    <div class="alert 
-                        {% if message.tags == 'error' %}alert-danger
-                        {% elif message.tags == 'success' %}alert-success
-                        {% else %}alert-info{% endif %}">
-                        {{ message }}
+            <div class="card shadow p-4" style="width: 22rem; border-radius: 1rem;">
+                <h4 class="text-center mb-4">ACLC Accounting System</h4>
+                <form action="{% url 'AccountingSystem:login' %}" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">USN</label>
+                        <input type="text" class="form-control" id="username" name="usn" placeholder="Enter USN" required>
                     </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <div class="password-container">
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Enter password" required>
+                            <button type="button" class="btn btn-secondary-light" id="togglePassword">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">Login</button>
+                </form>
+                <br>
 
+                    {% if messages %}
+                        <div>
+                            {% for message in messages %}
+                            <div class="alert 
+                                {% if message.tags == 'error' %}alert-danger
+                                {% elif message.tags == 'success' %}alert-success
+                                {% else %}alert-info{% endif %}">
+                                {{ message }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+            </div>
+        </div>
+    </div>
 
     <script>
         const togglePassword = document.querySelector("#togglePassword");

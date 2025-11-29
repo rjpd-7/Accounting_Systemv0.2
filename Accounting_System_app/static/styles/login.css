@@ -17,6 +17,23 @@ body{
     margin-bottom: 120px;
 }
 
+.login-wrap {
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+}
+
+.login-card {
+    width:100%;
+    max-width:420px;
+    background:#fff;
+    padding:28px;
+    border-radius:8px;
+    box-shadow:0 6px 18px rgba(0,0,0,.08);
+}
+
 .login_container {
     background-color: #fef9f9;
     padding: 30px 40px;            /* internal spacing */
