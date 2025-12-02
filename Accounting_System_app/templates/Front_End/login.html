@@ -16,15 +16,13 @@
 <body class="loginPage">
     <div class="login-wrap">
         <div class="login-card">
-            <h2 style="text-align: center;">Teacher Login</h2>
-
             <div class="card shadow p-4" style="width: 22rem; border-radius: 1rem;">
                 <h4 class="text-center mb-4">ACLC Accounting System</h4>
                 <form action="{% url 'AccountingSystem:login' %}" method="POST">
                     {% csrf_token %}
                     <div class="mb-3">
-                        <label for="username" class="form-label">USN</label>
-                        <input type="text" class="form-control" id="username" name="usn" placeholder="Enter USN" required>
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="usn" placeholder="Enter username" required>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
