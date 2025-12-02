@@ -39,54 +39,6 @@ def index(request):
     }
     return render(request, "Front_End/index.html", context)
 
-# Admin Home Page
-def admin_dashboard(request):
-    if not request.user.is_authenticated:
-        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
-    
-    total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
-    total_entries = JournalEntry.objects.count()
-
-    context = {
-        'total_accounts': total_accounts,
-        'total_journals': total_journals,
-        'total_entries': total_entries,
-    }
-    return render(request, "Front_End/admin_dashboard.html", context)
-
-# Teacher Home Page
-def teacher_dashboard(request):
-    if not request.user.is_authenticated:
-        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
-    
-    total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
-    total_entries = JournalEntry.objects.count()
-
-    context = {
-        'total_accounts': total_accounts,
-        'total_journals': total_journals,
-        'total_entries': total_entries,
-    }
-    return render(request, "Front_End/teacher_dashboard.html", context)
-
-# Student Home Page
-def student_dashboard(request):
-    if not request.user.is_authenticated:
-        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
-    
-    total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
-    total_entries = JournalEntry.objects.count()
-
-    context = {
-        'total_accounts': total_accounts,
-        'total_journals': total_journals,
-        'total_entries': total_entries,
-    }
-    return render(request, "Front_End/student_dashboard.html", context)
-
 # Login Page
 def login_view(request):
     MAX_ATTEMPTS = 3
@@ -144,6 +96,60 @@ def logout_view(request):
     logout(request)
     messages.success(request, "Logout Successful")
     return render(request, "Front_End/login.html")
+
+# Admin Home Page
+@role_required(['admin'])
+def admin_dashboard(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
+    total_accounts = ChartOfAccounts.objects.count()
+    total_journals = JournalHeader.objects.count()
+    total_entries = JournalEntry.objects.count()
+
+    context = {
+        'total_accounts': total_accounts,
+        'total_journals': total_journals,
+        'total_entries': total_entries,
+    }
+    return render(request, "Front_End/admin_dashboard.html", context)
+
+# Teacher Home Page
+@role_required(['teacher'])
+def teacher_dashboard(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
+    total_accounts = ChartOfAccounts.objects.count()
+    total_journals = JournalHeader.objects.count()
+    total_entries = JournalEntry.objects.count()
+
+    context = {
+        'total_accounts': total_accounts,
+        'total_journals': total_journals,
+        'total_entries': total_entries,
+    }
+    return render(request, "Front_End/teacher_dashboard.html", context)
+
+# Student Home Page
+@role_required(['student'])
+def student_dashboard(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
+    total_accounts = ChartOfAccounts.objects.count()
+    total_journals = JournalHeader.objects.count()
+    total_entries = JournalEntry.objects.count()
+
+    context = {
+        'total_accounts': total_accounts,
+        'total_journals': total_journals,
+        'total_entries': total_entries,
+    }
+    return render(request, "Front_End/student_dashboard.html", context)
+
+def forbidden(request):
+    return render(request, "Front_End/forbidden.html", status=403)
 
 # Chart Of Accounts Page
 def chart_of_accounts(request):
