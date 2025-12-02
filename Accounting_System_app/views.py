@@ -19,6 +19,7 @@ from django.core.cache import cache
 import json
 from datetime import datetime
 from decimal import Decimal
+from .decorators import role_required
 
 # Create your views here.
 
@@ -37,6 +38,54 @@ def index(request):
         'total_entries': total_entries,
     }
     return render(request, "Front_End/index.html", context)
+
+# Admin Home Page
+def admin_dashboard(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
+    total_accounts = ChartOfAccounts.objects.count()
+    total_journals = JournalHeader.objects.count()
+    total_entries = JournalEntry.objects.count()
+
+    context = {
+        'total_accounts': total_accounts,
+        'total_journals': total_journals,
+        'total_entries': total_entries,
+    }
+    return render(request, "Front_End/admin_dashboard.html", context)
+
+# Teacher Home Page
+def teacher_dashboard(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
+    total_accounts = ChartOfAccounts.objects.count()
+    total_journals = JournalHeader.objects.count()
+    total_entries = JournalEntry.objects.count()
+
+    context = {
+        'total_accounts': total_accounts,
+        'total_journals': total_journals,
+        'total_entries': total_entries,
+    }
+    return render(request, "Front_End/teacher_dashboard.html", context)
+
+# Student Home Page
+def student_dashboard(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
+    total_accounts = ChartOfAccounts.objects.count()
+    total_journals = JournalHeader.objects.count()
+    total_entries = JournalEntry.objects.count()
+
+    context = {
+        'total_accounts': total_accounts,
+        'total_journals': total_journals,
+        'total_entries': total_entries,
+    }
+    return render(request, "Front_End/student_dashboard.html", context)
 
 # Login Page
 def login_view(request):
@@ -65,7 +114,13 @@ def login_view(request):
             cache.delete(lockout_key)
             login(request, user)
             messages.success(request, "Login Successful")
-            return HttpResponseRedirect(reverse("AccountingSystem:index"))
+            role = getattr(user, "profile", None).role if getattr(user, "profile", None) else "student"
+            if role == "admin":
+                return redirect("AccountingSystem:admin_dashboard")
+            if role == "teacher":
+                return redirect("AccountingSystem:teacher_dashboard")
+            return redirect("AccountingSystem:student_dashboard")
+            #return HttpResponseRedirect(reverse("AccountingSystem:index"))
         else:
             # Failed login -> increment attempts
             attempts = cache.get(attempts_key, 0) + 1
