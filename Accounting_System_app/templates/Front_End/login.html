@@ -36,20 +36,20 @@
                     <button type="submit" class="btn btn-danger w-100">Login</button>
                 </form>
                 <br>
-
-                    {% if messages %}
-                        <div>
-                            {% for message in messages %}
-                            <div class="alert 
-                                {% if message.tags == 'error' %}alert-danger
-                                {% elif message.tags == 'success' %}alert-success
-                                {% else %}alert-info{% endif %}">
-                                {{ message }}
-                            </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
             </div>
+            <br>
+            {% if messages %}
+                <div>
+                    {% for message in messages %}
+                    <div class="alert 
+                        {% if message.tags == 'error' %}alert-danger
+                        {% elif message.tags == 'success' %}alert-success
+                            {% else %}alert-info{% endif %}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
     </div>
 
