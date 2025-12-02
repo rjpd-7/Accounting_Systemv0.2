@@ -42,19 +42,23 @@ def index(request):
 # Login Page
 def login_view(request):
     MAX_ATTEMPTS = 3
-    ATTEMPT_WINDOW = 15 * 60   # seconds: how long to keep attempt count (15 minutes)
-    LOCKOUT_TIME = 5 * 60      # seconds: lockout duration (5 minutes)
+    ATTEMPT_WINDOW = 15 * 60   # seconds
+    LOCKOUT_TIME = 5 * 60      # seconds
 
-    def get_cache_keys(username):
-        return (f"login_attempts:{username}", f"login_lockout:{username}")
+    def get_cache_keys(norm_username):
+        return (f"login_attempts:{norm_username}", f"login_lockout:{norm_username}")
 
     if request.method == "POST":
-        username = request.POST.get("usn", "").strip()
+        raw_username = request.POST.get("usn", "")
+        username = (raw_username or "").strip()
         password = request.POST.get("password", "")
 
-        attempts_key, lockout_key = get_cache_keys(username)
+        # use a normalized username for counting/lockout (case-insensitive + trimmed)
+        norm_username = username.lower()
 
-        # If locked out, inform user
+        attempts_key, lockout_key = get_cache_keys(norm_username)
+
+        # If locked out, inform user and stop before authenticate()
         if cache.get(lockout_key):
             messages.error(request, "Account locked due to multiple failed login attempts. Try again later.")
             return render(request, "Front_End/login.html")
@@ -65,21 +69,26 @@ def login_view(request):
             cache.delete(attempts_key)
             cache.delete(lockout_key)
             login(request, user)
+
+            # Ensure every user has a profile (defaults to student)
+            from .models import UserProfile
+            if not hasattr(user, "profile"):
+                UserProfile.objects.create(user=user, role='student')
+
+            messages.success(request, "Login Successful")
             role = getattr(user, "profile", None).role if getattr(user, "profile", None) else ('admin' if user.is_superuser else 'student')
             if role == "admin":
                 return redirect("AccountingSystem:admin_dashboard")
             if role == "teacher":
                 return redirect("AccountingSystem:teacher_dashboard")
             return redirect("AccountingSystem:student_dashboard")
-            #return HttpResponseRedirect(reverse("AccountingSystem:index"))
         else:
-            # Failed login -> increment attempts
+            # Failed login -> increment attempts (use normalized key)
             attempts = cache.get(attempts_key, 0) + 1
             cache.set(attempts_key, attempts, ATTEMPT_WINDOW)
 
             remaining = MAX_ATTEMPTS - attempts
             if remaining <= 0:
-                # Lock the account for LOCKOUT_TIME
                 cache.set(lockout_key, True, LOCKOUT_TIME)
                 cache.delete(attempts_key)
                 messages.error(request, f"Too many failed attempts. Account locked for {int(LOCKOUT_TIME/60)} minutes.")
