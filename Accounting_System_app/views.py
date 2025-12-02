@@ -65,8 +65,7 @@ def login_view(request):
             cache.delete(attempts_key)
             cache.delete(lockout_key)
             login(request, user)
-            messages.success(request, "Login Successful")
-            role = getattr(user, "profile", None).role if getattr(user, "profile", None) else "student"
+            role = getattr(user, "profile", None).role if getattr(user, "profile", None) else ('admin' if user.is_superuser else 'student')
             if role == "admin":
                 return redirect("AccountingSystem:admin_dashboard")
             if role == "teacher":
