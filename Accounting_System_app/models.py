@@ -16,15 +16,10 @@ class USN_Accounts(models.Model):
 
 # Account Groups Table
 class AccountGroups(models.Model):
-    type_choices = [
-        ("Debit", "Debit"),
-        ("Credit", "Credit"),
-    ]
     
     date_created = models.DateTimeField(auto_now_add=True)
     group_name = models.TextField(max_length=None, null=False)
     group_description = models.TextField(max_length=None)
-    group_type = models.TextField(max_length=None, choices=type_choices, null=False)
 
     class Meta:
         db_table = "account_groups"
@@ -34,6 +29,16 @@ class Accounts(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     account_name = models.TextField(max_length=None, null=False)
     account_descriptions = models.TextField(max_length=None)
+
+#Accounts Group Table
+
+class AccountGroupsTable(models.Model):
+    date_created = models.DateTimeField(auto_now_add=True)
+    group_name = models.TextField(max_length=None, null=False)
+    group_description = models.TextField(max_length=None)
+
+    class Meta:
+        db_table = "account_groups_table"
 
 # Chart Of Accounts Table
 class ChartOfAccounts(models.Model):
@@ -50,6 +55,7 @@ class ChartOfAccounts(models.Model):
     account_name = models.CharField(max_length=255, null=False)
     account_type = models.CharField(max_length=255, null=False, choices=account_type_choices)
     account_description = models.TextField(max_length=None, null=True)
+    #group_name = models.ForeignKey(AccountGroups, on_delete=models.RESTRICT, null=True, blank=True)
 
     def __str__(self):
         return self.account_name, self.account_type

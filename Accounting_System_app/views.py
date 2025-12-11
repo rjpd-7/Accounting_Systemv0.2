@@ -176,6 +176,7 @@ def create_account(request):
     account_name_submit = request.POST['account_name']
     account_type_submit = request.POST['account_type']
     account_description_submit = request.POST['account_description']
+    account_group_id = request.POST.get('account_group', None)
 
      # Validate required fields
     if not account_name_submit:
