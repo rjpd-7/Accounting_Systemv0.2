@@ -55,7 +55,7 @@ class ChartOfAccounts(models.Model):
     account_name = models.CharField(max_length=255, null=False)
     account_type = models.CharField(max_length=255, null=False, choices=account_type_choices)
     account_description = models.TextField(max_length=None, null=True)
-    #group_name = models.ForeignKey(AccountGroups, on_delete=models.RESTRICT, null=True, blank=True)
+    group_name = models.ForeignKey(AccountGroups, on_delete=models.RESTRICT, null=True, blank=True)
 
     def __str__(self):
         return self.account_name, self.account_type
