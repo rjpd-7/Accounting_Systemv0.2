@@ -174,7 +174,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form action="" method="post" id="groupForm">
+                    <form action="{% url 'AccountingSystem:create_group' %}" method="post" id="groupForm">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="group_name" class="form-label">Group Name</label>
@@ -215,6 +215,7 @@
                                 <th>Account Code</th>
                                 <th>Account Name</th>
                                 <th>Account Type</th>
+                                <th>Account Group</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -228,6 +229,15 @@
                                         <option value="Equity">Equity</option>
                                         <option value="Revenue">Revenue</option>
                                         <option value="Expenses">Expenses</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="account_group" id="account_group" required>
+                                        {% for account_group in account_groups %}
+                                        <option value="{{ account_group.id }}" data-type="{{ account_group.group_name }}">
+                                            {{ account_group.group_name }}
+                                        </option>
+                                        {% endfor %}
                                     </select>
                                 </td>
                             </tr>

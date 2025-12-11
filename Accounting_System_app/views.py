@@ -164,11 +164,34 @@ def chart_of_accounts(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
 
+    account_groups = AccountGroups.objects.all()
     results = ChartOfAccounts.objects.all()
     results = ChartOfAccounts.objects.order_by('-date_created', '-id')
     return render(request, "Front_End/accounts.html", {
+        "account_groups": account_groups,
         "accounts" : results
     })
+
+# Create Account Group Function to Backend
+def create_group(request):
+    if request.method == "POST":
+        group_name = request.POST.get('group_name', '').strip()
+        group_description = request.POST.get('group_description', '').strip()
+
+        if not group_name:
+            messages.error(request, "Group name is required.")
+            return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
+
+        if AccountGroups.objects.filter(group_name__iexact=group_name).exists():
+            messages.error(request, f'Group "{group_name}" already exists.')
+            return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
+
+        AccountGroups.objects.create(
+            group_name=group_name,
+            group_description=group_description
+        )
+        messages.success(request, "Account group created successfully.")
+        return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
 # Create Account Function to Backend
 def create_account(request):
