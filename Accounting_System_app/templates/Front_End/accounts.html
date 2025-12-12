@@ -127,6 +127,7 @@
                 <thead>
                     <tr>
                         <th>Date Created</th>
+                        <th>Account Group</th>
                         <th>Account Code</th>
                         <th>Account Name</th>
                         <th>Account Type</th>
@@ -138,6 +139,7 @@
                     {% for account in accounts %}
                     <tr data-group-id="{% if account.group_name %}{{ account.group_name.id }}{% else %}null{% endif %}">
                         <td>{{ account.date_created }}</td>
+                        <td>{{ account.group_name.group_name }}</td>
                         <td>{{ account.account_code }}</td>
                         <td>{{ account.account_name }}</td>
                         <td>{{ account.account_type }}</td>
@@ -389,7 +391,7 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-    <script src="{% static 'scripts/account_group_filter.js' %}"></script>
+    <script src="{% static 'scripts/COA_account_group_filter.js' %}"></script>
     <script src="{% static 'scripts/create_account.js' %}"></script>
     <script src="{% static 'scripts/update_account.js' %}"></script>
     <script src="{% static 'scripts/delete_account.js' %}"></script>
