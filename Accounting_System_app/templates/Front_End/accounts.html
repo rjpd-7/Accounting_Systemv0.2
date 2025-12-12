@@ -110,10 +110,14 @@
         <br>
         <br>
 
-        <!-- Account Group Buttons -->
-        <button class="btn btn-dark">Manufacturing Accounts</button>
-        <button class="btn btn-dark">Merchandise Accounts</button>
-        <button class="btn btn-dark">Service Accounts</button>
+        <!-- Account Group Filter Dropdown -->
+        <label for="accountGroupFilter" class="form-label"><strong>Filter by Group:</strong></label>
+        <select id="accountGroupFilter" class="form-select" style="max-width: 300px;">
+            <option value="">All Groups</option>
+            {% for group in account_groups %}
+            <option value="{{ group.id }}">{{ group.group_name }}</option>
+            {% endfor %}
+        </select>
 
         <br>
         <br>
@@ -130,9 +134,9 @@
                         <th>Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="accountsTableBody">
                     {% for account in accounts %}
-                    <tr>
+                    <tr data-group-id="{% if account.group_name %}{{ account.group_name.id }}{% else %}null{% endif %}">
                         <td>{{ account.date_created }}</td>
                         <td>{{ account.account_code }}</td>
                         <td>{{ account.account_name }}</td>
