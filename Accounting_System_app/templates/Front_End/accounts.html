@@ -21,17 +21,43 @@
                         <span class="icon">
                             <i class="bi bi-list"></i>
                         </span>
-                        <span class="description">Menu</span>
+                        {% if request.user.profile.role == 'admin' %}
+                            <span class="description">Admin</span>
+                        {% elif request.user.profile.role == 'teacher' %}
+                            <span class="description">Teacher</span>
+                        {% elif request.user.profile.role == 'student' %}
+                            <span class="description">Student</span>
+                        {% endif %}
                     </a>
                 </li>
+                {% if request.user.profile.role == 'admin' %}
                 <li>
-                    <a class="nav-link" href="{% url 'AccountingSystem:index' %}" >
+                    <a class="nav-link" href="{% url 'AccountingSystem:admin_dashboard' %}">
                         <span class="icon">
                             <i class="bi bi-house"></i>
                         </span>
                         <span class="description">Home</span>
                     </a>
                 </li>
+                {% elif request.user.profile.role == 'teacher' %}
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:teacher_dashboard' %}">
+                        <span class="icon">
+                            <i class="bi bi-house"></i>
+                        </span>
+                        <span class="description">Home</span>
+                    </a>
+                </li>
+                {% elif request.user.profile.role == 'student' %}
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:student_dashboard' %}">
+                        <span class="icon">
+                            <i class="bi bi-house"></i>
+                        </span>
+                        <span class="description">Home</span>
+                    </a>
+                </li>
+                {% endif %}
                 <li>
                     <a class="nav-link active" href="{% url 'AccountingSystem:accounts' %}">
                         <span class="icon">

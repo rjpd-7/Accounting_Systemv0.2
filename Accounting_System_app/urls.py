@@ -15,6 +15,7 @@ urlpatterns = [
      path('dashboard/student/', views.student_dashboard, name='student_dashboard'),
      path('forbidden/', views.forbidden, name='forbidden'),
      path("accounts/", views.chart_of_accounts, name="accounts"),
+     path("accounts_students/", views.chart_of_accounts_students, name="accounts_students"),
      path("journals/", views.journals, name="journals"),
      path("ledgers/", views.general_ledger, name="ledgers"),
      path("balance/", views.trial_balance, name="balance"),

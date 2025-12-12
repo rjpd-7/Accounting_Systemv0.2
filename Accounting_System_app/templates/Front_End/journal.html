@@ -21,17 +21,54 @@
                         <span class="icon">
                             <i class="bi bi-list"></i>
                         </span>
-                        <span class="description">Menu</span>
+                        {% if request.user.profile.role == 'admin' %}
+                            <span class="description">Admin</span>
+                        {% elif request.user.profile.role == 'teacher' %}
+                            <span class="description">Teacher</span>
+                        {% elif request.user.profile.role == 'student' %}
+                            <span class="description">Student</span>
+                        {% endif %}
                     </a>
                 </li>
+                {% if request.user.profile.role == 'admin' %}
                 <li>
-                    <a class="nav-link" href="{% url 'AccountingSystem:index' %}" >
+                    <a class="nav-link" href="{% url 'AccountingSystem:admin_dashboard' %}">
                         <span class="icon">
                             <i class="bi bi-house"></i>
                         </span>
                         <span class="description">Home</span>
                     </a>
                 </li>
+                {% elif request.user.profile.role == 'teacher' %}
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:teacher_dashboard' %}">
+                        <span class="icon">
+                            <i class="bi bi-house"></i>
+                        </span>
+                        <span class="description">Home</span>
+                    </a>
+                </li>
+                {% elif request.user.profile.role == 'student' %}
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:student_dashboard' %}">
+                        <span class="icon">
+                            <i class="bi bi-house"></i>
+                        </span>
+                        <span class="description">Home</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if request.user.profile.role == 'student' %}
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:accounts_students' %}">
+                        <span class="icon">
+                            <i class="bi bi-file-earmark-spreadsheet"></i>
+                        </span>
+                        <span class="description">Accounts</span>
+                    </a>
+                </li>
+                {% else %}
                 <li>
                     <a class="nav-link" href="{% url 'AccountingSystem:accounts' %}">
                         <span class="icon">
@@ -40,6 +77,7 @@
                         <span class="description">Accounts</span>
                     </a>
                 </li>
+                {% endif %}
                 <li>
                     <a class="nav-link active" href="{% url 'AccountingSystem:journals' %}">
                         <span class="icon">
@@ -220,13 +258,13 @@
                     <br>
                     <!-- Journal Entry Table -->
                     <table class="table table-bordered border-dark" id="journal-entry-table">
-                        <thead>
+                        <thead class="table-primary text-center">
                             <tr>
-                                <th>Account Name</th>
-                                <th>Account Type</th>
-                                <th>Debit</th>
-                                <th>Credit</th>
-                                <th>Action</th>
+                                <th scope="col">Account Name</th>
+                                <th scope="col">Account Type</th>
+                                <th scope="col">Debit</th>
+                                <th scope="col">Credit</th>
+                                <th scope="col">Action</th>
                             </tr>
                         </thead>
                         <tbody id="journal-entry-body">
@@ -319,13 +357,13 @@
 
                     <!-- Journal Entry Table -->
                     <table class="table table-bordered border-dark" id="edit-journal-entry-table">
-                        <thead>
+                        <thead class="table-primary text-center">
                             <tr>
-                                <th>Account Name</th>
-                                <th>Account Type</th>
-                                <th>Debit</th>
-                                <th>Credit</th>
-                                <th>Action</th>
+                                <th scope="col">Account Name</th>
+                                <th scope="col">Account Type</th>
+                                <th scope="col">Debit</th>
+                                <th scope="col">Credit</th>
+                                <th scope="col">Action</th>
                             </tr>
                         </thead>
                         <tbody id="edit-journal-entry-body">
