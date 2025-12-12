@@ -442,6 +442,8 @@ def general_ledger(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
 
+    account_groups = AccountGroups.objects.all()
+
     # build a Q filter for JournalEntry -> JournalHeader.entry_date
     date_q = Q()
     try:
@@ -486,6 +488,7 @@ def general_ledger(request):
         'ending_balance': total_debit - total_credit,
         'start_date': start_str,
         'end_date': end_str,
+        'account_groups': account_groups,
     }
     return render(request, "Front_End/ledger.html", context)
 

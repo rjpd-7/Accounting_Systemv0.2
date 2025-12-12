@@ -131,6 +131,14 @@
         </div>
         <br>
 
+        <label for="ledgerGroupFilter">Filter by Group:</label>
+        <select id="ledgerGroupFilter" class="form-select" style="max-width:300px;">
+        <option value="">All Groups</option>
+        {% for group in account_groups %}
+        <option value="{{ group.id }}">{{ group.group_name }}</option>
+        {% endfor %}
+        </select>
+
         <!-- General Ledger Display Table -->
         <div class="display_table">
             <div class="container my-4">
@@ -148,7 +156,7 @@
                 </thead>
                 <tbody>
                     {% for entry in general_ledger %}
-                    <tr class="ledger-row" data-account-id="{{ entry.account.id }}">
+                    <tr class="ledger-row" data-account-id="{{ entry.account.id }}" data-group-id="{% if entry.account.group_name %}{{ entry.account.group_name.id }}{% else %}null{% endif %}">
                         <td>{{ entry.account.account_name }}</td>
                         <td>{{ entry.account.account_description }}</td>
                         <td class="text-end">{{ entry.debit|floatformat:2 }}</td>
@@ -282,6 +290,7 @@
         var ledgerTransactionsUrlTemplate = "{% url 'AccountingSystem:ledger_account_transactions' 0 %}";
     </script>
     <script src="{% static 'scripts/ledger.js' %}"></script>
+    <script src="{% static 'scripts/GL_account_group_filter.js' %}"></script>
     <script>
         var trialBalanceJsonUrl = "{% url 'AccountingSystem:trial_balance_json' %}";
     </script>
