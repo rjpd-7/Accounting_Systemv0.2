@@ -199,7 +199,7 @@ def create_account(request):
     account_name_submit = request.POST['account_name']
     account_type_submit = request.POST['account_type']
     account_description_submit = request.POST['account_description']
-    account_group_id = request.POST.get('account_group', None)
+    account_group_id = request.POST.get('account_group')  # may be '' when "All Groups" selected
 
      # Validate required fields
     if not account_name_submit:
@@ -212,12 +212,16 @@ def create_account(request):
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
 
+    # convert posted group id to FK id (use _id to assign directly) and handle empty selection
+    group_id = int(account_group_id) if account_group_id not in (None, '') else None
+
     account = ChartOfAccounts(
-        account_code = account_code_submit, 
-        account_name = account_name_submit, 
-        account_type = account_type_submit, 
-        account_description = account_description_submit
-        )
+        account_code = account_code_submit,
+        account_name = account_name_submit,
+        account_type = account_type_submit,
+        account_description = account_description_submit,
+        group_name_id = group_id,
+    )
     account.save()
 
     return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
