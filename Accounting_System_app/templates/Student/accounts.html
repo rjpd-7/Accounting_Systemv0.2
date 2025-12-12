@@ -1,0 +1,346 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'styles/accounts.css' %}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+    <title>Chart Of Accounts</title>
+</head>
+<body>
+    <!------ Sidebar ------>
+    <div class="sidebar">
+        <nav class="nav flex-column">
+            <ul>
+                <li>
+                    <a class="nav-link" id="menu" href="#">
+                        <span class="icon">
+                            <i class="bi bi-list"></i>
+                        </span>
+                        <span class="description">Menu</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:index' %}" >
+                        <span class="icon">
+                            <i class="bi bi-house"></i>
+                        </span>
+                        <span class="description">Home</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link active" href="{% url 'AccountingSystem:accounts' %}">
+                        <span class="icon">
+                            <i class="bi bi-file-earmark-spreadsheet"></i>
+                        </span>
+                        <span class="description">Accounts</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:journals' %}">
+                        <span class="icon">
+                            <i class="bi bi-journal-bookmark"></i>
+                        </span>
+                        <span class="description">Journal</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:ledgers' %}">
+                        <span class="icon">
+                            <i class="bi bi-card-list"></i>
+                        </span>
+                        <span class="description">Ledgers</span>
+                    </a>
+                </li>
+                <!--
+                <li>
+                    <a class="nav-link" href="{% url 'AccountingSystem:balance' %}">
+                        <span class="icon">
+                            <i class="bi bi-cash-stack"></i>
+                        </span>
+                        <span class="description">Balance</span>
+                    </a>
+                </li>
+                -->
+                <li>
+                    <a class="nav-link" id="outlog" href="{% url 'AccountingSystem:logout' %}">
+                        <span class="icon">
+                            <i class="bi bi-box-arrow-in-left"></i>
+                        </span>
+                        <span class="description">Log Out</span>
+                    </a>
+                </li>
+            </ul>        
+        </nav>
+    </div>
+    <!------ Sidebar End ------>
+
+    <!------ Main Page ------>
+    <main class="main-content">
+        <h2>Chart of Accounts</h2>
+        <br>
+        {% if messages %}
+        <div>
+            {% for message in messages %}
+            <div class="alert 
+                {% if message.tags == 'error' %}alert-danger
+                {% elif message.tags == 'success' %}alert-success
+                {% else %}alert-info{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <!-- Button trigger modal -->
+        <button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#staticBackdrop">
+        Create Account
+        </button>
+
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
+            <i class="bi bi-info-circle-fill"></i>
+        </button>
+        <br>
+        <br>
+
+        <!-- Account Group Buttons -->
+        <button class="btn btn-dark">Manufacturing Accounts</button>
+        <button class="btn btn-dark">Merchandise Accounts</button>
+        <button class="btn btn-dark">Service Accounts</button>
+
+        <br>
+        <br>
+
+        <!-- Display Table -->
+        <div class="display_table">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Date Created</th>
+                        <th>Account Code</th>
+                        <th>Account Name</th>
+                        <th>Account Type</th>
+                        <th>Account Description</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for account in accounts %}
+                    <tr>
+                        <td>{{ account.date_created }}</td>
+                        <td>{{ account.account_code }}</td>
+                        <td>{{ account.account_name }}</td>
+                        <td>{{ account.account_type }}</td>
+                        <td>{{ account.account_description }}</td>
+                        <td>
+                            <!-- Edit Button trigger modal -->
+                            <button type="button" class="btn btn-primary" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#EDITstaticBackdrop"  
+                                data-id="{{ account.id }}" 
+                                data-name="{{ account.account_name }}" 
+                                data-description="{{ account.account_description|default_if_none:'' }}">
+                                Edit
+                            </button>
+                            <form action="{% url 'AccountingSystem:delete_account' account.id%}" method="post" class="d-inline" onsubmit="return confirmDeleteAccount('{{ account.account_name }}');">
+                                {% csrf_token %}
+                                <button name="delete" class="btn btn-danger">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <p>No Accounts are created.</p>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    <!--Create Account Modal -->
+    <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        <div class="modal-header">
+            <h1 class="modal-title fs-5" id="staticBackdropLabel">Create Account</h1>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <div class="account-form">
+                <form action="{% url 'AccountingSystem:create_account' %}" method="post" id="account_form">
+                    {% csrf_token %}
+                    <!-- Create Account -->
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Account Code</th>
+                                <th>Account Name</th>
+                                <th>Account Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><input id="account_code" type="text" name="account_code" readonly required></td>
+                                <td><input id="account_name" type="text" name="account_name" required></td>
+                                <td>
+                                    <select name="account_type" id="account_type" required>
+                                        <option value="Assets">Assets</option>
+                                        <option value="Liabilities">Liabilities</option>
+                                        <option value="Equity">Equity</option>
+                                        <option value="Revenue">Revenue</option>
+                                        <option value="Expenses">Expenses</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <label for="account_description">Description:</label>
+                    <input id="account_description1" name="account_description" type="text">
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <input type="submit" class="btn btn-primary">
+                    </div>
+                </form>
+            </div>
+        </div>
+        </div>
+    </div>
+    </div>
+    <!-- End Modal -->
+
+    <!--EDIT Account Modal -->
+    <div class="modal fade" id="EDITstaticBackdrop" tabindex="-1" aria-labelledby="EDITstaticBackdropLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            <form method="POST" id="updateAccountForm">
+                {% csrf_token %}
+                <div class="modal-header">
+                <h5 class="modal-title" id="EDITstaticBackdropLabel">Update Account Name and Account Description</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                <input type="hidden" name="account_id" id="update_account_id">
+                <div class="mb-3">
+                    <label for="update_account_name" class="form-label">Account Name</label>
+                    <input type="text" class="form-control" id="update_account_name" name="account_name" required> <br>
+                    <label for="update_account_description" class="form-label">Account Description</label>
+                    <input type="text" class="form-control" id="update_account_description" name="account_description">
+                </div>
+                </div>
+                <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Update</button>
+                </div>
+            </form>
+            </div>
+        </div>
+    </div>
+    <!-- End EDIT Modal -->
+
+
+    <!--Information Modal -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="exampleModalLabel">Chart of Accounts Basic Information</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p style="text-align: justify;">
+                    <strong>Chart of accounts : </strong> A chart of accounts (COA) is an index of all of the financial accounts in a company's general ledger. In short, it is an organizational tool that lists by category and line item all of the financial transactions that a company conducted during a specific accounting period.
+                </p>
+                <br>
+                <p>
+                    <strong>Different Account Types : </strong> Assets, Liabilities, Equity, Revenue, Expenses.
+                </p>
+                <p>
+                    <strong>Common Accounts for each Account Type: </strong>
+                </p>
+                <table class="table table-bordered border-dark">
+                    <thead>
+                        <th>Assets</th>
+                        <th>Liabilities</th>
+                        <th>Equity</th>
+                        <th>Revenue</th>
+                        <th>Expenses</th>
+                    </thead>
+                    <tbody>
+                        <td> <!-- Assets -->
+                            <ul>
+                                <li>Cash</li>
+                                <li>Savings Account</li>
+                                <li>Petty Cash Balance</li>
+                                <li>Accounts Receivable</li>
+                                <li>Undeposited Funds</li>
+                                <li>Inventory Assets</li>
+                                <li>Prepaid Insurance</li>
+                                <li>Vehicles</li>
+                                <li>Buildings</li>
+                            </ul>
+                        </td>
+                        <td> <!-- Liabilties -->
+                            <ul>
+                                <li>Company Credit Card</li>
+                                <li>Accrued Liabilities</li>
+                                <li>Accounts Payable</li>
+                                <li>Payroll Liabilities</li>
+                                <li>Notes Payable</li>
+                            </ul>
+                        </td>
+                        <td> <!-- Equity -->
+                            <ul>
+                                <li>Common Stock</li>
+                                <li>Preferred Stock</li>
+                                <li>Retained Earnings</li>
+                            </ul>
+                        </td>
+                        <td> <!-- Revenue -->
+                            <ul>
+                                <li>Sales Revenue</li>
+                                <li>Sales Return and Allowances</li>
+                                <li>Interest Income</li>
+                                <li>Rental Income</li>
+                                <li>Gain on Sale of Assets</li>
+                            </ul>
+                        </td>
+                        <td> <!-- Expenses -->
+                            <ul>
+                                <li>Cost of Goods</li>
+                                <li>Salaries and Wages</li>
+                                <li>Rent and Utilities</li>
+                                <li>Marketing and Advertising</li>
+                                <li>Insurance</li>
+                                <li>Depreciation</li>
+                                <li>Supplies</li>
+                                <li>Repairs and Maintenance</li>
+                            </ul>
+                        </td>
+                    </tbody>
+                </table>
+                <p>Learn more about Chart of Accounts:</p>
+                <p>Some information are from <a href="https://www.investopedia.com/terms/c/chart-accounts.asp" target="_blank">Investiopedia</a>.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+            </div>
+        </div>
+    </div>
+    <!--End of Information Modal -->
+
+    </main>
+    <!------ Main Page End ------>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script src="{% static 'scripts/create_account.js' %}"></script>
+    <script src="{% static 'scripts/update_account.js' %}"></script>
+    <script src="{% static 'scripts/delete_account.js' %}"></script>
+</body>
+</html>

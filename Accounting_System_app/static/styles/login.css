@@ -2,6 +2,11 @@ body{
     background-color: #FFF8F6;
     padding: 0;
     margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f5f5f5;
 }
 
 /* Login Page */
@@ -12,14 +17,38 @@ body{
     margin-bottom: 120px;
 }
 
+.login-wrap {
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+}
+
+.login-card {
+    width:100%;
+    max-width:420px;
+    background:#fff;
+    padding:28px;
+    border-radius:8px;
+    box-shadow:0 6px 18px rgba(0,0,0,.08);
+}
+
 .login_container {
-    margin: 50px;
-    margin-inline: auto;
     background-color: #fef9f9;
-    width: 332px;
-    height: 232px;
+    padding: 30px 40px;            /* internal spacing */
+    width: 100%;
+    max-width: 400px;              /* controls form width */
     border-radius: 20px;
     box-shadow: 1px 2px 12px gray;
+}
+
+.login_container form {
+    width: 100%;
+}
+
+.login_container .btn  {
+    width: 100%;               /* make button fill the form width */
 }
 
 #login_topbar {
@@ -69,4 +98,21 @@ body{
     width: 100px;
     font-family: Inter;
     cursor: pointer;
+}
+
+.password-container {
+    position: relative;
+}
+.password-container i {
+    position: absolute;
+    right: 10px;
+    top: 30%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    opacity: 100%;
+}
+
+.password-container button {
+    background-color: #FFF8F6;
+    border: #FFF8F6;
 }
