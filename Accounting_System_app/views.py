@@ -190,7 +190,7 @@ def create_group(request):
             group_name=group_name,
             group_description=group_description
         )
-        messages.success(request, "Account group created successfully.")
+        messages.success(request, "Account Group created successfully.")
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
 # Create Account Function to Backend
@@ -247,6 +247,7 @@ def journals(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
+    account_groups = AccountGroups.objects.all()
     accounts = ChartOfAccounts.objects.all()
     journal_entries = JournalEntry.objects.select_related('journal_header', 'account')
     journal_groups = []
@@ -270,6 +271,7 @@ def journals(request):
 
     return render(request, 'Front_end/journal.html', {
         'journal_groups': journal_groups,
+        'account_groups': account_groups,
         "accounts" : accounts
         })
 
