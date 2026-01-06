@@ -108,6 +108,8 @@ document.addEventListener('DOMContentLoaded', function () {
             var start = document.getElementById('tb-start-date').value;
             var end = document.getElementById('tb-end-date').value;
             fetchTrialBalance(start, end);
+            // update download link
+            updateDownloadLink(start, end);
         });
     }
 
@@ -116,6 +118,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('tb-start-date').value = '';
             document.getElementById('tb-end-date').value = '';
             resultsContainer.innerHTML = '<div class="text-muted">No data. Choose a date range and click Generate.</div>';
+            updateDownloadLink('', '');
         });
     }
 
@@ -133,6 +136,24 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // optional: auto-generate using page-level filters if present when modal opens
+    function updateDownloadLink(start, end) {
+        var link = document.getElementById('tb-download-link');
+        if (!link) return;
+        var params = new URLSearchParams();
+        if (start) params.set('start_date', start);
+        if (end) params.set('end_date', end);
+        var pdfUrl = trialBalancePdfUrl + (params.toString() ? ('?' + params.toString()) : '');
+        link.href = pdfUrl;
+        // Enable button only if at least one date is set
+        if (start || end) {
+            link.classList.remove('disabled');
+            link.onclick = null;
+        } else {
+            link.classList.add('disabled');
+            link.onclick = function() { return false; };
+        }
+    }
+
     if (modalEl) {
         modalEl.addEventListener('show.bs.modal', function () {
             // optionally prefill from page filters if you use start_date/end_date on the page
@@ -140,6 +161,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var pageEnd = document.getElementById('end_date') ? document.getElementById('end_date').value : '';
             if (pageStart) document.getElementById('tb-start-date').value = pageStart;
             if (pageEnd) document.getElementById('tb-end-date').value = pageEnd;
+            updateDownloadLink(document.getElementById('tb-start-date').value, document.getElementById('tb-end-date').value);
         });
     }
 });

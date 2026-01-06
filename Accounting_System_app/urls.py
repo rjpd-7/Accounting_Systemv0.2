@@ -21,6 +21,7 @@ urlpatterns = [
      path("income-statement/", views.income_statement, name="income_statement"),
      path("balance-sheet/", views.balance_sheet, name="balance_sheet"),
      path("ledgers/download_pdf/", views.general_ledger_pdf, name="ledgers_pdf"),
+     path("trial-balance/pdf/", views.trial_balance_pdf, name="trial_balance_pdf"),
      path("balance/", views.trial_balance, name="balance"),
      path('create_group/', views.create_group, name='create_group'),
      path("create_account/", views.create_account, name="create_account"),

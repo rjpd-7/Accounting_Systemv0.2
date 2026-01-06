@@ -125,10 +125,10 @@
             <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#trialBalanceModal">
                 <i class="bi bi-journal-text"></i> Trial Balance
             </button>
-            <a href="{% url 'AccountingSystem:income_statement' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-outline-primary">
+            <a href="{% url 'AccountingSystem:income_statement' %}?start_date={{ start_date }}&end_date={{ end_date }}" target="_blank" class="btn btn-primary">
                 <i class="bi bi-file-earmark-text"></i> Income Statement
             </a>
-            <a href="{% url 'AccountingSystem:balance_sheet' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-outline-secondary">
+            <a href="{% url 'AccountingSystem:balance_sheet' %}?start_date={{ start_date }}&end_date={{ end_date }}" target="_blank" class="btn btn-secondary">
                 <i class="bi bi-columns"></i> Balance Sheet
             </a>
             <a href="{% url 'AccountingSystem:ledgers_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success">
@@ -256,6 +256,7 @@
                             </div>
                         </div>
                         <div class="modal-footer">
+                            <a id="tb-download-link" class="btn btn-success disabled" href="#" target="_blank" onclick="return false;">Download PDF</a>
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                         </div>
                     </form>
@@ -302,6 +303,7 @@
     <script src="{% static 'scripts/GL_account_group_filter.js' %}"></script>
     <script>
         var trialBalanceJsonUrl = "{% url 'AccountingSystem:trial_balance_json' %}";
+        var trialBalancePdfUrl = "{% url 'AccountingSystem:trial_balance_pdf' %}";
     </script>
     <script src="{% static 'scripts/trial_balance_modal.js' %}"></script>
 </body>
