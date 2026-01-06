@@ -125,6 +125,12 @@
             <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#trialBalanceModal">
                 <i class="bi bi-journal-text"></i> Trial Balance
             </button>
+            <a href="{% url 'AccountingSystem:income_statement' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-outline-primary">
+                <i class="bi bi-file-earmark-text"></i> Income Statement
+            </a>
+            <a href="{% url 'AccountingSystem:balance_sheet' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-outline-secondary">
+                <i class="bi bi-columns"></i> Balance Sheet
+            </a>
             <a href="{% url 'AccountingSystem:ledgers_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success">
                 <i class="bi bi-file-earmark-pdf"></i> Download as PDF
             </a>

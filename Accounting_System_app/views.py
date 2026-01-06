@@ -584,6 +584,161 @@ def trial_balance(request):
 
     return render(request, "Front_End/balance.html", context)
 
+
+# Income Statement
+def income_statement(request):
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    # Revenues: normally credit balances (credit - debit)
+    revenue_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    # Expenses: normally debit balances (debit - credit)
+    expense_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    revenues = []
+    total_revenues = 0.0
+    for acc in revenue_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        revenues.append({'account': acc, 'amount': amt})
+        total_revenues += amt
+
+    expenses = []
+    total_expenses = 0.0
+    for acc in expense_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        expenses.append({'account': acc, 'amount': amt})
+        total_expenses += amt
+
+    net_income = total_revenues - total_expenses
+
+    context = {
+        'revenues': revenues,
+        'expenses': expenses,
+        'total_revenues': total_revenues,
+        'total_expenses': total_expenses,
+        'net_income': net_income,
+        'start_date': start_str,
+        'end_date': end_str,
+    }
+
+    return render(request, 'Front_End/income_statement.html', context)
+
+
+# Balance Sheet
+def balance_sheet(request):
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    assets_qs = ChartOfAccounts.objects.filter(account_type='Assets').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    liabilities_qs = ChartOfAccounts.objects.filter(account_type='Liabilities').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    equity_qs = ChartOfAccounts.objects.filter(account_type='Equity').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    assets = []
+    total_assets = 0.0
+    for acc in assets_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        assets.append({'account': acc, 'amount': amt})
+        total_assets += amt
+
+    liabilities = []
+    total_liabilities = 0.0
+    for acc in liabilities_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        liabilities.append({'account': acc, 'amount': amt})
+        total_liabilities += amt
+
+    equity = []
+    total_equity = 0.0
+    for acc in equity_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        equity.append({'account': acc, 'amount': amt})
+        total_equity += amt
+
+    # include current period net income in equity as retained earnings
+    # compute revenues and expenses similarly
+    revenue_sum = 0.0
+    exp_sum = 0.0
+    rev_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+    for a in rev_qs:
+        revenue_sum += float((a.total_credit or 0) - (a.total_debit or 0))
+
+    exp_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+    for a in exp_qs:
+        exp_sum += float((a.total_debit or 0) - (a.total_credit or 0))
+
+    net_income = revenue_sum - exp_sum
+
+    total_equity_including_ri = total_equity + net_income
+
+    context = {
+        'assets': assets,
+        'liabilities': liabilities,
+        'equity': equity,
+        'total_assets': total_assets,
+        'total_liabilities': total_liabilities,
+        'total_equity': total_equity,
+        'net_income': net_income,
+        'total_equity_including_ri': total_equity_including_ri,
+        'start_date': start_str,
+        'end_date': end_str,
+    }
+
+    return render(request, 'Front_End/balance_sheet.html', context)
+
 # Individual Accounts Transaction Compilation
 def ledger_account_transactions(request, account_id):
     account = get_object_or_404(ChartOfAccounts, pk=account_id)
