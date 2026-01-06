@@ -29,4 +29,5 @@ urlpatterns = [
      path("delete_journal/<int:id>/", views.delete_journal, name="delete_journal"),
      path("ledger/account/<int:account_id>/transactions/", views.ledger_account_transactions, name="ledger_account_transactions"),
      path('trial-balance/json/', views.trial_balance_json, name='trial_balance_json'),
+     path('journal_pdf/<int:id>/', views.journal_pdf, name='journal_pdf'),
 ]

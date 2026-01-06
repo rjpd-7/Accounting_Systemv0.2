@@ -499,7 +499,7 @@ def general_ledger(request):
     }
     return render(request, "Front_End/ledger.html", context)
 
-
+# General Ledger PDF
 def general_ledger_pdf(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
@@ -686,3 +686,38 @@ def trial_balance_json(request):
         })
 
     return JsonResponse({'success': True, 'start_date': start_str, 'end_date': end_str, 'accounts': result})
+
+# Journal Entries PDF
+def journal_pdf(request, id):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    header = get_object_or_404(JournalHeader, pk=id)
+    entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
+
+    total_debit = sum((e.debit or 0) for e in entries)
+    total_credit = sum((e.credit or 0) for e in entries)
+
+    context = {
+        'header': header,
+        'entries': entries,
+        'total_debit': total_debit,
+        'total_credit': total_credit,
+        'ending_balance': total_debit - total_credit,
+    }
+
+    html = render_to_string('Front_End/journal_pdf.html', context)
+
+    if pisa is None:
+        return HttpResponse('PDF generation library not installed. Install xhtml2pdf.', status=500)
+
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    filename = f"journal_{header.entry_no or header.id}.pdf"
+    response = HttpResponse(result.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response

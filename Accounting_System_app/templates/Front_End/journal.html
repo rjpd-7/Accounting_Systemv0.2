@@ -143,6 +143,8 @@
                             <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
                             <th><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
                             <th colspan="2" class="text-end">
+                                <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
+                                &nbsp;
                                 <button type="button" class="btn btn-primary btn-sm" id="edit_button"
                                     data-bs-toggle="modal" 
                                     data-bs-target="#EDITstaticBackdrop"  
@@ -190,7 +192,7 @@
                                 &nbsp;
                                 <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
                                     {% csrf_token %}
-                                    <button name="delete" class="btn btn-danger">
+                                    <button name="delete" class="btn btn-danger btn-sm">
                                         Delete
                                     </button>
                                 </form>    
