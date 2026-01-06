@@ -20,6 +20,13 @@ import json
 from datetime import datetime
 from decimal import Decimal
 from .decorators import role_required
+import io
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+try:
+    from xhtml2pdf import pisa
+except Exception:
+    pisa = None
 
 # Create your views here.
 
@@ -491,6 +498,78 @@ def general_ledger(request):
         'account_groups': account_groups,
     }
     return render(request, "Front_End/ledger.html", context)
+
+
+def general_ledger_pdf(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    account_groups = AccountGroups.objects.all()
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    accounts_qs = ChartOfAccounts.objects.annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    ledger_rows = []
+    total_debit = 0
+    total_credit = 0
+
+    for acc in accounts_qs:
+        debit = float(acc.total_debit or 0)
+        credit = float(acc.total_credit or 0)
+        balance = debit - credit
+        ledger_rows.append({
+            'account': acc,
+            'debit': debit,
+            'credit': credit,
+            'balance': balance,
+        })
+        total_debit += debit
+        total_credit += credit
+
+    context = {
+        'general_ledger': ledger_rows,
+        'total_debit': total_debit,
+        'total_credit': total_credit,
+        'ending_balance': total_debit - total_credit,
+        'start_date': start_str,
+        'end_date': end_str,
+        'account_groups': account_groups,
+    }
+
+    html = render_to_string('Front_End/ledger_pdf.html', context)
+
+    if pisa is None:
+        return HttpResponse('PDF generation library not installed. Install xhtml2pdf.', status=500)
+
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    response = HttpResponse(result.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="general_ledger.pdf"'
+    return response
 
 # Trial Balance Function
 def trial_balance(request):

@@ -18,6 +18,7 @@ urlpatterns = [
      path("accounts_students/", views.chart_of_accounts_students, name="accounts_students"),
      path("journals/", views.journals, name="journals"),
      path("ledgers/", views.general_ledger, name="ledgers"),
+     path("ledgers/download_pdf/", views.general_ledger_pdf, name="ledgers_pdf"),
      path("balance/", views.trial_balance, name="balance"),
      path('create_group/', views.create_group, name='create_group'),
      path("create_account/", views.create_account, name="create_account"),
