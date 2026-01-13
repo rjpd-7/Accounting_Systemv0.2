@@ -169,24 +169,6 @@
                                         </tr>
                                     {% endfor %}
                                 </table>
-
-                                <!-- Hidden select for all accounts -->
-                                <select id="edit-all-accounts-select" hidden>
-                                    {% for account in accounts %}
-                                        <option value="{{ account.id }}" data-type="{{ account.account_type }}" data-group="{{ account.group_name_id }}">
-                                            {{ account.account_name }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-
-                                <!-- Hidden select for debit-only accounts (Assets & Expenses) -->
-                                <select id="edit-debit-accounts" hidden>
-                                    {% for account in accounts %}
-                                            <option value="{{ account.id }}" data-type="{{ account.account_type }}" data-group="{{ account.group_name_id }}">
-                                                {{ account.account_name }}
-                                            </option>
-                                    {% endfor %}
-                                </select>
                                 &nbsp;
                                 <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
                                     {% csrf_token %}
@@ -347,7 +329,7 @@
 
                     <!-- Account Group Filter (Edit) -->
                     <label for="edit_account_group_filter">Account Group:</label>
-                    <input id="edit_account_group_filter" type="text" class="form-control mb-2" readonly>
+                    <input id="edit_account_group_filter" type="text" class="form-control mb-2" placeholder="{{ account.group_name_id }}" readonly>
 
                     <!-- Journal Entry Table -->
                     <table class="table table-bordered border-dark" id="edit-journal-entry-table">
@@ -404,6 +386,11 @@
                     <br>
                     <br>
                     <select id="edit-all-accounts-select" name="edit_account_name" style="display:none;" required>
+                        {% for account in accounts %}
+                            <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}">{{ account.account_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="edit-debit-accounts" name="edit_account_name" style="display:none;" required>
                         {% for account in accounts %}
                             <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}">{{ account.account_name }}</option>
                         {% endfor %}

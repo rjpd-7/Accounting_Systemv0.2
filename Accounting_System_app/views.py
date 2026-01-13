@@ -23,6 +23,7 @@ from .decorators import role_required
 import io
 from django.template.loader import render_to_string
 from django.http import HttpResponse
+# pyright: ignore[reportMissingImports]
 try:
     from xhtml2pdf import pisa
 except Exception:
