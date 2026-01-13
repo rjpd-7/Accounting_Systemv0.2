@@ -114,6 +114,8 @@
                                     data-totaldebit="{{ group.total_debit }}"
                                     data-totalcredit="{{ group.total_credit }}"
                                     data-entrycount="{{ group.entries.count }}"
+                                    data-group="{{ group.header.group_name.id }}"
+                                    data-group-name="{{ group.header.group_name.group_name }}"
                                     >
                                     Edit
                                 </button>
@@ -135,7 +137,7 @@
                                 <!-- Hidden select for all accounts -->
                                 <select id="edit-all-accounts-select" hidden>
                                     {% for account in accounts %}
-                                        <option value="{{ account.id }}" data-type="{{ account.account_type }}">
+                                        <option value="{{ account.id }}" data-type="{{ account.account_type }}" data-group="{{ account.group_name_id }}">
                                             {{ account.account_name }}
                                         </option>
                                     {% endfor %}
@@ -144,7 +146,7 @@
                                 <!-- Hidden select for debit-only accounts (Assets & Expenses) -->
                                 <select id="edit-debit-accounts" hidden>
                                     {% for account in accounts %}
-                                            <option value="{{ account.id }}" data-type="{{ account.account_type }}">
+                                            <option value="{{ account.id }}" data-type="{{ account.account_type }}" data-group="{{ account.group_name_id }}">
                                                 {{ account.account_name }}
                                             </option>
                                     {% endfor %}
@@ -291,6 +293,19 @@
                 <form method="post" id="edit_journal_form">
                     {% csrf_token %}
 
+                    <!-- Account Group Display -->
+                    <label for="edit_account_group_display">Account Group:</label>
+                    <input type="text" id="edit_account_group_display" class="form-control" readonly> <br>
+
+                    <!-- Hidden filter field to store group_id -->
+                    <select id="edit_account_group_filter" name="edit_account_group_filter" style="display:none;" required>
+                        {% for group in account_groups %}
+                            <option value="{{ group.id }}">{{ group.group_name }}</option>
+                        {% empty %}
+                            <option value="" disabled>No Accounts Groups Created</option>
+                        {% endfor %}
+                    </select>
+
                     <!-- Entry Date -->
                     <label for="entry-date">Date:</label>
                     <input type="date" id="edit-entry-date" name="edit_entry-date" class="form-control" required> <br>
@@ -351,7 +366,7 @@
                     <br>
                     <select id="edit-all-accounts-select" name="edit_account_name" style="display:none;" required>
                         {% for account in accounts %}
-                            <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}">{{ account.account_name }}</option>
+                            <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}" data-group="{{ account.group_name_id }}">{{ account.account_name }}</option>
                         {% endfor %}
                     </select>
                     <div class="modal-footer">
