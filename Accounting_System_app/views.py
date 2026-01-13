@@ -305,6 +305,7 @@ def insert_journals(request):
     if request.method == "POST":
         journal_code = request.POST["journal_code"]
         date_submit = request.POST['entry-date']
+        account_group = request.POST["account_group"]
         account_ids = request.POST.getlist('account_name')
         debits = request.POST.getlist('debit')
         credits = request.POST.getlist('credit')
@@ -315,6 +316,7 @@ def insert_journals(request):
             entry_no = journal_code,
             entry_date = date_submit,
             journal_description = description,
+            group_name = AccountGroups.objects.get(pk=account_group),
         ) 
         header.save()
 

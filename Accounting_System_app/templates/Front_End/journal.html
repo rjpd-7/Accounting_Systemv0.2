@@ -230,7 +230,7 @@
 
                     <!-- Account Group Filter (Insert) -->
                     <label for="account_group_filter">Account Group:</label>
-                    <select id="account_group_filter" class="form-select mb-2" required>
+                    <select id="account_group_filter" name="account_group" class="form-select mb-2" required>
                         {% for group in account_groups %}
                             <option value="{{ group.id }}">{{ group.group_name }}</option>
                         {% empty %}
