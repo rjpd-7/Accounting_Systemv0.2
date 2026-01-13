@@ -19,9 +19,8 @@
 </head>
 <body>
     <h2>General Ledger</h2>
-    {% if start_date or end_date %}
-    <p class="text-center">{% if start_date %}From: {{ start_date }}{% endif %} {% if end_date %} - To: {{ end_date }}{% endif %}</p>
-    {% endif %}
+
+    <p class="text-center">Date and Time Downloaded: {{ date_now }}</p>
 
     {% for group_id, group_data in grouped_ledger.items %}
     <h3 style="margin-top: 20px; margin-bottom: 10px;">{{ group_data.group_name }}</h3>

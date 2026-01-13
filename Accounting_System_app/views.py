@@ -2,6 +2,8 @@ from django.http import HttpResponseRedirect, JsonResponse, Http404
 from django import forms
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.timezone import localtime, localdate
 from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
@@ -531,6 +533,10 @@ def general_ledger_pdf(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
 
+    current_date_time = localtime().date()
+    # Format date and time as a string for PDF (xhtml2pdf has limited template filter support)
+    formatted_date_time = current_date_time.strftime('%B %d, %Y at %I:%M %p')
+
     account_groups = AccountGroups.objects.all()
 
     start_date = end_date = None
@@ -599,6 +605,7 @@ def general_ledger_pdf(request):
         'start_date': start_str,
         'end_date': end_str,
         'account_groups': account_groups,
+        'date_now': formatted_date_time,
     }
 
     html = render_to_string('Front_End/ledger_pdf.html', context)
