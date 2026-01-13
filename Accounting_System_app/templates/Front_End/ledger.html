@@ -153,40 +153,59 @@
             <div class="container my-4">
             <h3 class="text-center mb-4"></h3>
 
-            <table class="table table-bordered table-striped table-hover align-middle shadow-sm">
-                <thead class="table-primary text-center">
-                    <tr>
-                        <th scope="col">Account Title</th>
-                        <th scope="col">Description</th>
-                        <th scope="col">Debit</th>
-                        <th scope="col">Credit</th>
-                        <th scope="col">Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for entry in general_ledger %}
-                    <tr class="ledger-row" data-account-id="{{ entry.account.id }}" data-group-id="{% if entry.account.group_name %}{{ entry.account.group_name.id }}{% else %}null{% endif %}">
-                        <td>{{ entry.account.account_name }}</td>
-                        <td>{{ entry.account.account_description }}</td>
-                        <td class="text-end">{{ entry.debit|floatformat:2 }}</td>
-                        <td class="text-end">{{ entry.credit|floatformat:2 }}</td>
-                        <td class="text-end">{{ entry.balance|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">No entries found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot class="table-light fw-bold">
-                    <tr>
-                        <td colspan="2" class="text-end">Total</td>
-                        <td class="text-end">{{ total_debit|floatformat:2 }}</td>
-                        <td class="text-end">{{ total_credit|floatformat:2 }}</td>
-                        <td class="text-end">{{ ending_balance|floatformat:2 }}</td>
-                    </tr>
-                </tfoot>
-            </table>
+            {% for group_id, group_data in grouped_ledger.items %}
+            <div class="mb-5">
+                <h4 class="bg-light p-3 rounded">{{ group_data.group_name }}</h4>
+                <table class="table table-bordered table-striped table-hover align-middle shadow-sm">
+                    <thead class="table-primary text-center">
+                        <tr>
+                            <th scope="col">Account Title</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Debit</th>
+                            <th scope="col">Credit</th>
+                            <th scope="col">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in group_data.entries %}
+                        <tr class="ledger-row" data-account-id="{{ entry.account.id }}" data-group-id="{% if entry.account.group_name %}{{ entry.account.group_name.id }}{% else %}null{% endif %}">
+                            <td>{{ entry.account.account_name }}</td>
+                            <td>{{ entry.account.account_description }}</td>
+                            <td class="text-end">{{ entry.debit|floatformat:2 }}</td>
+                            <td class="text-end">{{ entry.credit|floatformat:2 }}</td>
+                            <td class="text-end">{{ entry.balance|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td colspan="2" class="text-end">Group Total</td>
+                            <td class="text-end">{{ group_data.debit|floatformat:2 }}</td>
+                            <td class="text-end">{{ group_data.credit|floatformat:2 }}</td>
+                            <td class="text-end">{{ group_data.balance|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% empty %}
+            <div>
+                <p class="text-center text-muted">No entries found.</p>
+            </div>
+            {% endfor %}
+
+            <!-- Grand Total -->
+            <div class="mt-4">
+                <table class="table table-bordered table-dark">
+                    <tfoot class="fw-bold">
+                        <tr>
+                            <td colspan="2" class="text-end">Grand Total</td>
+                            <td class="text-end">{{ total_debit|floatformat:2 }}</td>
+                            <td class="text-end">{{ total_credit|floatformat:2 }}</td>
+                            <td class="text-end">{{ ending_balance|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
 
 
             <!-- Account Transactions Modal -->

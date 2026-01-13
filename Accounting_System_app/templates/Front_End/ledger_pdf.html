@@ -5,13 +5,16 @@
     <meta charset="utf-8">
     <title>General Ledger</title>
     <style>
-        body { font-family: DejaVu Sans, Arial, sans-serif; font-size:12px; }
-        table { width:100%; border-collapse: collapse; margin-top: 10px; }
+        body { font-family: DejaVu Sans, Arial, sans-serif; font-size:12px; margin: 20px; }
+        table { width:100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
         th, td { border:1px solid #333; padding:6px; }
         th { background:#eee; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         h2 { text-align: center; }
+        .group-header { background:#f0f0f0; font-weight: bold; }
+        .group-total { background:#f9f9f9; font-weight: bold; }
+        .grand-total { background:#e0e0e0; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -20,6 +23,8 @@
     <p class="text-center">{% if start_date %}From: {{ start_date }}{% endif %} {% if end_date %} - To: {{ end_date }}{% endif %}</p>
     {% endif %}
 
+    {% for group_id, group_data in grouped_ledger.items %}
+    <h3 style="margin-top: 20px; margin-bottom: 10px;">{{ group_data.group_name }}</h3>
     <table>
         <thead>
             <tr>
@@ -31,7 +36,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for entry in general_ledger %}
+            {% for entry in group_data.entries %}
             <tr>
                 <td>{{ entry.account.account_name }}</td>
                 <td>{{ entry.account.account_description }}</td>
@@ -42,11 +47,24 @@
             {% endfor %}
         </tbody>
         <tfoot>
-            <tr>
-                <td colspan="2" class="text-right"><strong>Total</strong></td>
-                <td class="text-right"><strong>{{ total_debit|floatformat:2 }}</strong></td>
-                <td class="text-right"><strong>{{ total_credit|floatformat:2 }}</strong></td>
-                <td class="text-right"><strong>{{ ending_balance|floatformat:2 }}</strong></td>
+            <tr class="group-total">
+                <td colspan="2" class="text-right">{{ group_data.group_name }} Total</td>
+                <td class="text-right">{{ group_data.debit|floatformat:2 }}</td>
+                <td class="text-right">{{ group_data.credit|floatformat:2 }}</td>
+                <td class="text-right">{{ group_data.balance|floatformat:2 }}</td>
+            </tr>
+        </tfoot>
+    </table>
+    {% endfor %}
+
+    <!-- Grand Total -->
+    <table style="margin-top: 30px;">
+        <tfoot>
+            <tr class="grand-total">
+                <td colspan="2" class="text-right">Grand Total</td>
+                <td class="text-right">{{ total_debit|floatformat:2 }}</td>
+                <td class="text-right">{{ total_credit|floatformat:2 }}</td>
+                <td class="text-right">{{ ending_balance|floatformat:2 }}</td>
             </tr>
         </tfoot>
     </table>

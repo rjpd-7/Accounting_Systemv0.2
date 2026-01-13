@@ -472,7 +472,7 @@ def general_ledger(request):
     accounts_summary = ChartOfAccounts.objects.annotate(
     total_debit=Coalesce(Sum('journalentry__debit'), Value(0), output_field=DecimalField()),
     total_credit=Coalesce(Sum('journalentry__credit'), Value(0), output_field=DecimalField()),
-).order_by('account_code')
+).order_by('group_name__id', 'account_code')
 
     ledger_rows = []
     total_debit = 0
@@ -491,8 +491,29 @@ def general_ledger(request):
         total_debit += debit
         total_credit += credit
 
+    # Group ledger rows by account group
+    grouped_ledger = {}
+    for row in ledger_rows:
+        group_id = row['account'].group_name_id if row['account'].group_name_id else None
+        group_name = row['account'].group_name.group_name if row['account'].group_name else 'Unassigned'
+        
+        if group_id not in grouped_ledger:
+            grouped_ledger[group_id] = {
+                'group_name': group_name,
+                'entries': [],
+                'debit': 0,
+                'credit': 0,
+                'balance': 0,
+            }
+        
+        grouped_ledger[group_id]['entries'].append(row)
+        grouped_ledger[group_id]['debit'] += row['debit']
+        grouped_ledger[group_id]['credit'] += row['credit']
+        grouped_ledger[group_id]['balance'] += row['balance']
+
     context = {
         'general_ledger': ledger_rows,
+        'grouped_ledger': grouped_ledger,
         'total_debit': total_debit,
         'total_credit': total_credit,
         'ending_balance': total_debit - total_credit,
@@ -530,7 +551,7 @@ def general_ledger_pdf(request):
     accounts_qs = ChartOfAccounts.objects.annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
-    ).order_by('account_code')
+    ).order_by('group_name__id', 'account_code')
 
     ledger_rows = []
     total_debit = 0
@@ -549,8 +570,29 @@ def general_ledger_pdf(request):
         total_debit += debit
         total_credit += credit
 
+    # Group ledger rows by account group
+    grouped_ledger = {}
+    for row in ledger_rows:
+        group_id = row['account'].group_name_id if row['account'].group_name_id else None
+        group_name = row['account'].group_name.group_name if row['account'].group_name else 'Unassigned'
+        
+        if group_id not in grouped_ledger:
+            grouped_ledger[group_id] = {
+                'group_name': group_name,
+                'entries': [],
+                'debit': 0,
+                'credit': 0,
+                'balance': 0,
+            }
+        
+        grouped_ledger[group_id]['entries'].append(row)
+        grouped_ledger[group_id]['debit'] += row['debit']
+        grouped_ledger[group_id]['credit'] += row['credit']
+        grouped_ledger[group_id]['balance'] += row['balance']
+
     context = {
         'general_ledger': ledger_rows,
+        'grouped_ledger': grouped_ledger,
         'total_debit': total_debit,
         'total_credit': total_credit,
         'ending_balance': total_debit - total_credit,
