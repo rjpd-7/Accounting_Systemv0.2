@@ -20,7 +20,7 @@
 <body>
     <h2>General Ledger</h2>
 
-    <p class="text-center">Date and Time Downloaded: {{ date_now }}</p>
+    <p class="text-center">Date and Time Downloaded: {% now "jS F Y H:i" %}</p>
 
     {% for group_id, group_data in grouped_ledger.items %}
     <h3 style="margin-top: 20px; margin-bottom: 10px;">{{ group_data.group_name }}</h3>
