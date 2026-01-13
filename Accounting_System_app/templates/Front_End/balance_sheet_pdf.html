@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size:12px; margin:20px; }
+    h2 { text-align:center; }
+    .header-info { text-align:center; font-size:11px; margin-bottom:20px; }
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { border:1px solid #333; padding:6px; text-align:left; }
+    th { background:#eee; }
+    .right { text-align:right; }
+    .section-header { background:#f0f0f0; font-weight:bold; }
+    .total-row { font-weight:bold; background:#f9f9f9; }
+    .final-total { font-weight:bold; background:#e0e0e0; }
+  </style>
+</head>
+<body>
+  <h2>Balance Sheet</h2>
+  <div class="header-info">
+    {% if start_date or end_date %}
+      As of {{ end_date or start_date }}
+    {% else %}
+      As of Date
+    {% endif %}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Account</th>
+        <th class="right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Assets Section -->
+      <tr class="section-header">
+        <td colspan="2">ASSETS</td>
+      </tr>
+      {% for asset in assets %}
+        <tr>
+          <td>{{ asset.account.account_name }}</td>
+          <td class="right">{{ asset.amount|floatformat:2 }}</td>
+        </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td>Total Assets</td>
+        <td class="right">{{ total_assets|floatformat:2 }}</td>
+      </tr>
+
+      <!-- Liabilities Section -->
+      <tr class="section-header">
+        <td colspan="2">LIABILITIES</td>
+      </tr>
+      {% for liability in liabilities %}
+        <tr>
+          <td>{{ liability.account.account_name }}</td>
+          <td class="right">{{ liability.amount|floatformat:2 }}</td>
+        </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td>Total Liabilities</td>
+        <td class="right">{{ total_liabilities|floatformat:2 }}</td>
+      </tr>
+
+      <!-- Equity Section -->
+      <tr class="section-header">
+        <td colspan="2">EQUITY</td>
+      </tr>
+      {% for eq in equity %}
+        <tr>
+          <td>{{ eq.account.account_name }}</td>
+          <td class="right">{{ eq.amount|floatformat:2 }}</td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <td>Retained Earnings (Current Period Net Income)</td>
+        <td class="right">{{ net_income|floatformat:2 }}</td>
+      </tr>
+      <tr class="total-row">
+        <td>Total Equity</td>
+        <td class="right">{{ total_equity_including_ri|floatformat:2 }}</td>
+      </tr>
+
+      <!-- Total Liabilities and Equity -->
+      <tr class="final-total">
+        <td>TOTAL LIABILITIES AND EQUITY</td>
+        <td class="right">{{ total_equity_including_ri|floatformat:2 }}</td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>
