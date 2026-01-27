@@ -35,4 +35,5 @@ urlpatterns = [
      path("ledger/account/<int:account_id>/transactions/", views.ledger_account_transactions, name="ledger_account_transactions"),
      path('trial-balance/json/', views.trial_balance_json, name='trial_balance_json'),
      path('journal_pdf/<int:id>/', views.journal_pdf, name='journal_pdf'),
+     path('create_user/', views.create_user, name='create_user'),
 ]

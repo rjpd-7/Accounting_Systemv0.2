@@ -269,6 +269,51 @@ def delete_account(request, id):
         messages.error(request, "Account not found")
     return redirect("AccountingSystem:accounts")
 
+# Create User Function
+def create_user(request):
+    if request.method == 'POST':
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        role = request.POST.get('role')
+
+        # Validate required fields
+        if not all([first_name, last_name, username, email, password, role]):
+            messages.error(request, "All fields are required.")
+            return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
+
+        # Check if username already exists
+        if User.objects.filter(username=username).exists():
+            messages.error(request, f'Username "{username}" already exists.')
+            return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
+
+        # Check if email already exists
+        if User.objects.filter(email=email).exists():
+            messages.error(request, f'Email "{email}" already exists.')
+            return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
+
+        # Create user
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name
+        )
+
+        # Update user profile with role (created by signal)
+        from .models import UserProfile
+        profile = user.profile
+        profile.role = role
+        profile.save()
+
+        messages.success(request, f'User "{username}" created successfully.')
+        return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
+
+    return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
+
 # Journal Entries Page
 def journals(request):
     if not request.user.is_authenticated:
