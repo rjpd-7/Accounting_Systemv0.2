@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.utils.timezone import localtime, localdate
 from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry
 from django.contrib.auth import authenticate, login, logout
-from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
+from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError, Q, Value, DecimalField
 from django.db.models.functions import Coalesce
@@ -272,90 +272,46 @@ def delete_account(request, id):
 # Create User Function for Admin
 def create_user(request):
     if request.method == 'POST':
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        username = request.POST.get('username')
-        email = request.POST.get('email')
-        password = request.POST.get('password')
-        role = request.POST.get('role')
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password'])
+            user.save()
 
-        # Validate required fields
-        if not all([first_name, last_name, username, email, password, role]):
-            messages.error(request, "All fields are required.")
+            # Update user profile with role (created by signal)
+            profile = user.profile
+            profile.role = form.cleaned_data['role']
+            profile.save()
+
+            messages.success(request, f'User "{user.username}" created successfully.')
             return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
-
-        # Check if username already exists
-        if User.objects.filter(username=username).exists():
-            messages.error(request, f'Username "{username}" already exists.')
+        else:
+            for error in form.errors.values():
+                messages.error(request, error)
             return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
-
-        # Check if email already exists
-        if User.objects.filter(email=email).exists():
-            messages.error(request, f'Email "{email}" already exists.')
-            return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
-
-        # Create user
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name
-        )
-
-        # Update user profile with role (created by signal)
-        from .models import UserProfile
-        profile = user.profile
-        profile.role = role
-        profile.save()
-
-        messages.success(request, f'User "{username}" created successfully.')
-        return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
 
     return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
 
 # Create User Function for Teachers
 def teacher_create_user(request):
     if request.method == 'POST':
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        username = request.POST.get('username')
-        email = request.POST.get('email')
-        password = request.POST.get('password')
-        role = request.POST.get('role')
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password'])
+            user.save()
 
-        # Validate required fields
-        if not all([first_name, last_name, username, email, password, role]):
-            messages.error(request, "All fields are required.")
+            # Update user profile with role (created by signal)
+            profile = user.profile
+            profile.role = form.cleaned_data['role']
+            profile.save()
+
+            messages.success(request, f'User "{user.username}" created successfully.')
             return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
-
-        # Check if username already exists
-        if User.objects.filter(username=username).exists():
-            messages.error(request, f'Username "{username}" already exists.')
+        else:
+            for error in form.errors.values():
+                messages.error(request, error)
             return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
-
-        # Check if email already exists
-        if User.objects.filter(email=email).exists():
-            messages.error(request, f'Email "{email}" already exists.')
-            return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
-
-        # Create user
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name
-        )
-
-        # Update user profile with role (created by signal)
-        from .models import UserProfile
-        profile = user.profile
-        profile.role = role
-        profile.save()
-
-        messages.success(request, f'User "{username}" created successfully.')
-        return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
 
     return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
 

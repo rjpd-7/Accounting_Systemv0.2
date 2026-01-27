@@ -6,11 +6,18 @@ document.addEventListener("DOMContentLoaded", function () {
         let username = document.getElementById("username").value;
         let email = document.getElementById("email").value;
         let password = document.getElementById("password").value;
+        let confirm_password = document.getElementById("confirm_password").value;
         let role = document.getElementById("role").value;
 
-        if (!first_name || !last_name || !username || !email || !password || !role) {
+        if (!first_name || !last_name || !username || !email || !password || !confirm_password || !role) {
             e.preventDefault();
             alert("Please complete all fields.");
+            return;
+        }
+
+        if (password !== confirm_password) {
+            e.preventDefault();
+            alert("Passwords do not match.");
             return;
         }
 

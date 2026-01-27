@@ -135,6 +135,7 @@
         <!-- Card Group End -->
 
         <!-- Create User Modal -->
+        <!-- Create User Modal -->
         <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -142,7 +143,7 @@
                         <h5 class="modal-title" id="createUserModalLabel">Create New User</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <form id="user_form" method="post" action="{% url 'AccountingSystem:create_user' %}">
+                    <form id="user_form" method="post" action="{% url 'AccountingSystem:teacher_create_user' %}">
                         {% csrf_token %}
                         <div class="modal-body">
                             <div class="mb-3">
@@ -164,6 +165,10 @@
                             <div class="mb-3">
                                 <label for="password" class="form-label">Password</label>
                                 <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
                             </div>
                             <div class="mb-3">
                                 <label for="role" class="form-label">Role</label>
