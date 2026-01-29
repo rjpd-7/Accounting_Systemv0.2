@@ -787,6 +787,16 @@ def income_statement(request):
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
+    # Identify Cost of Goods Sold accounts (by name keywords) and compute COGS separately
+    cogs_qs = ChartOfAccounts.objects.filter(account_type='Expenses').filter(
+        Q(account_name__icontains='cost of goods') | Q(account_name__icontains='cogs')
+    ).annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+
+    cogs_ids = [c.id for c in cogs_qs]
+
     revenues = []
     total_revenues = 0.0
     for acc in revenue_qs:
@@ -796,18 +806,32 @@ def income_statement(request):
 
     expenses = []
     total_expenses = 0.0
-    for acc in expense_qs:
+    # exclude COGS accounts from the general expenses list to show them separately
+    for acc in expense_qs.exclude(id__in=cogs_ids):
         amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
         expenses.append({'account': acc, 'amount': amt})
         total_expenses += amt
 
-    net_income = total_revenues - total_expenses
+    # compute total COGS
+    total_cogs = 0.0
+    cogs = []
+    for acc in cogs_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        cogs.append({'account': acc, 'amount': amt})
+        total_cogs += amt
+
+    # Gross profit (revenues less COGS) and net income (revenues less expenses and COGS)
+    gross_profit = total_revenues - total_cogs
+    net_income = total_revenues - (total_expenses + total_cogs)
 
     context = {
         'revenues': revenues,
         'expenses': expenses,
         'total_revenues': total_revenues,
         'total_expenses': total_expenses,
+        'cogs': cogs,
+        'total_cogs': total_cogs,
+        'gross_profit': gross_profit,
         'net_income': net_income,
         'start_date': start_str,
         'end_date': end_str,
@@ -1097,13 +1121,41 @@ def income_statement_pdf(request):
         expenses.append({'account': acc, 'amount': amt})
         total_expenses += amt
 
-    net_income = total_revenues - total_expenses
+    # Identify and compute COGS separately (exclude from expenses list)
+    cogs_qs = ChartOfAccounts.objects.filter(account_type='Expenses').filter(
+        Q(account_name__icontains='cost of goods') | Q(account_name__icontains='cogs')
+    ).annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+    cogs_ids = [c.id for c in cogs_qs]
+
+    # rebuild expenses excluding COGS
+    expenses = []
+    total_expenses = 0.0
+    for acc in expense_qs.exclude(id__in=cogs_ids):
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        expenses.append({'account': acc, 'amount': amt})
+        total_expenses += amt
+
+    cogs = []
+    total_cogs = 0.0
+    for acc in cogs_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        cogs.append({'account': acc, 'amount': amt})
+        total_cogs += amt
+
+    gross_profit = total_revenues - total_cogs
+    net_income = total_revenues - (total_expenses + total_cogs)
 
     context = {
         'revenues': revenues,
         'expenses': expenses,
         'total_revenues': total_revenues,
         'total_expenses': total_expenses,
+        'cogs': cogs,
+        'total_cogs': total_cogs,
+        'gross_profit': gross_profit,
         'net_income': net_income,
         'start_date': start_str or '',
         'end_date': end_str or '',

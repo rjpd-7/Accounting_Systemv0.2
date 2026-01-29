@@ -79,6 +79,25 @@
         </div>
 
         <div class="mt-3">
+            {% if cogs %}
+            <h5>Cost of Goods Sold</h5>
+            <table class="table table-sm w-50">
+                <thead><tr><th>Account</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                    {% for g in cogs %}
+                    <tr>
+                        <td>{{ g.account.account_name }}</td>
+                        <td class="text-end">{{ g.amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold"><td>Total COGS</td><td class="text-end">{{ total_cogs|floatformat:2 }}</td></tr>
+                </tfoot>
+            </table>
+            <h5>Gross Profit: <span class="fw-bold">{{ gross_profit|floatformat:2 }}</span></h5>
+            {% endif %}
+
             <h4>Net Income: <span class="fw-bold">{{ net_income|floatformat:2 }}</span></h4>
         </div>
 

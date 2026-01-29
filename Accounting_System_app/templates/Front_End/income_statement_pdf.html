@@ -48,6 +48,27 @@
         <td class="right">{{ total_revenues|floatformat:2 }}</td>
       </tr>
 
+      <!-- COGS Section (if any) -->
+      {% if cogs %}
+      <tr class="section-header">
+        <td colspan="2">COST OF GOODS SOLD</td>
+      </tr>
+      {% for g in cogs %}
+        <tr>
+          <td>{{ g.account.account_name }}</td>
+          <td class="right">{{ g.amount|floatformat:2 }}</td>
+        </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td>Total COGS</td>
+        <td class="right">{{ total_cogs|floatformat:2 }}</td>
+      </tr>
+      <tr class="total-row">
+        <td>GROSS PROFIT</td>
+        <td class="right">{{ gross_profit|floatformat:2 }}</td>
+      </tr>
+      {% endif %}
+
       <!-- Expenses Section -->
       <tr class="section-header">
         <td colspan="2">EXPENSES</td>
