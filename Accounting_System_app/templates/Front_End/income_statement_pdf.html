@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size:12px; margin:20px; }
+    h2 { text-align:center; }
+    .header-info { text-align:center; font-size:11px; margin-bottom:20px; }
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { border:1px solid #333; padding:6px; text-align:left; }
+    th { background:#eee; }
+    .right { text-align:right; }
+    .section-header { background:#f0f0f0; font-weight:bold; }
+    .total-row { font-weight:bold; background:#f9f9f9; }
+    .final-total { font-weight:bold; background:#e0e0e0; }
+  </style>
+</head>
+<body>
+  <h2>Income Statement</h2>
+  <div class="header-info">
+    {% if start_date or end_date %}
+      Period: {{ start_date }} to {{ end_date }}
+    {% else %}
+      All Periods
+    {% endif %}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Account</th>
+        <th class="right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Revenues Section -->
+      <tr class="section-header">
+        <td colspan="2">REVENUES</td>
+      </tr>
+      {% for revenue in revenues %}
+        <tr>
+          <td>{{ revenue.account.account_name }}</td>
+          <td class="right">{{ revenue.amount|floatformat:2 }}</td>
+        </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td>Total Revenues</td>
+        <td class="right">{{ total_revenues|floatformat:2 }}</td>
+      </tr>
+
+      <!-- COGS Section (if any) -->
+      {% if cogs %}
+      <tr class="section-header">
+        <td colspan="2">COST OF GOODS SOLD</td>
+      </tr>
+      {% for g in cogs %}
+        <tr>
+          <td>{{ g.account.account_name }}</td>
+          <td class="right">{{ g.amount|floatformat:2 }}</td>
+        </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td>Total COGS</td>
+        <td class="right">{{ total_cogs|floatformat:2 }}</td>
+      </tr>
+      <tr class="total-row">
+        <td>GROSS PROFIT</td>
+        <td class="right">{{ gross_profit|floatformat:2 }}</td>
+      </tr>
+      {% endif %}
+
+      <!-- Expenses Section -->
+      <tr class="section-header">
+        <td colspan="2">EXPENSES</td>
+      </tr>
+      {% for expense in expenses %}
+        <tr>
+          <td>{{ expense.account.account_name }}</td>
+          <td class="right">{{ expense.amount|floatformat:2 }}</td>
+        </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td>Total Expenses</td>
+        <td class="right">{{ total_expenses|floatformat:2 }}</td>
+      </tr>
+
+      <!-- Net Income -->
+      <tr class="final-total">
+        <td>NET INCOME</td>
+        <td class="right">{{ net_income|floatformat:2 }}</td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>

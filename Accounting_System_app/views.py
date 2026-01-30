@@ -2,9 +2,11 @@ from django.http import HttpResponseRedirect, JsonResponse, Http404
 from django import forms
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.timezone import localtime, localdate
 from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry
 from django.contrib.auth import authenticate, login, logout
-from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm
+from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError, Q, Value, DecimalField
 from django.db.models.functions import Coalesce
@@ -20,6 +22,14 @@ import json
 from datetime import datetime
 from decimal import Decimal
 from .decorators import role_required
+import io
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+# pyright: ignore[reportMissingImports]
+try:
+    from xhtml2pdf import pisa
+except Exception:
+    pisa = None
 
 # Create your views here.
 
@@ -259,6 +269,52 @@ def delete_account(request, id):
         messages.error(request, "Account not found")
     return redirect("AccountingSystem:accounts")
 
+# Create User Function for Admin
+def create_user(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password'])
+            user.save()
+
+            # Update user profile with role (created by signal)
+            profile = user.profile
+            profile.role = form.cleaned_data['role']
+            profile.save()
+
+            messages.success(request, f'User "{user.username}" created successfully.')
+            return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
+        else:
+            for error in form.errors.values():
+                messages.error(request, error)
+            return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
+
+    return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
+
+# Create User Function for Teachers
+def teacher_create_user(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password'])
+            user.save()
+
+            # Update user profile with role (created by signal)
+            profile = user.profile
+            profile.role = form.cleaned_data['role']
+            profile.save()
+
+            messages.success(request, f'User "{user.username}" created successfully.')
+            return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
+        else:
+            for error in form.errors.values():
+                messages.error(request, error)
+            return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
+
+    return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
+
 # Journal Entries Page
 def journals(request):
     if not request.user.is_authenticated:
@@ -297,6 +353,7 @@ def insert_journals(request):
     if request.method == "POST":
         journal_code = request.POST["journal_code"]
         date_submit = request.POST['entry-date']
+        account_group = request.POST["account_group"]
         account_ids = request.POST.getlist('account_name')
         debits = request.POST.getlist('debit')
         credits = request.POST.getlist('credit')
@@ -307,6 +364,7 @@ def insert_journals(request):
             entry_no = journal_code,
             entry_date = date_submit,
             journal_description = description,
+            group_name = AccountGroups.objects.get(pk=account_group),
         ) 
         header.save()
 
@@ -462,7 +520,7 @@ def general_ledger(request):
     accounts_summary = ChartOfAccounts.objects.annotate(
     total_debit=Coalesce(Sum('journalentry__debit'), Value(0), output_field=DecimalField()),
     total_credit=Coalesce(Sum('journalentry__credit'), Value(0), output_field=DecimalField()),
-).order_by('account_code')
+).order_by('group_name__id', 'account_code')
 
     ledger_rows = []
     total_debit = 0
@@ -481,8 +539,29 @@ def general_ledger(request):
         total_debit += debit
         total_credit += credit
 
+    # Group ledger rows by account group
+    grouped_ledger = {}
+    for row in ledger_rows:
+        group_id = row['account'].group_name_id if row['account'].group_name_id else None
+        group_name = row['account'].group_name.group_name if row['account'].group_name else 'Unassigned'
+        
+        if group_id not in grouped_ledger:
+            grouped_ledger[group_id] = {
+                'group_name': group_name,
+                'entries': [],
+                'debit': 0,
+                'credit': 0,
+                'balance': 0,
+            }
+        
+        grouped_ledger[group_id]['entries'].append(row)
+        grouped_ledger[group_id]['debit'] += row['debit']
+        grouped_ledger[group_id]['credit'] += row['credit']
+        grouped_ledger[group_id]['balance'] += row['balance']
+
     context = {
         'general_ledger': ledger_rows,
+        'grouped_ledger': grouped_ledger,
         'total_debit': total_debit,
         'total_credit': total_credit,
         'ending_balance': total_debit - total_credit,
@@ -491,6 +570,104 @@ def general_ledger(request):
         'account_groups': account_groups,
     }
     return render(request, "Front_End/ledger.html", context)
+
+# General Ledger PDF
+def general_ledger_pdf(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    current_date_time = localtime().date()
+    # Format date and time as a string for PDF (xhtml2pdf has limited template filter support)
+    formatted_date_time = current_date_time.strftime('%B %d, %Y at %I:%M %p')
+
+    account_groups = AccountGroups.objects.all()
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    accounts_qs = ChartOfAccounts.objects.annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('group_name__id', 'account_code')
+
+    ledger_rows = []
+    total_debit = 0
+    total_credit = 0
+
+    for acc in accounts_qs:
+        debit = float(acc.total_debit or 0)
+        credit = float(acc.total_credit or 0)
+        balance = debit - credit
+        ledger_rows.append({
+            'account': acc,
+            'debit': debit,
+            'credit': credit,
+            'balance': balance,
+        })
+        total_debit += debit
+        total_credit += credit
+
+    # Group ledger rows by account group
+    grouped_ledger = {}
+    for row in ledger_rows:
+        group_id = row['account'].group_name_id if row['account'].group_name_id else None
+        group_name = row['account'].group_name.group_name if row['account'].group_name else 'Unassigned'
+        
+        if group_id not in grouped_ledger:
+            grouped_ledger[group_id] = {
+                'group_name': group_name,
+                'entries': [],
+                'debit': 0,
+                'credit': 0,
+                'balance': 0,
+            }
+        
+        grouped_ledger[group_id]['entries'].append(row)
+        grouped_ledger[group_id]['debit'] += row['debit']
+        grouped_ledger[group_id]['credit'] += row['credit']
+        grouped_ledger[group_id]['balance'] += row['balance']
+
+    context = {
+        'general_ledger': ledger_rows,
+        'grouped_ledger': grouped_ledger,
+        'total_debit': total_debit,
+        'total_credit': total_credit,
+        'ending_balance': total_debit - total_credit,
+        'start_date': start_str,
+        'end_date': end_str,
+        'account_groups': account_groups,
+        'date_now': formatted_date_time,
+    }
+
+    html = render_to_string('Front_End/ledger_pdf.html', context)
+
+    if pisa is None:
+        return HttpResponse('PDF generation library not installed. Install xhtml2pdf.', status=500)
+
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    response = HttpResponse(result.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="general_ledger.pdf"'
+    return response
 
 # Trial Balance Function
 def trial_balance(request):
@@ -504,6 +681,257 @@ def trial_balance(request):
 }
 
     return render(request, "Front_End/balance.html", context)
+
+
+# Trial Balance PDF
+def trial_balance_pdf(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    accounts_qs = ChartOfAccounts.objects.annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    accounts = []
+    total_debit = 0.0
+    total_credit = 0.0
+
+    for acc in accounts_qs:
+        td = float(acc.total_debit or 0)
+        tc = float(acc.total_credit or 0)
+        bal = td - tc
+        accounts.append({
+            'id': acc.id,
+            'code': getattr(acc, 'account_code', ''),
+            'name': getattr(acc, 'account_name', ''),
+            'total_debit': td,
+            'total_credit': tc,
+            'balance': bal,
+        })
+        total_debit += td
+        total_credit += tc
+
+    context = {
+        'accounts': accounts,
+        'total_debit': total_debit,
+        'total_credit': total_credit,
+        'ending_balance': total_debit - total_credit,
+        'start_date': start_str,
+        'end_date': end_str,
+    }
+
+    html = render_to_string('Front_End/balance_pdf.html', context)
+
+    if pisa is None:
+        return HttpResponse('PDF generation library not installed. Install xhtml2pdf.', status=500)
+
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    response = HttpResponse(result.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="trial_balance.pdf"'
+    return response
+
+
+# Income Statement
+def income_statement(request):
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    # Revenues: normally credit balances (credit - debit)
+    revenue_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    # Expenses: normally debit balances (debit - credit)
+    expense_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    # Identify Cost of Goods Sold accounts (by name keywords) and compute COGS separately
+    cogs_qs = ChartOfAccounts.objects.filter(account_type='Expenses').filter(
+        Q(account_name__icontains='cost of goods') | Q(account_name__icontains='cogs')
+    ).annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+
+    cogs_ids = [c.id for c in cogs_qs]
+
+    revenues = []
+    total_revenues = 0.0
+    for acc in revenue_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        revenues.append({'account': acc, 'amount': amt})
+        total_revenues += amt
+
+    expenses = []
+    total_expenses = 0.0
+    # exclude COGS accounts from the general expenses list to show them separately
+    for acc in expense_qs.exclude(id__in=cogs_ids):
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        expenses.append({'account': acc, 'amount': amt})
+        total_expenses += amt
+
+    # compute total COGS
+    total_cogs = 0.0
+    cogs = []
+    for acc in cogs_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        cogs.append({'account': acc, 'amount': amt})
+        total_cogs += amt
+
+    # Gross profit (revenues less COGS) and net income (revenues less expenses and COGS)
+    gross_profit = total_revenues - total_cogs
+    net_income = total_revenues - (total_expenses + total_cogs)
+
+    context = {
+        'revenues': revenues,
+        'expenses': expenses,
+        'total_revenues': total_revenues,
+        'total_expenses': total_expenses,
+        'cogs': cogs,
+        'total_cogs': total_cogs,
+        'gross_profit': gross_profit,
+        'net_income': net_income,
+        'start_date': start_str,
+        'end_date': end_str,
+    }
+
+    return render(request, 'Front_End/income_statement.html', context)
+
+
+# Balance Sheet
+def balance_sheet(request):
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    assets_qs = ChartOfAccounts.objects.filter(account_type='Assets').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    liabilities_qs = ChartOfAccounts.objects.filter(account_type='Liabilities').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    equity_qs = ChartOfAccounts.objects.filter(account_type='Equity').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    assets = []
+    total_assets = 0.0
+    for acc in assets_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        assets.append({'account': acc, 'amount': amt})
+        total_assets += amt
+
+    liabilities = []
+    total_liabilities = 0.0
+    for acc in liabilities_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        liabilities.append({'account': acc, 'amount': amt})
+        total_liabilities += amt
+
+    equity = []
+    total_equity = 0.0
+    for acc in equity_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        equity.append({'account': acc, 'amount': amt})
+        total_equity += amt
+
+    # include current period net income in equity as retained earnings
+    # compute revenues and expenses similarly
+    revenue_sum = 0.0
+    exp_sum = 0.0
+    rev_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+    for a in rev_qs:
+        revenue_sum += float((a.total_credit or 0) - (a.total_debit or 0))
+
+    exp_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+    for a in exp_qs:
+        exp_sum += float((a.total_debit or 0) - (a.total_credit or 0))
+
+    net_income = revenue_sum - exp_sum
+
+    total_equity_including_ri = total_equity + net_income
+
+    context = {
+        'assets': assets,
+        'liabilities': liabilities,
+        'equity': equity,
+        'total_assets': total_assets,
+        'total_liabilities': total_liabilities,
+        'total_equity': total_equity,
+        'net_income': net_income,
+        'total_equity_including_ri': total_equity_including_ri,
+        'start_date': start_str,
+        'end_date': end_str,
+    }
+
+    return render(request, 'Front_End/balance_sheet.html', context)
 
 # Individual Accounts Transaction Compilation
 def ledger_account_transactions(request, account_id):
@@ -607,3 +1035,253 @@ def trial_balance_json(request):
         })
 
     return JsonResponse({'success': True, 'start_date': start_str, 'end_date': end_str, 'accounts': result})
+
+# Journal Entries PDF
+def journal_pdf(request, id):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    header = get_object_or_404(JournalHeader, pk=id)
+    entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
+
+    total_debit = sum((e.debit or 0) for e in entries)
+    total_credit = sum((e.credit or 0) for e in entries)
+
+    context = {
+        'header': header,
+        'entries': entries,
+        'total_debit': total_debit,
+        'total_credit': total_credit,
+        'ending_balance': total_debit - total_credit,
+    }
+
+    html = render_to_string('Front_End/journal_pdf.html', context)
+
+    if pisa is None:
+        return HttpResponse('PDF generation library not installed. Install xhtml2pdf.', status=500)
+
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    filename = f"journal_{header.entry_no or header.id}.pdf"
+    response = HttpResponse(result.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+# Income Statement PDF
+def income_statement_pdf(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    # Revenues: normally credit balances (credit - debit)
+    revenue_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    # Expenses: normally debit balances (debit - credit)
+    expense_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    revenues = []
+    total_revenues = 0.0
+    for acc in revenue_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        revenues.append({'account': acc, 'amount': amt})
+        total_revenues += amt
+
+    expenses = []
+    total_expenses = 0.0
+    for acc in expense_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        expenses.append({'account': acc, 'amount': amt})
+        total_expenses += amt
+
+    # Identify and compute COGS separately (exclude from expenses list)
+    cogs_qs = ChartOfAccounts.objects.filter(account_type='Expenses').filter(
+        Q(account_name__icontains='cost of goods') | Q(account_name__icontains='cogs')
+    ).annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+    cogs_ids = [c.id for c in cogs_qs]
+
+    # rebuild expenses excluding COGS
+    expenses = []
+    total_expenses = 0.0
+    for acc in expense_qs.exclude(id__in=cogs_ids):
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        expenses.append({'account': acc, 'amount': amt})
+        total_expenses += amt
+
+    cogs = []
+    total_cogs = 0.0
+    for acc in cogs_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        cogs.append({'account': acc, 'amount': amt})
+        total_cogs += amt
+
+    gross_profit = total_revenues - total_cogs
+    net_income = total_revenues - (total_expenses + total_cogs)
+
+    context = {
+        'revenues': revenues,
+        'expenses': expenses,
+        'total_revenues': total_revenues,
+        'total_expenses': total_expenses,
+        'cogs': cogs,
+        'total_cogs': total_cogs,
+        'gross_profit': gross_profit,
+        'net_income': net_income,
+        'start_date': start_str or '',
+        'end_date': end_str or '',
+    }
+
+    html = render_to_string('Front_End/income_statement_pdf.html', context)
+
+    if pisa is None:
+        return HttpResponse('PDF generation library not installed. Install xhtml2pdf.', status=500)
+
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    filename = "income_statement.pdf"
+    response = HttpResponse(result.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+# Balance Sheet PDF
+def balance_sheet_pdf(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    start_date = end_date = None
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        start_date = end_date = None
+
+    date_filter = Q()
+    if start_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__gte=start_date)
+    if end_date:
+        date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
+
+    assets_qs = ChartOfAccounts.objects.filter(account_type='Assets').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    liabilities_qs = ChartOfAccounts.objects.filter(account_type='Liabilities').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    equity_qs = ChartOfAccounts.objects.filter(account_type='Equity').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    ).order_by('account_code')
+
+    assets = []
+    total_assets = 0.0
+    for acc in assets_qs:
+        amt = float((acc.total_debit or 0) - (acc.total_credit or 0))
+        assets.append({'account': acc, 'amount': amt})
+        total_assets += amt
+
+    liabilities = []
+    total_liabilities = 0.0
+    for acc in liabilities_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        liabilities.append({'account': acc, 'amount': amt})
+        total_liabilities += amt
+
+    equity = []
+    total_equity = 0.0
+    for acc in equity_qs:
+        amt = float((acc.total_credit or 0) - (acc.total_debit or 0))
+        equity.append({'account': acc, 'amount': amt})
+        total_equity += amt
+
+    # include current period net income in equity as retained earnings
+    revenue_sum = 0.0
+    exp_sum = 0.0
+    rev_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+    for a in rev_qs:
+        revenue_sum += float((a.total_credit or 0) - (a.total_debit or 0))
+
+    exp_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+        total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
+        total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
+    )
+    for a in exp_qs:
+        exp_sum += float((a.total_debit or 0) - (a.total_credit or 0))
+
+    net_income = revenue_sum - exp_sum
+    total_equity_including_ri = total_equity + net_income
+
+    context = {
+        'assets': assets,
+        'liabilities': liabilities,
+        'equity': equity,
+        'total_assets': total_assets,
+        'total_liabilities': total_liabilities,
+        'total_equity': total_equity,
+        'net_income': net_income,
+        'total_equity_including_ri': total_equity_including_ri,
+        'start_date': start_str or '',
+        'end_date': end_str or '',
+    }
+
+    html = render_to_string('Front_End/balance_sheet_pdf.html', context)
+
+    if pisa is None:
+        return HttpResponse('PDF generation library not installed. Install xhtml2pdf.', status=500)
+
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    filename = "balance_sheet.pdf"
+    response = HttpResponse(result.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response

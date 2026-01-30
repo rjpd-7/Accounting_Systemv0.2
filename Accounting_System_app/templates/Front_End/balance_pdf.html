@@ -1,0 +1,53 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trial Balance PDF</title>
+    <style>
+        body { font-family: DejaVu Sans, Arial, sans-serif; font-size:12px; }
+        table { width:100%; border-collapse: collapse; }
+        th, td { border: 1px solid #444; padding:6px; }
+        th { background:#eee; }
+        .text-right { text-align:right; }
+    </style>
+</head>
+<body>
+    <h2>Trial Balance</h2>
+    {% if start_date or end_date %}
+    <div>Period: {{ start_date|default:'-' }} to {{ end_date|default:'-' }}</div>
+    {% endif %}
+
+    <table>
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Account</th>
+                <th class="text-right">Debit</th>
+                <th class="text-right">Credit</th>
+                <th class="text-right">Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in accounts %}
+            <tr>
+                <td>{{ a.code }}</td>
+                <td>{{ a.name }}</td>
+                <td class="text-right">{{ a.total_debit|floatformat:2 }}</td>
+                <td class="text-right">{{ a.total_credit|floatformat:2 }}</td>
+                <td class="text-right">{{ a.balance|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="2">Totals</th>
+                <th class="text-right">{{ total_debit|floatformat:2 }}</th>
+                <th class="text-right">{{ total_credit|floatformat:2 }}</th>
+                <th class="text-right">{{ ending_balance|floatformat:2 }}</th>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>

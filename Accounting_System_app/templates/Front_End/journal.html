@@ -143,6 +143,8 @@
                             <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
                             <th><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
                             <th colspan="2" class="text-end">
+                                <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
+                                &nbsp;
                                 <button type="button" class="btn btn-primary btn-sm" id="edit_button"
                                     data-bs-toggle="modal" 
                                     data-bs-target="#EDITstaticBackdrop"  
@@ -152,11 +154,11 @@
                                     data-totaldebit="{{ group.total_debit }}"
                                     data-totalcredit="{{ group.total_credit }}"
                                     data-entrycount="{{ group.entries.count }}"
+                                    data-group="{{ group.header.group_name.id }}"
+                                    data-group-name="{{ group.header.group_name.group_name }}"
                                     >
                                     Edit
                                 </button>
-
-                                
 
                                 <!-- Hidden table to store entry data -->
                                 <table class="d-none" id="entries_{{ group.header.id }}">
@@ -169,28 +171,10 @@
                                         </tr>
                                     {% endfor %}
                                 </table>
-
-                                <!-- Hidden select for all accounts -->
-                                <select id="edit-all-accounts-select" hidden>
-                                    {% for account in accounts %}
-                                        <option value="{{ account.id }}" data-type="{{ account.account_type }}" data-group="{{ account.group_name_id }}">
-                                            {{ account.account_name }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-
-                                <!-- Hidden select for debit-only accounts (Assets & Expenses) -->
-                                <select id="edit-debit-accounts" hidden>
-                                    {% for account in accounts %}
-                                            <option value="{{ account.id }}" data-type="{{ account.account_type }}" data-group="{{ account.group_name_id }}">
-                                                {{ account.account_name }}
-                                            </option>
-                                    {% endfor %}
-                                </select>
                                 &nbsp;
                                 <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
                                     {% csrf_token %}
-                                    <button name="delete" class="btn btn-danger">
+                                    <button name="delete" class="btn btn-danger btn-sm">
                                         Delete
                                     </button>
                                 </form>    
@@ -248,7 +232,7 @@
 
                     <!-- Account Group Filter (Insert) -->
                     <label for="account_group_filter">Account Group:</label>
-                    <select id="account_group_filter" class="form-select mb-2" required>
+                    <select id="account_group_filter" name="account_group" class="form-select mb-2" required>
                         {% for group in account_groups %}
                             <option value="{{ group.id }}">{{ group.group_name }}</option>
                         {% empty %}
@@ -341,19 +325,23 @@
                 <form method="post" id="edit_journal_form">
                     {% csrf_token %}
 
-                    <!-- Entry Date -->
-                    <label for="entry-date">Date:</label>
-                    <input type="date" id="edit-entry-date" name="edit_entry-date" class="form-control" required> <br>
+                    <!-- Account Group Display -->
+                    <label for="edit_account_group_display">Account Group:</label>
+                    <input type="text" id="edit_account_group_display" class="form-control" readonly> <br>
 
-                    <!-- Account Group Filter (Edit) -->
-                    <label for="edit_account_group_filter">Account Group:</label>
-                    <select id="edit_account_group_filter" class="form-select mb-2">
+                    <!-- Hidden filter field to store group_id -->
+                    <select id="edit_account_group_filter" name="edit_account_group_filter" style="display:none;" required>
                         {% for group in account_groups %}
                             <option value="{{ group.id }}">{{ group.group_name }}</option>
                         {% empty %}
                             <option value="" disabled>No Accounts Groups Created</option>
                         {% endfor %}
                     </select>
+
+                    <!-- Entry Date -->
+                    <label for="entry-date">Date:</label>
+                    <input type="date" id="edit-entry-date" name="edit_entry-date" class="form-control" required> <br>
+
 
                     <!-- Journal Entry Table -->
                     <table class="table table-bordered border-dark" id="edit-journal-entry-table">
@@ -411,7 +399,12 @@
                     <br>
                     <select id="edit-all-accounts-select" name="edit_account_name" style="display:none;" required>
                         {% for account in accounts %}
-                            <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}">{{ account.account_name }}</option>
+                            <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}" data-group="{{ account.group_name_id }}">{{ account.account_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="edit-debit-accounts" name="edit_account_name" style="display:none;" required>
+                        {% for account in accounts %}
+                            <option value="{{ account.id }}" data-type_edit="{{ account.account_type }}" data-group="{{ account.group_name_id }}">{{ account.account_name }}</option>
                         {% endfor %}
                     </select>
                     <div class="modal-footer">
