@@ -282,6 +282,8 @@ document.addEventListener("DOMContentLoaded", function () {
         const headerId = $(this).data('id');
         const date = $(this).data('date');
         const desc = $(this).data('description');
+        const groupId = $(this).data('group');
+        const groupName = $(this).data('group-name');
 
         // set form action (use your URL pattern)
         var form = document.getElementById('edit_journal_form');
@@ -304,6 +306,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
         $('#edit-entry-date').val(datestring);
         $('#edit_journal_description').val(desc || '');
+        
+        // Set account group display (readonly) and hidden filter field
+        if (groupId && groupName) {
+            document.getElementById('edit_account_group_display').value = groupName;
+            const groupFilterField = document.getElementById('edit_account_group_filter');
+            if (groupFilterField) {
+                groupFilterField.value = groupId;
+                // Trigger change event to apply filtering
+                groupFilterField.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
 
         const tbody = $('#edit-journal-entry-body');
         tbody.empty();

@@ -3,9 +3,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Master copies of template options
     const masterAllOptions = Array.from(document.querySelectorAll('#all-accounts-select option')).map(opt => opt.cloneNode(true));
     const masterEditOptions = Array.from(document.querySelectorAll('#edit-all-accounts-select option')).map(opt => opt.cloneNode(true));
+    const masterEditDebitOptions = Array.from(document.querySelectorAll('#edit-debit-accounts option')).map(opt => opt.cloneNode(true));
 
     const allAccountsSelect = document.getElementById('all-accounts-select');
     const editAllAccountsSelect = document.getElementById('edit-all-accounts-select');
+    const editDebitAccountsSelect = document.getElementById('edit-debit-accounts');
 
     var account_select = document.getElementById('account_group_filter');
 
@@ -31,7 +33,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const frag = document.createDocumentFragment();
         masterOptions.forEach(opt => {
             const optGroup = opt.dataset.group || '';
-            if (!groupId || optGroup === groupId) {
+            // Convert both to strings for comparison
+            if (!groupId || String(optGroup) === String(groupId)) {
                 frag.appendChild(opt.cloneNode(true));
             }
         });
@@ -64,6 +67,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editAllAccountsSelect) {
             editAllAccountsSelect.innerHTML = '';
             editAllAccountsSelect.appendChild(buildOptionsFromMaster(masterEditOptions, groupId));
+        }
+        if (editDebitAccountsSelect) {
+            editDebitAccountsSelect.innerHTML = '';
+            editDebitAccountsSelect.appendChild(buildOptionsFromMaster(masterEditDebitOptions, groupId));
         }
         document.querySelectorAll('#edit-journal-entry-body select[name="edit_account_name"]').forEach(sel => {
             const current = sel.value;

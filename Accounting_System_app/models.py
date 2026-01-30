@@ -31,7 +31,6 @@ class Accounts(models.Model):
     account_descriptions = models.TextField(max_length=None)
 
 #Accounts Group Table
-
 class AccountGroupsTable(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     group_name = models.TextField(max_length=None, null=False)
@@ -69,6 +68,7 @@ class JournalHeader(models.Model):
     entry_no = models.CharField(max_length=20, unique=True)
     entry_date = models.DateField(default=date.today)
     journal_description = models.TextField(blank=True, null=True)
+    group_name = models.ForeignKey(AccountGroups, on_delete=models.RESTRICT, null=True, blank=True)
 
     def __str__(self):
         return f"{self.entry_no} ({self.entry_date})"
