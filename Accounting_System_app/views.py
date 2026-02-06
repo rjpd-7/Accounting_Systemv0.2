@@ -4,9 +4,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry, Message, MessageAttachment
 from django.contrib.auth import authenticate, login, logout
-from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm
+from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError, Q, Value, DecimalField
 from django.db.models.functions import Coalesce
@@ -25,6 +25,8 @@ from .decorators import role_required
 import io
 from django.template.loader import render_to_string
 from django.http import HttpResponse
+from django.views.decorators.http import require_http_methods
+import os
 # pyright: ignore[reportMissingImports]
 try:
     from xhtml2pdf import pisa
@@ -1284,4 +1286,150 @@ def balance_sheet_pdf(request):
     filename = "balance_sheet.pdf"
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+# Messaging Views
+@require_http_methods(["GET", "POST"])
+def send_message(request):
+    """Send a new message with optional attachments"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    if request.method == 'POST':
+        form = MessageForm(request.POST)
+        files = request.FILES.getlist('attachments')
+        
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.sender = request.user
+            message.save()
+            
+            # Handle file attachments
+            for file in files:
+                if file.size > 0:
+                    attachment = MessageAttachment(
+                        message=message,
+                        file=file,
+                        filename=file.name,
+                        file_size=file.size
+                    )
+                    attachment.save()
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'message_id': message.id,
+                    'message': 'Message sent successfully'
+                })
+            return redirect('AccountingSystem:messages')
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Form invalid', 'errors': form.errors}, status=400)
+    
+    form = MessageForm()
+    form.fields['recipient'].queryset = User.objects.exclude(id=request.user.id)
+    return render(request, 'Front_End/send_message.html', {'form': form})
+
+@require_http_methods(["GET"])
+def get_messages(request):
+    """Get messages for the current user (both sent and received)"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    # Get all messages involving the current user
+    received = Message.objects.filter(recipient=request.user).order_by('-created_at')
+    sent = Message.objects.filter(sender=request.user).order_by('-created_at')
+    
+    received_data = []
+    for msg in received:
+        attachments = []
+        for att in msg.attachments.all():
+            attachments.append({
+                'id': att.id,
+                'filename': att.filename,
+                'file_size': att.file_size,
+                'url': att.file.url
+            })
+        received_data.append({
+            'id': msg.id,
+            'sender': msg.sender.get_full_name() or msg.sender.username,
+            'sender_id': msg.sender.id,
+            'subject': msg.subject or 'No Subject',
+            'content': msg.content,
+            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M'),
+            'is_read': msg.is_read,
+            'attachments': attachments,
+            'type': 'received'
+        })
+    
+    sent_data = []
+    for msg in sent:
+        attachments = []
+        for att in msg.attachments.all():
+            attachments.append({
+                'id': att.id,
+                'filename': att.filename,
+                'file_size': att.file_size,
+                'url': att.file.url
+            })
+        sent_data.append({
+            'id': msg.id,
+            'recipient': msg.recipient.get_full_name() or msg.recipient.username,
+            'recipient_id': msg.recipient.id,
+            'subject': msg.subject or 'No Subject',
+            'content': msg.content,
+            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M'),
+            'attachments': attachments,
+            'type': 'sent'
+        })
+    
+    # Mark messages as read
+    received.update(is_read=True)
+    
+    return JsonResponse({
+        'received': received_data,
+        'sent': sent_data,
+        'unread_count': Message.objects.filter(recipient=request.user, is_read=False).count()
+    })
+
+@require_http_methods(["GET"])
+def get_unread_count(request):
+    """Get count of unread messages"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    unread_count = Message.objects.filter(recipient=request.user, is_read=False).count()
+    return JsonResponse({'unread_count': unread_count})
+
+@require_http_methods(["POST"])
+def delete_message(request, message_id):
+    """Delete a message"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    message = get_object_or_404(Message, id=message_id)
+    
+    # Only allow sender to delete sent messages or recipient to delete received messages
+    if message.sender == request.user or message.recipient == request.user:
+        message.delete()
+        return JsonResponse({'status': 'success', 'message': 'Message deleted'})
+    
+    return JsonResponse({'error': 'Permission denied'}, status=403)
+
+@require_http_methods(["GET"])
+def download_attachment(request, attachment_id):
+    """Download a message attachment"""
+    if not request.user.is_authenticated:
+        return HttpResponse('Unauthorized', status=401)
+    
+    attachment = get_object_or_404(MessageAttachment, id=attachment_id)
+    message = attachment.message
+    
+    # Check if user has access
+    if message.sender != request.user and message.recipient != request.user:
+        return HttpResponse('Forbidden', status=403)
+    
+    response = HttpResponse(attachment.file.read(), content_type='application/octet-stream')
+    response['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
+    return response
     return response

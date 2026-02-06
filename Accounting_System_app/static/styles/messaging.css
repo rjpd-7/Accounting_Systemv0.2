@@ -1,0 +1,353 @@
+/* Messaging System Styles */
+
+.messaging-container {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    margin-top: 20px;
+    overflow: hidden;
+}
+
+.messaging-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+}
+
+.messaging-header h5 {
+    font-size: 18px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.messaging-header .badge {
+    margin-left: 8px;
+}
+
+.messaging-body {
+    min-height: 300px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+.nav-tabs {
+    border-bottom: 2px solid #e9ecef;
+    padding: 0 20px;
+    background: #f8f9fa;
+}
+
+.nav-tabs .nav-link {
+    color: #666;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 12px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    color: #333;
+    border-bottom-color: #ddd;
+}
+
+.nav-tabs .nav-link.active {
+    color: #8E110B;
+    border-bottom-color: #8E110B;
+    background: transparent;
+}
+
+.tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 0;
+}
+
+.messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.message-item {
+    padding: 15px 20px;
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+.message-item:hover {
+    background: #f8f9fa;
+    box-shadow: inset 3px 0 0 #8E110B;
+}
+
+.message-item.unread {
+    background: #fff9f8;
+    font-weight: 500;
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.message-header strong {
+    color: #333;
+    font-size: 14px;
+}
+
+.message-header small {
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.message-subject {
+    color: #333;
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.message-preview {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 6px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.message-attachments {
+    color: #999;
+    font-size: 12px;
+    margin-top: 6px;
+}
+
+.message-attachments i {
+    margin-right: 4px;
+}
+
+/* Message Detail Modal */
+.message-detail {
+    color: #333;
+}
+
+.message-detail h6 {
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.message-detail p {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.message-detail ul {
+    margin-bottom: 0;
+}
+
+.message-detail ul li {
+    padding: 8px 0;
+    color: #666;
+}
+
+.message-detail a {
+    color: #8E110B;
+    text-decoration: none;
+}
+
+.message-detail a:hover {
+    text-decoration: underline;
+}
+
+/* Form Styling */
+#messageForm {
+    display: flex;
+    flex-direction: column;
+}
+
+#messageForm .form-label {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+#messageForm .form-control {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 14px;
+}
+
+#messageForm .form-control:focus {
+    border-color: #8E110B;
+    box-shadow: 0 0 0 0.2rem rgba(142, 17, 11, 0.25);
+}
+
+#messageForm textarea.form-control {
+    resize: vertical;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#file-list {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 10px;
+    border: 1px solid #e9ecef;
+}
+
+#file-list .alert {
+    margin-bottom: 8px;
+}
+
+#file-list ul {
+    margin-bottom: 0;
+}
+
+#file-list li {
+    padding: 6px 0;
+    color: #555;
+    font-size: 13px;
+}
+
+/* Button Styling */
+.btn-primary {
+    background-color: #8E110B;
+    border-color: #8E110B;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #311413;
+    border-color: #311413;
+}
+
+.btn-primary:focus {
+    background-color: #311413;
+    border-color: #311413;
+    box-shadow: 0 0 0 0.25rem rgba(142, 17, 11, 0.5);
+}
+
+.btn-primary:disabled {
+    background-color: #ccc;
+    border-color: #ccc;
+}
+
+/* Scrollbar Styling */
+.messaging-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.messaging-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.messaging-body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.messaging-body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .messaging-container {
+        margin-top: 15px;
+    }
+
+    .messaging-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .messaging-header h5 {
+        font-size: 16px;
+    }
+
+    .messaging-header .btn {
+        width: 100%;
+    }
+
+    .messaging-body {
+        min-height: 250px;
+        max-height: 400px;
+    }
+
+    .message-item {
+        padding: 12px 15px;
+    }
+
+    .message-header {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .message-header small {
+        white-space: normal;
+    }
+
+    .nav-tabs {
+        padding: 0 15px;
+    }
+
+    .nav-tabs .nav-link {
+        padding: 10px 15px;
+        font-size: 13px;
+    }
+}
+
+/* Alert Styling */
+.alert {
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+/* Spinner Animation */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.2em;
+}
+
+/* Loading State */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}

@@ -37,4 +37,11 @@ urlpatterns = [
      path('journal_pdf/<int:id>/', views.journal_pdf, name='journal_pdf'),
      path('create_user/', views.create_user, name='create_user'),
      path('teacher_create_user/', views.teacher_create_user, name='teacher_create_user'),
+     
+     # Messaging URLs
+     path('messages/send/', views.send_message, name='send_message'),
+     path('messages/get/', views.get_messages, name='get_messages'),
+     path('messages/unread/', views.get_unread_count, name='unread_count'),
+     path('messages/delete/<int:message_id>/', views.delete_message, name='delete_message'),
+     path('messages/download/<int:attachment_id>/', views.download_attachment, name='download_attachment'),
 ]

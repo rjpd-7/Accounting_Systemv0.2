@@ -1,5 +1,5 @@
 from django import forms
-from .models import USN_Accounts, ChartOfAccounts
+from .models import USN_Accounts, ChartOfAccounts, Message, MessageAttachment
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
@@ -43,3 +43,28 @@ class UserCreationForm(forms.ModelForm):
             raise forms.ValidationError("Passwords do not match.")
 
         return cleaned_data
+
+# Message Form
+class MessageForm(forms.ModelForm):
+    recipient = forms.ModelChoiceField(
+        queryset=User.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label="Send to"
+    )
+    
+    class Meta:
+        model = Message
+        fields = ['recipient', 'subject', 'content']
+        widgets = {
+            'subject': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Subject (optional)'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Type your message...'}),
+        }
+
+# Message Attachment Form
+class MessageAttachmentForm(forms.ModelForm):
+    class Meta:
+        model = MessageAttachment
+        fields = ['file']
+        widgets = {
+            'file': forms.FileInput(attrs={'class': 'form-control', 'accept': '*/*'})
+        }
