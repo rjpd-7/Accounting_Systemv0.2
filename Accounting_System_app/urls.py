@@ -44,4 +44,5 @@ urlpatterns = [
      path('messages/unread/', views.get_unread_count, name='unread_count'),
      path('messages/delete/<int:message_id>/', views.delete_message, name='delete_message'),
      path('messages/download/<int:attachment_id>/', views.download_attachment, name='download_attachment'),
+     path('api/users/', views.get_users_api, name='get_users_api'),
 ]

@@ -17,7 +17,7 @@ function initializeMessaging() {
 
 // Load all users for recipient dropdown
 function loadAllUsers() {
-    fetch('{% url "AccountingSystem:get_messages" %}', {
+    fetch(window.messagingApiUrls.getMessages, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }
@@ -35,46 +35,42 @@ function loadRecipientsList() {
     const recipientSelect = document.getElementById('recipient');
     if (!recipientSelect) return;
     
-    // Get list of users from the page or create a custom endpoint
-    const usernames = document.querySelectorAll('[data-username]');
-    const currentUsername = document.querySelector('[data-current-user]')?.getAttribute('data-current-user');
-    
-    // You can populate this from your backend - for now we'll use a simple approach
-    const usersSet = new Set();
-    usernames.forEach(el => {
-        const username = el.getAttribute('data-username');
-        if (username && username !== currentUsername) {
-            usersSet.add(username);
-        }
-    });
-    
-    // Alternatively, make an AJAX call to get all users
-    fetch('/api/users/', {
+    // Fetch users from the API endpoint
+    fetch(window.messagingApiUrls.getUsers, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(response => {
-        if (response.ok) return response.json();
-        throw new Error('Failed to load users');
+        if (!response.ok) throw new Error('Failed to load users');
+        return response.json();
     })
-    .then(users => {
-        recipientSelect.innerHTML = '<option value="">-- Select Recipient --</option>';
-        users.forEach(user => {
-            if (user.id !== parseInt(document.querySelector('[data-user-id]')?.getAttribute('data-user-id') || 0)) {
+    .then(data => {
+        recipientSelect.innerHTML = '<option value="">-- Select Recipient --</option>';        
+        if (data.users && data.users.length > 0) {
+            data.users.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
-                option.textContent = user.full_name || user.username;
+                option.textContent = user.full_name;
                 recipientSelect.appendChild(option);
-            }
-        });
+            });
+        } else {
+            const option = document.createElement('option');
+            option.textContent = 'No users available';
+            option.disabled = true;
+            recipientSelect.appendChild(option);
+        }
     })
     .catch(error => {
-        console.log('Note: Create a /api/users/ endpoint or populate users manually');
+        console.error('Error loading users:', error);
+        const option = document.createElement('option');
+        option.textContent = 'Error loading users';
+        option.disabled = true;
+        recipientSelect.appendChild(option);
     });
 }
 
 // Load messages
 function loadMessages() {
-    fetch('{% url "AccountingSystem:get_messages" %}', {
+    fetch(window.messagingApiUrls.getMessages, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }
@@ -158,7 +154,7 @@ function updateUnreadCount(count) {
 
 // Update unread badge periodically
 function updateUnreadBadge() {
-    fetch('{% url "AccountingSystem:unread_count" %}', {
+    fetch(window.messagingApiUrls.unreadCount, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(response => response.json())
@@ -168,7 +164,7 @@ function updateUnreadBadge() {
 
 // View message details
 function viewMessage(type, messageId) {
-    fetch('{% url "AccountingSystem:get_messages" %}', {
+    fetch(window.messagingApiUrls.getMessages, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(response => response.json())
@@ -291,7 +287,7 @@ function handleMessageSubmit(event) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
     
-    fetch('{% url "AccountingSystem:send_message" %}', {
+    fetch(window.messagingApiUrls.sendMessage, {
         method: 'POST',
         body: formData,
         headers: {
@@ -336,7 +332,8 @@ function handleDeleteMessage() {
         return;
     }
     
-    fetch(`{% url "AccountingSystem:delete_message" message_id=0 %}`.replace('0', messageId), {
+    const deleteUrl = window.messagingApiUrls.deleteMessage.replace('0', messageId);
+    fetch(deleteUrl, {
         method: 'POST',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',

@@ -29,19 +29,51 @@
         <div class="tab-content">
             <!-- Received Messages Tab -->
             <div class="tab-pane fade show active" id="received-messages" role="tabpanel">
-                <div id="received-messages-list" class="messages-list">
-                    <div class="text-center text-muted p-4">
-                        <p>Loading messages...</p>
-                    </div>
+                <div class="messages-list">
+                    {% if received_messages %}
+                        {% for message in received_messages %}
+                            <div class="message-item {% if not message.is_read %}unread{% endif %}" data-message-id="{{ message.id }}" >
+                                <div class="message-header">
+                                    <strong>{{ message.sender.get_full_name|default:message.sender.username }}</strong>
+                                    <small class="text-muted">{{ message.created_at|date:"Y-m-d H:i" }}</small>
+                                </div>
+                                <div class="message-subject">{{ message.subject|default:"No Subject" }}</div>
+                                <div class="message-preview">{{ message.content|truncatewords:20 }}</div>
+                                {% if message.attachments.all %}
+                                    <div class="message-attachments"><i class="bi bi-paperclip"></i> {{ message.attachments.count }} file(s)</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted p-4">
+                            <p>No received messages</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
 
             <!-- Sent Messages Tab -->
             <div class="tab-pane fade" id="sent-messages" role="tabpanel">
-                <div id="sent-messages-list" class="messages-list">
-                    <div class="text-center text-muted p-4">
-                        <p>Loading messages...</p>
-                    </div>
+                <div class="messages-list">
+                    {% if sent_messages %}
+                        {% for message in sent_messages %}
+                            <div class="message-item" data-message-id="{{ message.id }}">
+                                <div class="message-header">
+                                    <strong>To: {{ message.recipient.get_full_name|default:message.recipient.username }}</strong>
+                                    <small class="text-muted">{{ message.created_at|date:"Y-m-d H:i" }}</small>
+                                </div>
+                                <div class="message-subject">{{ message.subject|default:"No Subject" }}</div>
+                                <div class="message-preview">{{ message.content|truncatewords:20 }}</div>
+                                {% if message.attachments.all %}
+                                    <div class="message-attachments"><i class="bi bi-paperclip"></i> {{ message.attachments.count }} file(s)</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted p-4">
+                            <p>No sent messages</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -56,13 +88,20 @@
                 <h5 class="modal-title" id="sendMessageLabel">Send New Message</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="messageForm" enctype="multipart/form-data">
+            <form method="POST" action="{% url 'AccountingSystem:send_message' %}" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="recipient" class="form-label">Send to</label>
                         <select class="form-control" id="recipient" name="recipient" required>
                             <option value="">-- Select Recipient --</option>
+                            {% for user in users %}
+                                {% if user.id != request.user.id %}
+                                    <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                                {% endif %}
+                            {% empty %}
+                                <option value="">No users available</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">
@@ -107,3 +146,14 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Set API URLs for messaging JavaScript
+    window.messagingApiUrls = {
+        getUsers: '{% url "AccountingSystem:get_users_api" %}',
+        getMessages: '{% url "AccountingSystem:get_messages" %}',
+        unreadCount: '{% url "AccountingSystem:unread_count" %}',
+        sendMessage: '{% url "AccountingSystem:send_message" %}',
+        deleteMessage: '{% url "AccountingSystem:delete_message" message_id=0 %}'
+    };
+</script>

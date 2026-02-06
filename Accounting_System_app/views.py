@@ -126,11 +126,17 @@ def admin_dashboard(request):
     total_accounts = ChartOfAccounts.objects.count()
     total_journals = JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
+    users = User.objects.all()
+    received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
+    sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
     context = {
         'total_accounts': total_accounts,
         'total_journals': total_journals,
         'total_entries': total_entries,
+        'users': users,
+        'received_messages': received_messages,
+        'sent_messages': sent_messages,
     }
     return render(request, "Front_End/admin_dashboard.html", context)
 
@@ -143,11 +149,17 @@ def teacher_dashboard(request):
     total_accounts = ChartOfAccounts.objects.count()
     total_journals = JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
+    users = User.objects.all()
+    received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
+    sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
     context = {
         'total_accounts': total_accounts,
         'total_journals': total_journals,
         'total_entries': total_entries,
+        'users': users,
+        'received_messages': received_messages,
+        'sent_messages': sent_messages,
     }
     return render(request, "Front_End/teacher_dashboard.html", context)
 
@@ -160,11 +172,17 @@ def student_dashboard(request):
     total_accounts = ChartOfAccounts.objects.count()
     total_journals = JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
+    users = User.objects.all()
+    received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
+    sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
     context = {
         'total_accounts': total_accounts,
         'total_journals': total_journals,
         'total_entries': total_entries,
+        'users': users,
+        'received_messages': received_messages,
+        'sent_messages': sent_messages,
     }
     return render(request, "Front_End/student_dashboard.html", context)
 
@@ -1296,7 +1314,7 @@ def send_message(request):
         return JsonResponse({'error': 'Not authenticated'}, status=401)
     
     if request.method == 'POST':
-        form = MessageForm(request.POST)
+        form = MessageForm(request.POST, request.FILES)
         files = request.FILES.getlist('attachments')
         
         if form.is_valid():
@@ -1321,10 +1339,21 @@ def send_message(request):
                     'message_id': message.id,
                     'message': 'Message sent successfully'
                 })
-            return redirect('AccountingSystem:messages')
-        
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'error': 'Form invalid', 'errors': form.errors}, status=400)
+            # Redirect back to the current dashboard
+            if hasattr(request.user, 'profile'):
+                role = request.user.profile.role
+                if role == 'admin':
+                    return redirect('AccountingSystem:admin_dashboard')
+                elif role == 'teacher':
+                    return redirect('AccountingSystem:teacher_dashboard')
+                else:
+                    return redirect('AccountingSystem:student_dashboard')
+            return redirect('AccountingSystem:admin_dashboard')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'error': 'Form invalid', 'errors': form.errors}, status=400)
+            # If form is invalid, redirect back with error
+            return redirect('AccountingSystem:admin_dashboard')
     
     form = MessageForm()
     form.fields['recipient'].queryset = User.objects.exclude(id=request.user.id)
@@ -1432,4 +1461,26 @@ def download_attachment(request, attachment_id):
     response = HttpResponse(attachment.file.read(), content_type='application/octet-stream')
     response['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
     return response
+
+@require_http_methods(["GET"])
+def get_users_api(request):
+    """Get list of all users (excluding current user) for messaging"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    users = User.objects.exclude(id=request.user.id).values('id', 'username', 'first_name', 'last_name')
+    users_list = []
+    
+    for user in users:
+        full_name = f"{user['first_name']} {user['last_name']}".strip() if user['first_name'] or user['last_name'] else user['username']
+        users_list.append({
+            'id': user['id'],
+            'username': user['username'],
+            'full_name': full_name
+        })
+    
+    return JsonResponse({'users': users_list})
+    
+    response = HttpResponse(attachment.file.read(), content_type='application/octet-stream')
+    response['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
     return response
