@@ -1480,7 +1480,3 @@ def get_users_api(request):
         })
     
     return JsonResponse({'users': users_list})
-    
-    response = HttpResponse(attachment.file.read(), content_type='application/octet-stream')
-    response['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
-    return response
