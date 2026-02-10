@@ -1,0 +1,162 @@
+{% load static %}
+
+<!-- Messaging Component -->
+<div class="messaging-container">
+    <div class="messaging-header">
+        <h5 class="mb-0">
+            <i class="bi bi-chat-dots"></i> Messages
+            <span class="badge bg-danger" id="unread-badge" style="display: none;"></span>
+        </h5>
+        <br>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
+            <i class="bi bi-pencil-square"></i> New Message
+        </button>
+    </div>
+    <br>
+    <div class="messaging-body">
+        <!-- Tabs for Received and Sent Messages -->
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="received-tab" data-bs-toggle="tab" data-bs-target="#received-messages" type="button" role="tab">
+                    Received
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="sent-tab" data-bs-toggle="tab" data-bs-target="#sent-messages" type="button" role="tab">
+                    Sent
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- Received Messages Tab -->
+            <div class="tab-pane fade show active" id="received-messages" role="tabpanel">
+                <div class="messages-list" id="received-messages-list">
+                    {% if received_messages %}
+                        {% for message in received_messages %}
+                            <div class="message-item {% if not message.is_read %}unread{% endif %}" data-message-id="{{ message.id }}" >
+                                <div class="message-header">
+                                    <strong>{{ message.sender.get_full_name|default:message.sender.username }}</strong>
+                                    <small class="text-muted">{{ message.created_at|date:"Y-m-d H:i" }}</small>
+                                </div>
+                                <div class="message-subject">{{ message.subject|default:"No Subject" }}</div>
+                                <div class="message-preview">{{ message.content|truncatewords:20 }}</div>
+                                {% if message.attachments.all %}
+                                    <div class="message-attachments"><i class="bi bi-paperclip"></i> {{ message.attachments.count }} file(s)</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted p-4">
+                            <p>No received messages</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Sent Messages Tab -->
+            <div class="tab-pane fade" id="sent-messages" role="tabpanel">
+                <div class="messages-list" id="sent-messages-list">
+                    {% if sent_messages %}
+                        {% for message in sent_messages %}
+                            <div class="message-item" data-message-id="{{ message.id }}">
+                                <div class="message-header">
+                                    <strong>To: {{ message.recipient.get_full_name|default:message.recipient.username }}</strong>
+                                    <small class="text-muted">{{ message.created_at|date:"Y-m-d H:i" }}</small>
+                                </div>
+                                <div class="message-subject">{{ message.subject|default:"No Subject" }}</div>
+                                <div class="message-preview">{{ message.content|truncatewords:20 }}</div>
+                                {% if message.attachments.all %}
+                                    <div class="message-attachments"><i class="bi bi-paperclip"></i> {{ message.attachments.count }} file(s)</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted p-4">
+                            <p>No sent messages</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Message Modal -->
+<div class="modal fade" id="sendMessageModal" tabindex="-1" aria-labelledby="sendMessageLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendMessageLabel">Send New Message</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'AccountingSystem:send_message' %}" enctype="multipart/form-data" id="messageForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="recipient" class="form-label">Send to</label>
+                        <select class="form-control" id="recipient" name="recipient" required>
+                            <option value="">-- Select Recipient --</option>
+                            {% for user in users %}
+                                {% if user.id != request.user.id %}
+                                    <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                                {% endif %}
+                            {% empty %}
+                                <option value="">No users available</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subject" class="form-label">Subject (Optional)</label>
+                        <input type="text" class="form-control" id="subject" name="subject" placeholder="Message subject">
+                    </div>
+                    <div class="mb-3">
+                        <label for="content" class="form-label">Message</label>
+                        <textarea class="form-control" id="content" name="content" rows="4" placeholder="Type your message..." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="attachments" class="form-label">Attachments (Optional)</label>
+                        <input type="file" class="form-control" id="attachments" name="attachments" multiple>
+                        <small class="text-muted">You can attach multiple files</small>
+                        <div id="file-list" class="mt-2"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="sendMessageBtn">Send Message</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Message Detail Modal -->
+<div class="modal fade" id="messageDetailModal" tabindex="-1" aria-labelledby="messageDetailLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageDetailLabel">Message Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="message-detail-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="deleteMessageBtn">Delete</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Set API URLs for messaging JavaScript
+    window.messagingApiUrls = {
+        getUsers: '{% url "AccountingSystem:get_users_api" %}',
+        getMessages: '{% url "AccountingSystem:get_messages" %}',
+        unreadCount: '{% url "AccountingSystem:unread_count" %}',
+        sendMessage: '{% url "AccountingSystem:send_message" %}',
+        deleteMessage: '{% url "AccountingSystem:delete_message" message_id=0 %}'
+    };
+</script>
+<script src="{% static 'scripts/messaging_realtime.js' %}"></script>

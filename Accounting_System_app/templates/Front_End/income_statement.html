@@ -22,11 +22,24 @@
                     <label class="form-label">End Date</label>
                     <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
                 </div>
+                <div class="col-auto">
+                    <label class="form-label">Account Group</label>
+                    <select name="group_id" class="form-select">
+                        <option value="">All groups</option>
+                        {% for g in account_groups %}
+                        <option value="{{ g.id }}" {% if selected_group and selected_group.id == g.id %}selected{% endif %}>{{ g.group_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label">Cost of Sales</label>
+                    <input type="number" name="cost_of_sales" class="form-control" value="{{ cost_of_sales|default:0 }}" step="0.01" min="0">
+                </div>
                 <div class="col-auto align-self-end">
                     <button type="submit" class="btn btn-primary">Generate</button>
                 </div>
                 <div class="col-auto align-self-end">
-                    <a href="{% url 'AccountingSystem:income_statement_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success" target="_blank">
+                    <a href="{% url 'AccountingSystem:income_statement_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}&cost_of_sales={{ cost_of_sales|default:0 }}{% if selected_group %}&group_id={{ selected_group.id }}{% endif %}" class="btn btn-success" target="_blank">
                         <i class="bi bi-file-earmark-pdf"></i> Download as PDF
                     </a>
                 </div>
@@ -49,9 +62,19 @@
                         {% empty %}
                         <tr><td colspan="2" class="text-muted">No revenue accounts.</td></tr>
                         {% endfor %}
+                        {% if cost_of_sales %}
+                        <tr>
+                            <td><em>Cost of Sales</em></td>
+                            <td class="text-end">-{{ cost_of_sales|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                     <tfoot>
                         <tr class="fw-bold"><td>Total Revenues</td><td class="text-end">{{ total_revenues|floatformat:2 }}</td></tr>
+                        {% if cost_of_sales %}
+                        <tr><td colspan="2" class="text-muted"></td></tr>
+                        <tr class="fw-bold"><td>Net Revenues (after Cost of Sales)</td><td class="text-end">{{ net_revenues_after_cost|floatformat:2 }}</td></tr>
+                        {% endif %}
                     </tfoot>
                 </table>
             </div>
@@ -105,5 +128,15 @@
             <a href="{% url 'AccountingSystem:ledgers' %}" class="btn btn-secondary">Back to Ledgers</a>
         </div>
     </main>
+
+    <script>
+        // Reset cost_of_sales to 0 on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const costOfSalesInput = document.querySelector('input[name="cost_of_sales"]');
+            if (costOfSalesInput) {
+                costOfSalesInput.value = 0;
+            }
+        });
+    </script>
 </body>
 </html>
