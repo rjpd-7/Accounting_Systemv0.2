@@ -31,6 +31,8 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
     'Accounting_System_app',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -67,6 +69,7 @@ TEMPLATES = [
     },
 ]
 
+ASGI_APPLICATION = 'Accounting_System.asgi.application'
 WSGI_APPLICATION = 'Accounting_System.wsgi.application'
 
 
@@ -130,3 +133,10 @@ AUTHENTICATION_BACKENDS = [
     'Accounting_System_app.auth_backends.USNAccountsBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+# Channels configuration for WebSocket support
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}

@@ -1,3 +1,5 @@
+{% load static %}
+
 <!-- Messaging Component -->
 <div class="messaging-container">
     <div class="messaging-header">
@@ -29,7 +31,7 @@
         <div class="tab-content">
             <!-- Received Messages Tab -->
             <div class="tab-pane fade show active" id="received-messages" role="tabpanel">
-                <div class="messages-list">
+                <div class="messages-list" id="received-messages-list">
                     {% if received_messages %}
                         {% for message in received_messages %}
                             <div class="message-item {% if not message.is_read %}unread{% endif %}" data-message-id="{{ message.id }}" >
@@ -54,7 +56,7 @@
 
             <!-- Sent Messages Tab -->
             <div class="tab-pane fade" id="sent-messages" role="tabpanel">
-                <div class="messages-list">
+                <div class="messages-list" id="sent-messages-list">
                     {% if sent_messages %}
                         {% for message in sent_messages %}
                             <div class="message-item" data-message-id="{{ message.id }}">
@@ -88,7 +90,7 @@
                 <h5 class="modal-title" id="sendMessageLabel">Send New Message</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{% url 'AccountingSystem:send_message' %}" enctype="multipart/form-data">
+            <form method="POST" action="{% url 'AccountingSystem:send_message' %}" enctype="multipart/form-data" id="messageForm">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
@@ -157,3 +159,4 @@
         deleteMessage: '{% url "AccountingSystem:delete_message" message_id=0 %}'
     };
 </script>
+<script src="{% static 'scripts/messaging_realtime.js' %}"></script>
