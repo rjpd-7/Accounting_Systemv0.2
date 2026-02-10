@@ -4,9 +4,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry, Message, MessageAttachment
 from django.contrib.auth import authenticate, login, logout
-from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm
+from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError, Q, Value, DecimalField
 from django.db.models.functions import Coalesce
@@ -25,6 +25,8 @@ from .decorators import role_required
 import io
 from django.template.loader import render_to_string
 from django.http import HttpResponse
+from django.views.decorators.http import require_http_methods
+import os
 # pyright: ignore[reportMissingImports]
 try:
     from xhtml2pdf import pisa
@@ -124,11 +126,17 @@ def admin_dashboard(request):
     total_accounts = ChartOfAccounts.objects.count()
     total_journals = JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
+    users = User.objects.all()
+    received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
+    sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
     context = {
         'total_accounts': total_accounts,
         'total_journals': total_journals,
         'total_entries': total_entries,
+        'users': users,
+        'received_messages': received_messages,
+        'sent_messages': sent_messages,
     }
     return render(request, "Front_End/admin_dashboard.html", context)
 
@@ -141,11 +149,17 @@ def teacher_dashboard(request):
     total_accounts = ChartOfAccounts.objects.count()
     total_journals = JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
+    users = User.objects.all()
+    received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
+    sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
     context = {
         'total_accounts': total_accounts,
         'total_journals': total_journals,
         'total_entries': total_entries,
+        'users': users,
+        'received_messages': received_messages,
+        'sent_messages': sent_messages,
     }
     return render(request, "Front_End/teacher_dashboard.html", context)
 
@@ -158,11 +172,17 @@ def student_dashboard(request):
     total_accounts = ChartOfAccounts.objects.count()
     total_journals = JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
+    users = User.objects.all()
+    received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
+    sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
     context = {
         'total_accounts': total_accounts,
         'total_journals': total_journals,
         'total_entries': total_entries,
+        'users': users,
+        'received_messages': received_messages,
+        'sent_messages': sent_messages,
     }
     return render(request, "Front_End/student_dashboard.html", context)
 
@@ -759,6 +779,14 @@ def trial_balance_pdf(request):
 def income_statement(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('group_id')
+    cost_of_sales_str = request.GET.get('cost_of_sales', '0')
+
+    # Parse cost of sales
+    try:
+        cost_of_sales = float(cost_of_sales_str) if cost_of_sales_str else 0.0
+    except (ValueError, TypeError):
+        cost_of_sales = 0.0
 
     start_date = end_date = None
     try:
@@ -775,20 +803,33 @@ def income_statement(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
+    # Optional filter by Account Group
+    group_filter = Q()
+    selected_group = None
+    if group_id:
+        try:
+            selected_group = AccountGroups.objects.get(id=group_id)
+            group_filter &= Q(group_name=selected_group)
+        except AccountGroups.DoesNotExist:
+            selected_group = None
+
     # Revenues: normally credit balances (credit - debit)
-    revenue_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+    revenue_filter = Q(account_type='Revenue') & group_filter
+    revenue_qs = ChartOfAccounts.objects.filter(revenue_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
     # Expenses: normally debit balances (debit - credit)
-    expense_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+    expense_filter = Q(account_type='Expenses') & group_filter
+    expense_qs = ChartOfAccounts.objects.filter(expense_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
     # Identify Cost of Goods Sold accounts (by name keywords) and compute COGS separately
-    cogs_qs = ChartOfAccounts.objects.filter(account_type='Expenses').filter(
+    cogs_filter = Q(account_type='Expenses') & group_filter
+    cogs_qs = ChartOfAccounts.objects.filter(cogs_filter).filter(
         Q(account_name__icontains='cost of goods') | Q(account_name__icontains='cogs')
     ).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
@@ -820,14 +861,16 @@ def income_statement(request):
         cogs.append({'account': acc, 'amount': amt})
         total_cogs += amt
 
-    # Gross profit (revenues less COGS) and net income (revenues less expenses and COGS)
-    gross_profit = total_revenues - total_cogs
-    net_income = total_revenues - (total_expenses + total_cogs)
+    # Gross profit (revenues less COGS and cost of sales) and net income (revenues less expenses and COGS)
+    net_revenues_after_cost = total_revenues - cost_of_sales
+    gross_profit = net_revenues_after_cost - total_cogs
+    net_income = net_revenues_after_cost - (total_expenses + total_cogs)
 
     context = {
         'revenues': revenues,
         'expenses': expenses,
         'total_revenues': total_revenues,
+        'net_revenues_after_cost': net_revenues_after_cost,
         'total_expenses': total_expenses,
         'cogs': cogs,
         'total_cogs': total_cogs,
@@ -835,6 +878,9 @@ def income_statement(request):
         'net_income': net_income,
         'start_date': start_str,
         'end_date': end_str,
+        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'selected_group': selected_group,
+        'cost_of_sales': cost_of_sales,
     }
 
     return render(request, 'Front_End/income_statement.html', context)
@@ -844,6 +890,7 @@ def income_statement(request):
 def balance_sheet(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('group_id')
 
     start_date = end_date = None
     try:
@@ -860,17 +907,30 @@ def balance_sheet(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
-    assets_qs = ChartOfAccounts.objects.filter(account_type='Assets').annotate(
+    # Optional filter by Account Group
+    group_filter = Q()
+    selected_group = None
+    if group_id:
+        try:
+            selected_group = AccountGroups.objects.get(id=group_id)
+            group_filter &= Q(group_name=selected_group)
+        except AccountGroups.DoesNotExist:
+            selected_group = None
+
+    assets_filter = Q(account_type='Assets') & group_filter
+    assets_qs = ChartOfAccounts.objects.filter(assets_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
-    liabilities_qs = ChartOfAccounts.objects.filter(account_type='Liabilities').annotate(
+    liabilities_filter = Q(account_type='Liabilities') & group_filter
+    liabilities_qs = ChartOfAccounts.objects.filter(liabilities_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
-    equity_qs = ChartOfAccounts.objects.filter(account_type='Equity').annotate(
+    equity_filter = Q(account_type='Equity') & group_filter
+    equity_qs = ChartOfAccounts.objects.filter(equity_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
@@ -900,14 +960,16 @@ def balance_sheet(request):
     # compute revenues and expenses similarly
     revenue_sum = 0.0
     exp_sum = 0.0
-    rev_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+    rev_filter = Q(account_type='Revenue') & group_filter
+    rev_qs = ChartOfAccounts.objects.filter(rev_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     )
     for a in rev_qs:
         revenue_sum += float((a.total_credit or 0) - (a.total_debit or 0))
 
-    exp_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+    exp_filter = Q(account_type='Expenses') & group_filter
+    exp_qs = ChartOfAccounts.objects.filter(exp_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     )
@@ -929,6 +991,8 @@ def balance_sheet(request):
         'total_equity_including_ri': total_equity_including_ri,
         'start_date': start_str,
         'end_date': end_str,
+        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'selected_group': selected_group,
     }
 
     return render(request, 'Front_End/balance_sheet.html', context)
@@ -1079,6 +1143,14 @@ def income_statement_pdf(request):
 
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('group_id')
+    cost_of_sales_str = request.GET.get('cost_of_sales', '0')
+
+    # Parse cost of sales
+    try:
+        cost_of_sales = float(cost_of_sales_str) if cost_of_sales_str else 0.0
+    except (ValueError, TypeError):
+        cost_of_sales = 0.0
 
     start_date = end_date = None
     try:
@@ -1095,14 +1167,26 @@ def income_statement_pdf(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
+    # Optional filter by Account Group
+    group_filter = Q()
+    selected_group = None
+    if group_id:
+        try:
+            selected_group = AccountGroups.objects.get(id=group_id)
+            group_filter &= Q(group_name=selected_group)
+        except AccountGroups.DoesNotExist:
+            selected_group = None
+
     # Revenues: normally credit balances (credit - debit)
-    revenue_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+    revenue_filter = Q(account_type='Revenue') & group_filter
+    revenue_qs = ChartOfAccounts.objects.filter(revenue_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
     # Expenses: normally debit balances (debit - credit)
-    expense_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+    expense_filter = Q(account_type='Expenses') & group_filter
+    expense_qs = ChartOfAccounts.objects.filter(expense_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
@@ -1122,7 +1206,8 @@ def income_statement_pdf(request):
         total_expenses += amt
 
     # Identify and compute COGS separately (exclude from expenses list)
-    cogs_qs = ChartOfAccounts.objects.filter(account_type='Expenses').filter(
+    cogs_filter = Q(account_type='Expenses') & group_filter
+    cogs_qs = ChartOfAccounts.objects.filter(cogs_filter).filter(
         Q(account_name__icontains='cost of goods') | Q(account_name__icontains='cogs')
     ).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
@@ -1145,13 +1230,15 @@ def income_statement_pdf(request):
         cogs.append({'account': acc, 'amount': amt})
         total_cogs += amt
 
-    gross_profit = total_revenues - total_cogs
-    net_income = total_revenues - (total_expenses + total_cogs)
+    gross_profit = total_revenues - total_cogs - cost_of_sales
+    net_revenues_after_cost = total_revenues - cost_of_sales
+    net_income = net_revenues_after_cost - (total_expenses + total_cogs)
 
     context = {
         'revenues': revenues,
         'expenses': expenses,
         'total_revenues': total_revenues,
+        'net_revenues_after_cost': net_revenues_after_cost,
         'total_expenses': total_expenses,
         'cogs': cogs,
         'total_cogs': total_cogs,
@@ -1159,6 +1246,9 @@ def income_statement_pdf(request):
         'net_income': net_income,
         'start_date': start_str or '',
         'end_date': end_str or '',
+        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'selected_group': selected_group,
+        'cost_of_sales': cost_of_sales,
     }
 
     html = render_to_string('Front_End/income_statement_pdf.html', context)
@@ -1185,6 +1275,7 @@ def balance_sheet_pdf(request):
 
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('group_id')
 
     start_date = end_date = None
     try:
@@ -1201,17 +1292,30 @@ def balance_sheet_pdf(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
-    assets_qs = ChartOfAccounts.objects.filter(account_type='Assets').annotate(
+    # Optional filter by Account Group
+    group_filter = Q()
+    selected_group = None
+    if group_id:
+        try:
+            selected_group = AccountGroups.objects.get(id=group_id)
+            group_filter &= Q(group_name=selected_group)
+        except AccountGroups.DoesNotExist:
+            selected_group = None
+
+    assets_filter = Q(account_type='Assets') & group_filter
+    assets_qs = ChartOfAccounts.objects.filter(assets_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
-    liabilities_qs = ChartOfAccounts.objects.filter(account_type='Liabilities').annotate(
+    liabilities_filter = Q(account_type='Liabilities') & group_filter
+    liabilities_qs = ChartOfAccounts.objects.filter(liabilities_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
-    equity_qs = ChartOfAccounts.objects.filter(account_type='Equity').annotate(
+    equity_filter = Q(account_type='Equity') & group_filter
+    equity_qs = ChartOfAccounts.objects.filter(equity_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
@@ -1240,14 +1344,16 @@ def balance_sheet_pdf(request):
     # include current period net income in equity as retained earnings
     revenue_sum = 0.0
     exp_sum = 0.0
-    rev_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+    rev_filter = Q(account_type='Revenue') & group_filter
+    rev_qs = ChartOfAccounts.objects.filter(rev_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     )
     for a in rev_qs:
         revenue_sum += float((a.total_credit or 0) - (a.total_debit or 0))
 
-    exp_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+    exp_filter = Q(account_type='Expenses') & group_filter
+    exp_qs = ChartOfAccounts.objects.filter(exp_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     )
@@ -1268,6 +1374,8 @@ def balance_sheet_pdf(request):
         'total_equity_including_ri': total_equity_including_ri,
         'start_date': start_str or '',
         'end_date': end_str or '',
+        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'selected_group': selected_group,
     }
 
     html = render_to_string('Front_End/balance_sheet_pdf.html', context)
@@ -1285,3 +1393,178 @@ def balance_sheet_pdf(request):
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+# Messaging Views
+@require_http_methods(["GET", "POST"])
+def send_message(request):
+    """Send a new message with optional attachments"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    if request.method == 'POST':
+        form = MessageForm(request.POST, request.FILES)
+        files = request.FILES.getlist('attachments')
+        
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.sender = request.user
+            message.save()
+            
+            # Handle file attachments
+            for file in files:
+                if file.size > 0:
+                    attachment = MessageAttachment(
+                        message=message,
+                        file=file,
+                        filename=file.name,
+                        file_size=file.size
+                    )
+                    attachment.save()
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'message_id': message.id,
+                    'message': 'Message sent successfully'
+                })
+            # Redirect back to the current dashboard
+            if hasattr(request.user, 'profile'):
+                role = request.user.profile.role
+                if role == 'admin':
+                    return redirect('AccountingSystem:admin_dashboard')
+                elif role == 'teacher':
+                    return redirect('AccountingSystem:teacher_dashboard')
+                else:
+                    return redirect('AccountingSystem:student_dashboard')
+            return redirect('AccountingSystem:admin_dashboard')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'error': 'Form invalid', 'errors': form.errors}, status=400)
+            # If form is invalid, redirect back with error
+            return redirect('AccountingSystem:admin_dashboard')
+    
+    form = MessageForm()
+    form.fields['recipient'].queryset = User.objects.exclude(id=request.user.id)
+    return render(request, 'Front_End/send_message.html', {'form': form})
+
+@require_http_methods(["GET"])
+def get_messages(request):
+    """Get messages for the current user (both sent and received)"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    # Get all messages involving the current user
+    received = Message.objects.filter(recipient=request.user).order_by('-created_at')
+    sent = Message.objects.filter(sender=request.user).order_by('-created_at')
+    
+    received_data = []
+    for msg in received:
+        attachments = []
+        for att in msg.attachments.all():
+            attachments.append({
+                'id': att.id,
+                'filename': att.filename,
+                'file_size': att.file_size,
+                'url': att.file.url
+            })
+        received_data.append({
+            'id': msg.id,
+            'sender': msg.sender.get_full_name() or msg.sender.username,
+            'sender_id': msg.sender.id,
+            'subject': msg.subject or 'No Subject',
+            'content': msg.content,
+            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M'),
+            'is_read': msg.is_read,
+            'attachments': attachments,
+            'type': 'received'
+        })
+    
+    sent_data = []
+    for msg in sent:
+        attachments = []
+        for att in msg.attachments.all():
+            attachments.append({
+                'id': att.id,
+                'filename': att.filename,
+                'file_size': att.file_size,
+                'url': att.file.url
+            })
+        sent_data.append({
+            'id': msg.id,
+            'recipient': msg.recipient.get_full_name() or msg.recipient.username,
+            'recipient_id': msg.recipient.id,
+            'subject': msg.subject or 'No Subject',
+            'content': msg.content,
+            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M'),
+            'attachments': attachments,
+            'type': 'sent'
+        })
+    
+    # Mark messages as read
+    received.update(is_read=True)
+    
+    return JsonResponse({
+        'received': received_data,
+        'sent': sent_data,
+        'unread_count': Message.objects.filter(recipient=request.user, is_read=False).count()
+    })
+
+@require_http_methods(["GET"])
+def get_unread_count(request):
+    """Get count of unread messages"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    unread_count = Message.objects.filter(recipient=request.user, is_read=False).count()
+    return JsonResponse({'unread_count': unread_count})
+
+@require_http_methods(["POST"])
+def delete_message(request, message_id):
+    """Delete a message"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    message = get_object_or_404(Message, id=message_id)
+    
+    # Only allow sender to delete sent messages or recipient to delete received messages
+    if message.sender == request.user or message.recipient == request.user:
+        message.delete()
+        return JsonResponse({'status': 'success', 'message': 'Message deleted'})
+    
+    return JsonResponse({'error': 'Permission denied'}, status=403)
+
+@require_http_methods(["GET"])
+def download_attachment(request, attachment_id):
+    """Download a message attachment"""
+    if not request.user.is_authenticated:
+        return HttpResponse('Unauthorized', status=401)
+    
+    attachment = get_object_or_404(MessageAttachment, id=attachment_id)
+    message = attachment.message
+    
+    # Check if user has access
+    if message.sender != request.user and message.recipient != request.user:
+        return HttpResponse('Forbidden', status=403)
+    
+    response = HttpResponse(attachment.file.read(), content_type='application/octet-stream')
+    response['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
+    return response
+
+@require_http_methods(["GET"])
+def get_users_api(request):
+    """Get list of all users (excluding current user) for messaging"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    users = User.objects.exclude(id=request.user.id).values('id', 'username', 'first_name', 'last_name')
+    users_list = []
+    
+    for user in users:
+        full_name = f"{user['first_name']} {user['last_name']}".strip() if user['first_name'] or user['last_name'] else user['username']
+        users_list.append({
+            'id': user['id'],
+            'username': user['username'],
+            'full_name': full_name
+        })
+    
+    return JsonResponse({'users': users_list})
