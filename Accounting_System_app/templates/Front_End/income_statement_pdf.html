@@ -50,6 +50,16 @@
         <td>Total Revenues</td>
         <td class="right">{{ total_revenues|floatformat:2 }}</td>
       </tr>
+      {% if cost_of_sales %}
+      <tr>
+        <td>Less: Cost of Sales</td>
+        <td class="right">-{{ cost_of_sales|floatformat:2 }}</td>
+      </tr>
+      <tr class="total-row">
+        <td>Net Revenues (after Cost of Sales)</td>
+        <td class="right">{{ net_revenues_after_cost|floatformat:2 }}</td>
+      </tr>
+      {% endif %}
 
       <!-- COGS Section (if any) -->
       {% if cogs %}

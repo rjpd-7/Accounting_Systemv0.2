@@ -780,6 +780,13 @@ def income_statement(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
     group_id = request.GET.get('group_id')
+    cost_of_sales_str = request.GET.get('cost_of_sales', '0')
+
+    # Parse cost of sales
+    try:
+        cost_of_sales = float(cost_of_sales_str) if cost_of_sales_str else 0.0
+    except (ValueError, TypeError):
+        cost_of_sales = 0.0
 
     start_date = end_date = None
     try:
@@ -854,14 +861,16 @@ def income_statement(request):
         cogs.append({'account': acc, 'amount': amt})
         total_cogs += amt
 
-    # Gross profit (revenues less COGS) and net income (revenues less expenses and COGS)
-    gross_profit = total_revenues - total_cogs
-    net_income = total_revenues - (total_expenses + total_cogs)
+    # Gross profit (revenues less COGS and cost of sales) and net income (revenues less expenses and COGS)
+    net_revenues_after_cost = total_revenues - cost_of_sales
+    gross_profit = net_revenues_after_cost - total_cogs
+    net_income = net_revenues_after_cost - (total_expenses + total_cogs)
 
     context = {
         'revenues': revenues,
         'expenses': expenses,
         'total_revenues': total_revenues,
+        'net_revenues_after_cost': net_revenues_after_cost,
         'total_expenses': total_expenses,
         'cogs': cogs,
         'total_cogs': total_cogs,
@@ -871,6 +880,7 @@ def income_statement(request):
         'end_date': end_str,
         'account_groups': AccountGroups.objects.all().order_by('group_name'),
         'selected_group': selected_group,
+        'cost_of_sales': cost_of_sales,
     }
 
     return render(request, 'Front_End/income_statement.html', context)
@@ -1134,6 +1144,13 @@ def income_statement_pdf(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
     group_id = request.GET.get('group_id')
+    cost_of_sales_str = request.GET.get('cost_of_sales', '0')
+
+    # Parse cost of sales
+    try:
+        cost_of_sales = float(cost_of_sales_str) if cost_of_sales_str else 0.0
+    except (ValueError, TypeError):
+        cost_of_sales = 0.0
 
     start_date = end_date = None
     try:
@@ -1213,13 +1230,15 @@ def income_statement_pdf(request):
         cogs.append({'account': acc, 'amount': amt})
         total_cogs += amt
 
-    gross_profit = total_revenues - total_cogs
-    net_income = total_revenues - (total_expenses + total_cogs)
+    gross_profit = total_revenues - total_cogs - cost_of_sales
+    net_revenues_after_cost = total_revenues - cost_of_sales
+    net_income = net_revenues_after_cost - (total_expenses + total_cogs)
 
     context = {
         'revenues': revenues,
         'expenses': expenses,
         'total_revenues': total_revenues,
+        'net_revenues_after_cost': net_revenues_after_cost,
         'total_expenses': total_expenses,
         'cogs': cogs,
         'total_cogs': total_cogs,
@@ -1229,6 +1248,7 @@ def income_statement_pdf(request):
         'end_date': end_str or '',
         'account_groups': AccountGroups.objects.all().order_by('group_name'),
         'selected_group': selected_group,
+        'cost_of_sales': cost_of_sales,
     }
 
     html = render_to_string('Front_End/income_statement_pdf.html', context)
