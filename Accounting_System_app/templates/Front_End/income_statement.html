@@ -128,5 +128,15 @@
             <a href="{% url 'AccountingSystem:ledgers' %}" class="btn btn-secondary">Back to Ledgers</a>
         </div>
     </main>
+
+    <script>
+        // Reset cost_of_sales to 0 on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const costOfSalesInput = document.querySelector('input[name="cost_of_sales"]');
+            if (costOfSalesInput) {
+                costOfSalesInput.value = 0;
+            }
+        });
+    </script>
 </body>
 </html>
