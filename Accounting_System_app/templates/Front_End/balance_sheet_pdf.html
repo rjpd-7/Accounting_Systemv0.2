@@ -23,6 +23,9 @@
     {% else %}
       As of Date
     {% endif %}
+    {% if selected_group %}
+      <br>Account Group: {{ selected_group.group_name }}
+    {% endif %}
   </div>
 
   <table>

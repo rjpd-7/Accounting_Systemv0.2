@@ -880,6 +880,7 @@ def income_statement(request):
 def balance_sheet(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('group_id')
 
     start_date = end_date = None
     try:
@@ -896,17 +897,30 @@ def balance_sheet(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
-    assets_qs = ChartOfAccounts.objects.filter(account_type='Assets').annotate(
+    # Optional filter by Account Group
+    group_filter = Q()
+    selected_group = None
+    if group_id:
+        try:
+            selected_group = AccountGroups.objects.get(id=group_id)
+            group_filter &= Q(group_name=selected_group)
+        except AccountGroups.DoesNotExist:
+            selected_group = None
+
+    assets_filter = Q(account_type='Assets') & group_filter
+    assets_qs = ChartOfAccounts.objects.filter(assets_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
-    liabilities_qs = ChartOfAccounts.objects.filter(account_type='Liabilities').annotate(
+    liabilities_filter = Q(account_type='Liabilities') & group_filter
+    liabilities_qs = ChartOfAccounts.objects.filter(liabilities_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
-    equity_qs = ChartOfAccounts.objects.filter(account_type='Equity').annotate(
+    equity_filter = Q(account_type='Equity') & group_filter
+    equity_qs = ChartOfAccounts.objects.filter(equity_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
@@ -936,14 +950,16 @@ def balance_sheet(request):
     # compute revenues and expenses similarly
     revenue_sum = 0.0
     exp_sum = 0.0
-    rev_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+    rev_filter = Q(account_type='Revenue') & group_filter
+    rev_qs = ChartOfAccounts.objects.filter(rev_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     )
     for a in rev_qs:
         revenue_sum += float((a.total_credit or 0) - (a.total_debit or 0))
 
-    exp_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+    exp_filter = Q(account_type='Expenses') & group_filter
+    exp_qs = ChartOfAccounts.objects.filter(exp_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     )
@@ -965,6 +981,8 @@ def balance_sheet(request):
         'total_equity_including_ri': total_equity_including_ri,
         'start_date': start_str,
         'end_date': end_str,
+        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'selected_group': selected_group,
     }
 
     return render(request, 'Front_End/balance_sheet.html', context)
@@ -1237,6 +1255,7 @@ def balance_sheet_pdf(request):
 
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('group_id')
 
     start_date = end_date = None
     try:
@@ -1253,17 +1272,30 @@ def balance_sheet_pdf(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
-    assets_qs = ChartOfAccounts.objects.filter(account_type='Assets').annotate(
+    # Optional filter by Account Group
+    group_filter = Q()
+    selected_group = None
+    if group_id:
+        try:
+            selected_group = AccountGroups.objects.get(id=group_id)
+            group_filter &= Q(group_name=selected_group)
+        except AccountGroups.DoesNotExist:
+            selected_group = None
+
+    assets_filter = Q(account_type='Assets') & group_filter
+    assets_qs = ChartOfAccounts.objects.filter(assets_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
-    liabilities_qs = ChartOfAccounts.objects.filter(account_type='Liabilities').annotate(
+    liabilities_filter = Q(account_type='Liabilities') & group_filter
+    liabilities_qs = ChartOfAccounts.objects.filter(liabilities_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
-    equity_qs = ChartOfAccounts.objects.filter(account_type='Equity').annotate(
+    equity_filter = Q(account_type='Equity') & group_filter
+    equity_qs = ChartOfAccounts.objects.filter(equity_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
@@ -1292,14 +1324,16 @@ def balance_sheet_pdf(request):
     # include current period net income in equity as retained earnings
     revenue_sum = 0.0
     exp_sum = 0.0
-    rev_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+    rev_filter = Q(account_type='Revenue') & group_filter
+    rev_qs = ChartOfAccounts.objects.filter(rev_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     )
     for a in rev_qs:
         revenue_sum += float((a.total_credit or 0) - (a.total_debit or 0))
 
-    exp_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+    exp_filter = Q(account_type='Expenses') & group_filter
+    exp_qs = ChartOfAccounts.objects.filter(exp_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     )
@@ -1320,6 +1354,8 @@ def balance_sheet_pdf(request):
         'total_equity_including_ri': total_equity_including_ri,
         'start_date': start_str or '',
         'end_date': end_str or '',
+        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'selected_group': selected_group,
     }
 
     html = render_to_string('Front_End/balance_sheet_pdf.html', context)

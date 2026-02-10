@@ -22,11 +22,20 @@
                     <label class="form-label">End Date</label>
                     <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
                 </div>
+                <div class="col-auto">
+                    <label class="form-label">Account Group</label>
+                    <select name="group_id" class="form-select">
+                        <option value="">All groups</option>
+                        {% for g in account_groups %}
+                        <option value="{{ g.id }}" {% if selected_group and selected_group.id == g.id %}selected{% endif %}>{{ g.group_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="col-auto align-self-end">
                     <button type="submit" class="btn btn-primary">Generate</button>
                 </div>
                 <div class="col-auto align-self-end">
-                    <a href="{% url 'AccountingSystem:balance_sheet_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success" target="_blank">
+                    <a href="{% url 'AccountingSystem:balance_sheet_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}{% if selected_group %}&group_id={{ selected_group.id }}{% endif %}" class="btn btn-success" target="_blank">
                         <i class="bi bi-file-earmark-pdf"></i> Download as PDF
                     </a>
                 </div>
