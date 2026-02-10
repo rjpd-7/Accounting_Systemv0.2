@@ -779,6 +779,7 @@ def trial_balance_pdf(request):
 def income_statement(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('group_id')
 
     start_date = end_date = None
     try:
@@ -795,20 +796,33 @@ def income_statement(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
+    # Optional filter by Account Group
+    group_filter = Q()
+    selected_group = None
+    if group_id:
+        try:
+            selected_group = AccountGroups.objects.get(id=group_id)
+            group_filter &= Q(group_name=selected_group)
+        except AccountGroups.DoesNotExist:
+            selected_group = None
+
     # Revenues: normally credit balances (credit - debit)
-    revenue_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+    revenue_filter = Q(account_type='Revenue') & group_filter
+    revenue_qs = ChartOfAccounts.objects.filter(revenue_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
     # Expenses: normally debit balances (debit - credit)
-    expense_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+    expense_filter = Q(account_type='Expenses') & group_filter
+    expense_qs = ChartOfAccounts.objects.filter(expense_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
     # Identify Cost of Goods Sold accounts (by name keywords) and compute COGS separately
-    cogs_qs = ChartOfAccounts.objects.filter(account_type='Expenses').filter(
+    cogs_filter = Q(account_type='Expenses') & group_filter
+    cogs_qs = ChartOfAccounts.objects.filter(cogs_filter).filter(
         Q(account_name__icontains='cost of goods') | Q(account_name__icontains='cogs')
     ).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
@@ -855,6 +869,8 @@ def income_statement(request):
         'net_income': net_income,
         'start_date': start_str,
         'end_date': end_str,
+        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'selected_group': selected_group,
     }
 
     return render(request, 'Front_End/income_statement.html', context)
@@ -1099,6 +1115,7 @@ def income_statement_pdf(request):
 
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('group_id')
 
     start_date = end_date = None
     try:
@@ -1115,14 +1132,26 @@ def income_statement_pdf(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
+    # Optional filter by Account Group
+    group_filter = Q()
+    selected_group = None
+    if group_id:
+        try:
+            selected_group = AccountGroups.objects.get(id=group_id)
+            group_filter &= Q(group_name=selected_group)
+        except AccountGroups.DoesNotExist:
+            selected_group = None
+
     # Revenues: normally credit balances (credit - debit)
-    revenue_qs = ChartOfAccounts.objects.filter(account_type='Revenue').annotate(
+    revenue_filter = Q(account_type='Revenue') & group_filter
+    revenue_qs = ChartOfAccounts.objects.filter(revenue_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
 
     # Expenses: normally debit balances (debit - credit)
-    expense_qs = ChartOfAccounts.objects.filter(account_type='Expenses').annotate(
+    expense_filter = Q(account_type='Expenses') & group_filter
+    expense_qs = ChartOfAccounts.objects.filter(expense_filter).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
@@ -1142,7 +1171,8 @@ def income_statement_pdf(request):
         total_expenses += amt
 
     # Identify and compute COGS separately (exclude from expenses list)
-    cogs_qs = ChartOfAccounts.objects.filter(account_type='Expenses').filter(
+    cogs_filter = Q(account_type='Expenses') & group_filter
+    cogs_qs = ChartOfAccounts.objects.filter(cogs_filter).filter(
         Q(account_name__icontains='cost of goods') | Q(account_name__icontains='cogs')
     ).annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
@@ -1179,6 +1209,8 @@ def income_statement_pdf(request):
         'net_income': net_income,
         'start_date': start_str or '',
         'end_date': end_str or '',
+        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'selected_group': selected_group,
     }
 
     html = render_to_string('Front_End/income_statement_pdf.html', context)
