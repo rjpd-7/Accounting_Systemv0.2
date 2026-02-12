@@ -23,16 +23,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-%t%@rf947&b%rl$2oso9%4=fgt0#!y+7yk1dfu7hmpa2650tl9'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['rjpd7.pythonanywhere.com', '127.0.0.1']
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'daphne',
-    'channels',
     'Accounting_System_app',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -69,7 +67,6 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = 'Accounting_System.asgi.application'
 WSGI_APPLICATION = 'Accounting_System.wsgi.application'
 
 
@@ -78,7 +75,7 @@ WSGI_APPLICATION = 'Accounting_System.wsgi.application'
 
 DATABASES = {
     'default': {
-         'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'accountingsystemdb2',
         'USER': 'root',
         'PASSWORD': 'MySQLPassword',
@@ -122,7 +119,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+
+import os
+
+# For PythonAnywhere, use absolute path; for local development, use relative
+if 'pythonanywhere' in os.getenv('SERVER_SOFTWARE', ''):
+    STATIC_ROOT = '/home/rjpd7/rjpd7.pythonanywhere.com/static'
+else:
+    STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -134,9 +139,3 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# Channels configuration for WebSocket support
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
-    }
-}

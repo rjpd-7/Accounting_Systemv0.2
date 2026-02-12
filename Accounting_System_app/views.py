@@ -891,6 +891,14 @@ def balance_sheet(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
     group_id = request.GET.get('group_id')
+    cost_of_sales_str = request.GET.get('cost_of_sales', '0')
+
+    # Parse cost of sales
+    cost_of_sales = 0.0
+    try:
+        cost_of_sales = float(cost_of_sales_str) if cost_of_sales_str else 0.0
+    except (ValueError, TypeError):
+        cost_of_sales = 0.0
 
     start_date = end_date = None
     try:
@@ -976,7 +984,7 @@ def balance_sheet(request):
     for a in exp_qs:
         exp_sum += float((a.total_debit or 0) - (a.total_credit or 0))
 
-    net_income = revenue_sum - exp_sum
+    net_income = revenue_sum - cost_of_sales - exp_sum
 
     total_equity_including_ri = total_equity + net_income
 
@@ -991,6 +999,7 @@ def balance_sheet(request):
         'total_equity_including_ri': total_equity_including_ri,
         'start_date': start_str,
         'end_date': end_str,
+        'cost_of_sales': cost_of_sales,
         'account_groups': AccountGroups.objects.all().order_by('group_name'),
         'selected_group': selected_group,
     }
@@ -1276,6 +1285,14 @@ def balance_sheet_pdf(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
     group_id = request.GET.get('group_id')
+    cost_of_sales_str = request.GET.get('cost_of_sales', '0')
+
+    # Parse cost of sales
+    cost_of_sales = 0.0
+    try:
+        cost_of_sales = float(cost_of_sales_str) if cost_of_sales_str else 0.0
+    except (ValueError, TypeError):
+        cost_of_sales = 0.0
 
     start_date = end_date = None
     try:
@@ -1360,7 +1377,7 @@ def balance_sheet_pdf(request):
     for a in exp_qs:
         exp_sum += float((a.total_debit or 0) - (a.total_credit or 0))
 
-    net_income = revenue_sum - exp_sum
+    net_income = revenue_sum - cost_of_sales - exp_sum
     total_equity_including_ri = total_equity + net_income
 
     context = {
@@ -1374,6 +1391,7 @@ def balance_sheet_pdf(request):
         'total_equity_including_ri': total_equity_including_ri,
         'start_date': start_str or '',
         'end_date': end_str or '',
+        'cost_of_sales': cost_of_sales,
         'account_groups': AccountGroups.objects.all().order_by('group_name'),
         'selected_group': selected_group,
     }
