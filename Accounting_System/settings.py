@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-%t%@rf947&b%rl$2oso9%4=fgt0#!y+7yk1dfu7hmpa2650tl9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['rjpd7.pythonanywhere.com']
 
 
 # Application definition
@@ -78,7 +78,7 @@ WSGI_APPLICATION = 'Accounting_System.wsgi.application'
 
 DATABASES = {
     'default': {
-         'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'accountingsystemdb2',
         'USER': 'root',
         'PASSWORD': 'MySQLPassword',
@@ -123,6 +123,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+import os
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
