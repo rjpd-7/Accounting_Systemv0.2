@@ -27,6 +27,9 @@ from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
 import os
+from django.core.mail import send_mail
+from django.conf import settings
+import random, string
 # pyright: ignore[reportMissingImports]
 try:
     from xhtml2pdf import pisa
@@ -116,6 +119,53 @@ def logout_view(request):
     logout(request)
     messages.success(request, "Logout Successful")
     return render(request, "Front_End/login.html")
+
+
+# Forgot password: accepts username, generates temporary password, emails user
+def forgot_password(request):
+    if request.method != 'POST':
+        return redirect('AccountingSystem:login_view')
+
+    username = (request.POST.get('fp_username') or '').strip()
+    if not username:
+        messages.error(request, 'Please enter your username.')
+        return redirect('AccountingSystem:login_view')
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        messages.error(request, 'Username not found.')
+        return redirect('AccountingSystem:login_view')
+
+    if not user.email:
+        messages.error(request, 'No email associated with this account. Contact administrator.')
+        return redirect('AccountingSystem:login_view')
+
+    # generate temporary password
+    temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+
+    subject = 'Temporary Password - ACLC Accounting System'
+    message = (
+        f"Hello {user.username},\n\nA temporary password has been generated for your account:\n\n"
+        f"{temp_password}\n\nPlease login and change your password immediately.\n\nIf you did not request this, contact support."
+    )
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@example.com')
+
+    # Try to send the email first. Only change the stored password if email was sent.
+    try:
+        send_mail(subject, message, from_email, [user.email], fail_silently=False)
+    except Exception as e:
+        # Email failed — log details and keep the existing password unchanged
+        print(f"Failed to send email to {user.email}: {e}")
+        print(f"Temporary password (not applied) for {user.username}: {temp_password}")
+        messages.error(request, 'Unable to send email with temporary password. The temporary password was logged to the server console.')
+        return redirect('AccountingSystem:login_view')
+
+    # Email sent successfully — apply the temporary password
+    user.set_password(temp_password)
+    user.save()
+    messages.success(request, f'A temporary password has been sent to {user.email}.')
+    return redirect('AccountingSystem:login_view')
 
 # Admin Home Page
 @role_required(['admin'])
