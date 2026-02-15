@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-%t%@rf947&b%rl$2oso9%4=fgt0#!y+7yk1dfu7hmpa2650tl9'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['rjpd7.pythonanywhere.com', '127.0.0.1']
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -122,7 +122,8 @@ USE_TZ = True
 import os
 
 STATIC_URL = '/static/'
-STATIC_ROOT = '/home/rjpd7/rjpd7.pythonanywhere.com/static'
+
+#STATIC_ROOT = '/home/rjpd7/rjpd7.pythonanywhere.com/static'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
