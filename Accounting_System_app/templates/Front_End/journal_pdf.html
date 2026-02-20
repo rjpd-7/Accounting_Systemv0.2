@@ -15,6 +15,14 @@
   <p><strong>Journal Code:</strong> {{ header.entry_no }}</p>
   <p><strong>Date:</strong> {{ header.entry_date }}</p>
   <p><strong>Description:</strong> {{ header.journal_description }}</p>
+  <p><strong>Created by:</strong> {{ header.user.get_full_name|default:header.user.username }}</p>
+  {% if header.collaborators.all %}
+  <p><strong>Collaborators:</strong> 
+    {% for collab in header.collaborators.all %}
+      {{ collab.collaborator.get_full_name|default:collab.collaborator.username }}{% if not forloop.last %}, {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
 
   <table>
     <thead>
