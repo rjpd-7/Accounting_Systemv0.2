@@ -13,7 +13,7 @@
         <h2 class="mb-4">Income Statement</h2>
 
         <div class="mb-3">
-            <form method="get" class="row g-2">
+            <form method="get" class="row g-2" id="income-form">
                 <div class="col-auto">
                     <label class="form-label">Start Date</label>
                     <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
@@ -135,6 +135,18 @@
             const costOfSalesInput = document.querySelector('input[name="cost_of_sales"]');
             if (costOfSalesInput) {
                 costOfSalesInput.value = 0;
+            }
+            // date validation
+            var form = document.getElementById('income-form');
+            if(form){
+                form.addEventListener('submit', function(e){
+                    var start = form.querySelector('input[name="start_date"]').value;
+                    var end = form.querySelector('input[name="end_date"]').value;
+                    if(start && end && start > end){
+                        alert('Start date cannot be later than end date.');
+                        e.preventDefault();
+                    }
+                });
             }
         });
     </script>

@@ -107,6 +107,11 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             var start = document.getElementById('tb-start-date').value;
             var end = document.getElementById('tb-end-date').value;
+            // validation: start must not be after end
+            if (start && end && start > end) {
+                alert('Start date cannot be later than end date.');
+                return;
+            }
             fetchTrialBalance(start, end);
             // update download link
             updateDownloadLink(start, end);
