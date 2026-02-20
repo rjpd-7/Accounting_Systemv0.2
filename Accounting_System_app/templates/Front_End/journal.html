@@ -170,6 +170,7 @@
                                         data-entrycount="{{ group.entries.count }}"
                                         data-group="{{ group.header.group_name.id }}"
                                         data-group-name="{{ group.header.group_name.group_name }}"
+                                        data-is-draft="true"
                                         >
                                         Edit
                                     </button>
@@ -186,12 +187,16 @@
                                         {% endfor %}
                                     </table>
                                     &nbsp;
-                                    <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
+                                    {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
+                                    <a href="{% url 'AccountingSystem:approve_journal_draft' group.header.id %}" class="btn btn-success btn-sm" onclick="return confirm('Are you sure you want to approve this journal?');"><i class="bi bi-check-circle"></i> Approve</a>
+                                    &nbsp;
+                                    {% endif %}
+                                    <form action="{% url 'AccountingSystem:delete_journal_draft' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
                                         {% csrf_token %}
                                         <button name="delete" class="btn btn-danger btn-sm">
                                             Delete
                                         </button>
-                                    </form>    
+                                    </form>   
                                 </th>
                             </tr>
                             <tr>
@@ -237,6 +242,7 @@
                                 <th colspan="2" class="text-end">
                                     <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
                                     &nbsp;
+                                    {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
                                     <button type="button" class="btn btn-primary btn-sm" id="edit_button"
                                         data-bs-toggle="modal" 
                                         data-bs-target="#EDITstaticBackdrop"  
@@ -251,6 +257,7 @@
                                         >
                                         Edit
                                     </button>
+                                    {% endif %}
 
                                     <!-- Hidden table to store entry data -->
                                     <table class="d-none" id="entries_{{ group.header.id }}">
@@ -264,16 +271,18 @@
                                         {% endfor %}
                                     </table>
                                     &nbsp;
+                                    {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
                                     <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
                                         {% csrf_token %}
                                         <button name="delete" class="btn btn-danger btn-sm">
                                             Delete
                                         </button>
-                                    </form>    
+                                    </form>
+                                    {% endif %}    
                                 </th>
                             </tr>
                             <tr>
-                                <th>Date: {{ group.header.entry_date }}</th>
+                                <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
                                 <th>Account Name</th>
                                 <th>Debit</th>
                                 <th>Credit</th>

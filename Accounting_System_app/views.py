@@ -637,6 +637,147 @@ def delete_journal(request, id):
         pass
     return redirect("AccountingSystem:journals")
 
+# Approve Journal Draft Function - moves draft to approved journals
+def approve_journal_draft(request, id):
+    # only admins and teachers can approve
+    user_role = getattr(request.user, 'profile', None).role if getattr(request.user, 'profile', None) else None
+    if not request.user.is_superuser and user_role not in ['admin', 'teacher']:
+        return redirect("AccountingSystem:journals")
+    
+    try:
+        # get the draft header
+        draft_header = JournalHeaderDrafts.objects.get(pk=id)
+        
+        # create an approved header with same data
+        approved_header = JournalHeader.objects.create(
+            entry_no=draft_header.entry_no,
+            entry_date=draft_header.entry_date,
+            journal_description=draft_header.journal_description,
+            group_name=draft_header.group_name,
+            user=draft_header.user
+        )
+        
+        # copy all draft entries to approved entries
+        draft_entries = JournalEntryDrafts.objects.filter(journal_header=draft_header)
+        for draft_entry in draft_entries:
+            JournalEntry.objects.create(
+                journal_header=approved_header,
+                account=draft_entry.account,
+                debit=draft_entry.debit,
+                credit=draft_entry.credit,
+                description=draft_entry.description
+            )
+        
+        # delete draft entries and header
+        draft_entries.delete()
+        draft_header.delete()
+        
+        messages.success(request, f'Journal {draft_header.entry_no} has been approved successfully.')
+    except JournalHeaderDrafts.DoesNotExist:
+        messages.error(request, 'Draft journal not found.')
+    
+    return redirect("AccountingSystem:journals")
+
+# Update Journal Draft Function
+def update_journal_draft(request, id):
+    # retrieve header only if user owns it or is superuser
+    if request.user.is_superuser:
+        header = get_object_or_404(JournalHeaderDrafts, pk=id)
+    else:
+        header = get_object_or_404(JournalHeaderDrafts, pk=id, user=request.user)
+
+    if request.method != "POST":
+        return redirect(reverse("AccountingSystem:journals"))
+
+    # collect posted rows (names used in your update modal)
+    account_values = request.POST.getlist('edit_account_name')
+    debits = request.POST.getlist('edit_debit')
+    credits = request.POST.getlist('edit_credit')
+
+    # header fields
+    entry_date = request.POST.get('edit_entry-date') or request.POST.get('entry_date')
+    description = request.POST.get('edit_journal_description') or request.POST.get('journal_description')
+
+    # sanitize amounts and compute totals
+    total_debit = 0
+    total_credit = 0
+    parsed_debits = []
+    parsed_credits = []
+    for d in debits:
+        val = float(d) if d not in (None, '', 'NaN') else 0.0
+        parsed_debits.append(val)
+        total_debit += val
+    for c in credits:
+        val = float(c) if c not in (None, '', 'NaN') else 0.0
+        parsed_credits.append(val)
+        total_credit += val
+
+    # validation
+    if total_debit == 0:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Please enter amount!'})
+        return redirect(reverse("AccountingSystem:journals"))
+
+    if round(total_debit, 2) != round(total_credit, 2):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Total Debit and Credit must be equal!'})
+        return redirect(reverse("AccountingSystem:journals"))
+
+    # perform update inside transaction
+    with transaction.atomic():
+        # update header
+        if entry_date:
+            header.entry_date = entry_date
+        header.journal_description = description or header.description
+        header.save()
+
+        # remove existing entries
+        JournalEntryDrafts.objects.filter(journal_header=header).delete()
+
+        # recreate entries
+        for i, acc_val in enumerate(account_values):
+            # get amounts for this row
+            debit = parsed_debits[i] if i < len(parsed_debits) else 0.0
+            credit = parsed_credits[i] if i < len(parsed_credits) else 0.0
+            # skip empty rows (no account selected) or rows with no amounts
+            if not acc_val or (debit == 0 and credit == 0):
+                continue
+
+            # try to resolve account by PK first, fallback to name
+            account = None
+            try:
+                account = ChartOfAccounts.objects.get(pk=int(acc_val))
+            except (ValueError, ChartOfAccounts.DoesNotExist):
+                account = ChartOfAccounts.objects.filter(account_name=acc_val).first()
+
+            # if account still not found, skip
+            if not account:
+                continue
+
+            JournalEntryDrafts.objects.create(
+                journal_header=header,
+                account=account,
+                debit=debit,
+                credit=credit
+            )
+
+    # respond
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True})
+    return redirect(reverse("AccountingSystem:journals"))
+
+# Delete Journal Draft Function
+def delete_journal_draft(request, id):
+    try:
+        if request.user.is_superuser:
+            journal_header = JournalHeaderDrafts.objects.get(pk=id)
+        else:
+            journal_header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+        journal_header.delete()
+    except JournalHeaderDrafts.DoesNotExist:
+        pass
+    return redirect("AccountingSystem:journals")
+
 # General Ledger Page
 def general_ledger(request):
     if not request.user.is_authenticated:
