@@ -133,82 +133,176 @@
             </button>
         </div>
         <br>
-        <!---Show Journal Entries if there are any --->
-        <div class="display_table">
-            <table class="table table-bordered">
-                {% for group in journal_groups %}
-                <table class="table table-bordered mb-4">
-                    <thead class="table-light">
-                        <tr>
-                            <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
-                            <th><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
-                            <th colspan="2" class="text-end">
-                                <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
-                                &nbsp;
-                                <button type="button" class="btn btn-primary btn-sm" id="edit_button"
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#EDITstaticBackdrop"  
-                                    data-id="{{ group.header.id }}"
-                                    data-date="{{ group.header.entry_date }}"
-                                    data-description="{{ group.header.journal_description }}"
-                                    data-totaldebit="{{ group.total_debit }}"
-                                    data-totalcredit="{{ group.total_credit }}"
-                                    data-entrycount="{{ group.entries.count }}"
-                                    data-group="{{ group.header.group_name.id }}"
-                                    data-group-name="{{ group.header.group_name.group_name }}"
-                                    >
-                                    Edit
-                                </button>
-
-                                <!-- Hidden table to store entry data -->
-                                <table class="d-none" id="entries_{{ group.header.id }}">
-                                    {% for entry in group.entries %}
-                                        <tr data-account-id="{{ entry.account.id }}"
-                                            data-account-name="{{ entry.account.account_name }}"
-                                            data-account-type="{{ entry.account.account_type }}"
-                                            data-debit="{{ entry.debit }}"
-                                            data-credit="{{ entry.credit }}">
-                                        </tr>
-                                    {% endfor %}
-                                </table>
-                                &nbsp;
-                                <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
-                                    {% csrf_token %}
-                                    <button name="delete" class="btn btn-danger btn-sm">
-                                        Delete
+        <!-- tabs for drafts/approved -->
+        <ul class="nav nav-tabs" id="journalTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="draft-tab" data-bs-toggle="tab" data-bs-target="#draft" type="button" role="tab" aria-controls="draft" aria-selected="true">
+              Drafts
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab" aria-controls="approved" aria-selected="false">
+              Approved
+            </button>
+          </li>
+        </ul>
+        <div class="tab-content" id="journalTabContent">
+          <div class="tab-pane fade show active" id="draft" role="tabpanel" aria-labelledby="draft-tab">
+            <div class="display_table">
+                <table class="table table-bordered">
+                    {% for group in draft_groups %}
+                    <table class="table table-bordered mb-4">
+                        <thead class="table-light">
+                            <tr>
+                                <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
+                                <th><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
+                                <th colspan="2" class="text-end">
+                                    <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
+                                    &nbsp;
+                                    <button type="button" class="btn btn-primary btn-sm" id="edit_button"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#EDITstaticBackdrop"  
+                                        data-id="{{ group.header.id }}"
+                                        data-date="{{ group.header.entry_date }}"
+                                        data-description="{{ group.header.journal_description }}"
+                                        data-totaldebit="{{ group.total_debit }}"
+                                        data-totalcredit="{{ group.total_credit }}"
+                                        data-entrycount="{{ group.entries.count }}"
+                                        data-group="{{ group.header.group_name.id }}"
+                                        data-group-name="{{ group.header.group_name.group_name }}"
+                                        >
+                                        Edit
                                     </button>
-                                </form>    
-                            </th>
-                        </tr>
-                        <tr>
-                            <th>Date: {{ group.header.entry_date }}</th>
-                            <th>Account Name</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
-                        </tr>
-                    </thead>
 
-                    <tbody>
-                        {% for journal_entry in group.entries %}
-                        <tr>
-                            <td></td>
-                            <td>{{ journal_entry.account.account_name }}</td>
-                            <td>{{ journal_entry.debit|floatformat:2 }}</td>
-                            <td>{{ journal_entry.credit|floatformat:2 }}</td>
-                        </tr>
-                        {% endfor %}
-                        <tr class="{% if group.total_debit == group.total_credit %}table-success{% else %}table-danger{% endif %}">
-                            <td colspan="1"><strong>Description:</strong> {{ group.header.journal_description }}</td>                            
-                            <td colspan="1" class="text-end">Totals = </td>
-                            <td><strong>{{ group.total_debit|floatformat:2 }}</strong></td>
-                            <td><strong>{{ group.total_credit|floatformat:2 }}</strong></td>
-                        </tr>
-                    </tbody>
+                                    <!-- Hidden table to store entry data -->
+                                    <table class="d-none" id="entries_{{ group.header.id }}">
+                                        {% for entry in group.entries %}
+                                            <tr data-account-id="{{ entry.account.id }}"
+                                                data-account-name="{{ entry.account.account_name }}"
+                                                data-account-type="{{ entry.account.account_type }}"
+                                                data-debit="{{ entry.debit }}"
+                                                data-credit="{{ entry.credit }}">
+                                            </tr>
+                                        {% endfor %}
+                                    </table>
+                                    &nbsp;
+                                    <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
+                                        {% csrf_token %}
+                                        <button name="delete" class="btn btn-danger btn-sm">
+                                            Delete
+                                        </button>
+                                    </form>    
+                                </th>
+                            </tr>
+                            <tr>
+                                <th>Date: {{ group.header.entry_date }}</th>
+                                <th>Account Name</th>
+                                <th>Debit</th>
+                                <th>Credit</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for journal_entry in group.entries %}
+                            <tr>
+                                <td></td>
+                                <td>{{ journal_entry.account.account_name }}</td>
+                                <td>{{ journal_entry.debit|floatformat:2 }}</td>
+                                <td>{{ journal_entry.credit|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="{% if group.total_debit == group.total_credit %}table-success{% else %}table-danger{% endif %}">
+                                <td colspan="1"><strong>Description:</strong> {{ group.header.journal_description }}</td>                            
+                                <td colspan="1" class="text-end">Totals = </td>
+                                <td><strong>{{ group.total_debit|floatformat:2 }}</strong></td>
+                                <td><strong>{{ group.total_credit|floatformat:2 }}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    {% empty %}
+                    <p>No Journal Entries are created.</p>
+                    {% endfor %}
                 </table>
-                {% empty %}
-                <p>No Journal Entries are created.</p>
-                {% endfor %}
-            </table>
+            </div>
+          </div>
+          <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab">
+            <div class="display_table">
+                <table class="table table-bordered">
+                    {% for group in approved_groups %}
+                    <table class="table table-bordered mb-4">
+                        <thead class="table-light">
+                            <tr>
+                                <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
+                                <th><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
+                                <th colspan="2" class="text-end">
+                                    <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
+                                    &nbsp;
+                                    <button type="button" class="btn btn-primary btn-sm" id="edit_button"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#EDITstaticBackdrop"  
+                                        data-id="{{ group.header.id }}"
+                                        data-date="{{ group.header.entry_date }}"
+                                        data-description="{{ group.header.journal_description }}"
+                                        data-totaldebit="{{ group.total_debit }}"
+                                        data-totalcredit="{{ group.total_credit }}"
+                                        data-entrycount="{{ group.entries.count }}"
+                                        data-group="{{ group.header.group_name.id }}"
+                                        data-group-name="{{ group.header.group_name.group_name }}"
+                                        >
+                                        Edit
+                                    </button>
+
+                                    <!-- Hidden table to store entry data -->
+                                    <table class="d-none" id="entries_{{ group.header.id }}">
+                                        {% for entry in group.entries %}
+                                            <tr data-account-id="{{ entry.account.id }}"
+                                                data-account-name="{{ entry.account.account_name }}"
+                                                data-account-type="{{ entry.account.account_type }}"
+                                                data-debit="{{ entry.debit }}"
+                                                data-credit="{{ entry.credit }}">
+                                            </tr>
+                                        {% endfor %}
+                                    </table>
+                                    &nbsp;
+                                    <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
+                                        {% csrf_token %}
+                                        <button name="delete" class="btn btn-danger btn-sm">
+                                            Delete
+                                        </button>
+                                    </form>    
+                                </th>
+                            </tr>
+                            <tr>
+                                <th>Date: {{ group.header.entry_date }}</th>
+                                <th>Account Name</th>
+                                <th>Debit</th>
+                                <th>Credit</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for journal_entry in group.entries %}
+                            <tr>
+                                <td></td>
+                                <td>{{ journal_entry.account.account_name }}</td>
+                                <td>{{ journal_entry.debit|floatformat:2 }}</td>
+                                <td>{{ journal_entry.credit|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="{% if group.total_debit == group.total_credit %}table-success{% else %}table-danger{% endif %}">
+                                <td colspan="1"><strong>Description:</strong> {{ group.header.journal_description }}</td>                            
+                                <td colspan="1" class="text-end">Totals = </td>
+                                <td><strong>{{ group.total_debit|floatformat:2 }}</strong></td>
+                                <td><strong>{{ group.total_credit|floatformat:2 }}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    {% empty %}
+                    <p>No Journal Entries are created.</p>
+                    {% endfor %}
+                </table>
+            </div>
+          </div>
         </div>
 
         <!-- Insert Journal Modal -->

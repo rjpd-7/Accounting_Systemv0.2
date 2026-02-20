@@ -70,6 +70,15 @@ class JournalHeader(models.Model):
     journal_description = models.TextField(blank=True, null=True)
     group_name = models.ForeignKey(AccountGroups, on_delete=models.RESTRICT, null=True, blank=True)
 
+    # track which user created this journal header
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="journal_headers",
+        null=True,   # allow null temporarily for existing rows/migration
+        blank=True,
+    )
+
     def __str__(self):
         return f"{self.entry_no} ({self.entry_date})"
 

@@ -44,7 +44,8 @@ def index(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
     total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
+    # students (and non-superusers) only count their own journals
+    total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
 
     context = {
@@ -174,7 +175,7 @@ def admin_dashboard(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
     total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
+    total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
@@ -197,7 +198,7 @@ def teacher_dashboard(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
     total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
+    total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
@@ -220,7 +221,7 @@ def student_dashboard(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
     total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
+    total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
@@ -396,7 +397,10 @@ def journals(request):
     journal_groups = []
 
     headers = JournalHeader.objects.all()
-    headers = JournalHeader.objects.order_by('-journal_date_created', '-id')
+    # restrict to current user unless administrator/teacher should see all
+    if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
+        headers = headers.filter(user=request.user)
+    headers = headers.order_by('-journal_date_created', '-id')
 
     for header in headers:
         entries = journal_entries.filter(journal_header=header)
@@ -412,8 +416,14 @@ def journals(request):
             'total_credit': totals['total_credit'] or 0
         })
 
+    # temporarily treat all groups as both drafts and approved; update filtering as needed
+    draft_groups = journal_groups
+    approved_groups = journal_groups
+
     return render(request, 'Front_end/journal.html', {
         'journal_groups': journal_groups,
+        'draft_groups': draft_groups,
+        'approved_groups': approved_groups,
         'account_groups': account_groups,
         "accounts" : accounts
         })
@@ -435,6 +445,7 @@ def insert_journals(request):
             entry_date = date_submit,
             journal_description = description,
             group_name = AccountGroups.objects.get(pk=account_group),
+            user = request.user,
         ) 
         header.save()
 
@@ -470,7 +481,11 @@ def insert_journals(request):
 
 # Update Journal Entry
 def update_journal(request, id):
-    header = get_object_or_404(JournalHeader, pk=id)
+    # retrieve header only if user owns it or is superuser
+    if request.user.is_superuser:
+        header = get_object_or_404(JournalHeader, pk=id)
+    else:
+        header = get_object_or_404(JournalHeader, pk=id, user=request.user)
 
     if request.method != "POST":
         return redirect(reverse("AccountingSystem:journals"))  # adjust name
@@ -556,7 +571,10 @@ def update_journal(request, id):
 # Delete Journal Entry
 def delete_journal(request, id):
     try:
-        journal_header = JournalHeader.objects.get(pk=id)
+        if request.user.is_superuser:
+            journal_header = JournalHeader.objects.get(pk=id)
+        else:
+            journal_header = JournalHeader.objects.get(pk=id, user=request.user)
         journal_header.delete()
     except JournalHeader.DoesNotExist:
         pass
@@ -1164,7 +1182,11 @@ def journal_pdf(request, id):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
 
-    header = get_object_or_404(JournalHeader, pk=id)
+    # only allow owner or superuser to view PDF
+    if request.user.is_superuser:
+        header = get_object_or_404(JournalHeader, pk=id)
+    else:
+        header = get_object_or_404(JournalHeader, pk=id, user=request.user)
     entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
 
     total_debit = sum((e.debit or 0) for e in entries)
