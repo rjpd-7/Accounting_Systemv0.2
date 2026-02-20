@@ -546,11 +546,16 @@ def insert_journals(request):
 
 # Update Journal Entry
 def update_journal(request, id):
-    # retrieve header only if user owns it or is superuser
+    # retrieve header only if user owns it, is superuser, or is a collaborator
     if request.user.is_superuser:
         header = get_object_or_404(JournalHeader, pk=id)
     else:
-        header = get_object_or_404(JournalHeader, pk=id, user=request.user)
+        # Check if user is the owner or a collaborator
+        try:
+            header = JournalHeader.objects.get(pk=id, user=request.user)
+        except JournalHeader.DoesNotExist:
+            # Check if user is a collaborator
+            header = get_object_or_404(JournalHeader, pk=id, collaborators__collaborator=request.user)
 
     if request.method != "POST":
         return redirect(reverse("AccountingSystem:journals"))  # adjust name
@@ -688,11 +693,17 @@ def approve_journal_draft(request, id):
 
 # Update Journal Draft Function
 def update_journal_draft(request, id):
-    # retrieve header only if user owns it or is superuser
+    # retrieve header only if user owns it, is superuser, or is a collaborator
     if request.user.is_superuser:
         header = get_object_or_404(JournalHeaderDrafts, pk=id)
     else:
-        header = get_object_or_404(JournalHeaderDrafts, pk=id, user=request.user)
+        # Check if user is the owner or a collaborator
+        try:
+            header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+        except JournalHeaderDrafts.DoesNotExist:
+            # Check if user is a collaborator
+            from django.db.models import Q
+            header = get_object_or_404(JournalHeaderDrafts, pk=id, collaborators__collaborator=request.user)
 
     if request.method != "POST":
         return redirect(reverse("AccountingSystem:journals"))
@@ -1496,13 +1507,48 @@ def journal_pdf(request, id):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
 
-    # only allow owner or superuser to view PDF
+    # Check both draft and approved journals, allowing owner, collaborators, or superuser
+    header = None
+    entries = None
+    is_draft = False
+    
     if request.user.is_superuser:
-        header = get_object_or_404(JournalHeader, pk=id)
+        # Superuser can view any journal
+        try:
+            header = JournalHeader.objects.get(pk=id)
+            entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
+        except JournalHeader.DoesNotExist:
+            try:
+                header = JournalHeaderDrafts.objects.get(pk=id)
+                entries = JournalEntryDrafts.objects.filter(journal_header=header).select_related('account').order_by('id')
+                is_draft = True
+            except JournalHeaderDrafts.DoesNotExist:
+                return HttpResponse('Journal not found', status=404)
     else:
-        header = get_object_or_404(JournalHeader, pk=id, user=request.user)
-    entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
-
+        # Check if user is owner of approved journal
+        try:
+            header = JournalHeader.objects.get(pk=id, user=request.user)
+            entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
+        except JournalHeader.DoesNotExist:
+            # Check if user is collaborator on approved journal
+            try:
+                header = JournalHeader.objects.get(pk=id, collaborators__collaborator=request.user)
+                entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
+            except JournalHeader.DoesNotExist:
+                # Check if user is owner of draft journal
+                try:
+                    header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+                    entries = JournalEntryDrafts.objects.filter(journal_header=header).select_related('account').order_by('id')
+                    is_draft = True
+                except JournalHeaderDrafts.DoesNotExist:
+                    # Check if user is collaborator on draft journal
+                    try:
+                        header = JournalHeaderDrafts.objects.get(pk=id, collaborators__collaborator=request.user)
+                        entries = JournalEntryDrafts.objects.filter(journal_header=header).select_related('account').order_by('id')
+                        is_draft = True
+                    except JournalHeaderDrafts.DoesNotExist:
+                        return HttpResponse('Journal not found or you do not have permission to view it', status=404)
+    
     total_debit = sum((e.debit or 0) for e in entries)
     total_credit = sum((e.credit or 0) for e in entries)
 
@@ -1512,6 +1558,7 @@ def journal_pdf(request, id):
         'total_debit': total_debit,
         'total_credit': total_credit,
         'ending_balance': total_debit - total_credit,
+        'is_draft': is_draft,
     }
 
     html = render_to_string('Front_End/journal_pdf.html', context)

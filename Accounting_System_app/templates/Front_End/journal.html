@@ -203,15 +203,10 @@
                                     </form>   
                                 </th>
                             </tr>
-                            <tr>
-                                <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
-                                <th>Account Name</th>
-                                <th>Debit</th>
-                                <th>Credit</th>
-                            </tr>
-                            {% if group.header.collaborators.all %}
                             <tr class="table-light">
-                                <td colspan="4"><strong>Collaborators:</strong> 
+                                <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
+                                {% if group.header.collaborators.all %}
+                                <th colspan="4"><strong>Collaborators:</strong> 
                                     {% for collab in group.header.collaborators.all %}
                                         <span class="badge bg-info">
                                             {{ collab.collaborator.first_name|default:collab.collaborator.username }}
@@ -220,9 +215,15 @@
                                             {% endif %}
                                         </span>
                                     {% endfor %}
-                                </td>
+                                </th>
+                                {% endif %}
                             </tr>
-                            {% endif %}
+                            <tr>
+                                <th></th>
+                                <th>Account Name</th>
+                                <th>Debit</th>
+                                <th>Credit</th>
+                            </tr>
                         </thead>
 
                         <tbody>
@@ -323,7 +324,7 @@
                                 {% endif %}
                             </tr>
                             <tr>
-                                <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
+                                <th></th>
                                 <th>Account Name</th>
                                 <th>Debit</th>
                                 <th>Credit</th>
