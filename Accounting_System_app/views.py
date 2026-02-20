@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry, Message, MessageAttachment
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
@@ -424,6 +424,42 @@ def journals(request):
         'journal_groups': journal_groups,
         'draft_groups': draft_groups,
         'approved_groups': approved_groups,
+        'account_groups': account_groups,
+        "accounts" : accounts
+        })
+
+# Journal Drafts Page
+def journals_drafts(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
+    account_groups = AccountGroups.objects.all()
+    accounts = ChartOfAccounts.objects.all()
+    journal_entries_drafts = JournalEntryDrafts.objects.select_related('journal_header', 'account')
+    journal_drafts_groups = []
+
+    headers = JournalHeaderDrafts.objects.all()
+    # restrict to current user unless administrator/teacher should see all
+    if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
+        headers = headers.filter(user=request.user)
+    headers = headers.order_by('-journal_date_created', '-id')
+
+    for header in headers:
+        entries = journal_entries_drafts.filter(journal_header=header)
+        totals = entries.aggregate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit')
+        )
+
+        journal_drafts_groups.append({
+            'header': header,
+            'entries': entries,
+            'total_debit': totals['total_debit'] or 0,
+            'total_credit': totals['total_credit'] or 0
+        })
+
+    return render(request, 'Front_end/journal_drafts.html', {
+        'journal_groups': journal_drafts_groups,
         'account_groups': account_groups,
         "accounts" : accounts
         })

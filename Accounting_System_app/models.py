@@ -62,6 +62,43 @@ class ChartOfAccounts(models.Model):
     class Meta:
         db_table = "accounts_table"
 
+# Journal Headers Table Drafts
+class JournalHeaderDrafts(models.Model):
+    journal_date_created = models.DateTimeField(auto_now_add=True)
+    entry_no = models.CharField(max_length=20, unique=True)
+    entry_date = models.DateField(default=date.today)
+    journal_description = models.TextField(blank=True, null=True)
+    group_name = models.ForeignKey(AccountGroups, on_delete=models.RESTRICT, null=True, blank=True)
+
+    # track which user created this journal header
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="journal_headers_drafts",
+        null=True,   # allow null temporarily for existing rows/migration
+        blank=True,
+    )
+
+    def __str__(self):
+        return f"{self.entry_no} ({self.entry_date})"
+
+    class Meta:
+        db_table = "journal_headers_table_drafts"
+
+# Journal Entries Table Drafts
+class JournalEntryDrafts(models.Model):
+    journal_header = models.ForeignKey(JournalHeaderDrafts, on_delete=models.CASCADE, related_name="entries", default=1)
+    account = models.ForeignKey(ChartOfAccounts, on_delete=models.RESTRICT, default=1)
+    debit = models.DecimalField(max_digits=15, decimal_places=5, default=0.00)
+    credit = models.DecimalField(max_digits=15, decimal_places=5, default=0.00)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.account.account_name} ({self.debit} / {self.credit})"
+
+    class Meta:
+        db_table = "journal_entries_table_drafts"
+
 # Journal Headers Table
 class JournalHeader(models.Model):
     journal_date_created = models.DateTimeField(auto_now_add=True)
