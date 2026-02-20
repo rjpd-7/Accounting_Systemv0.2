@@ -191,6 +191,10 @@
                                     <a href="{% url 'AccountingSystem:approve_journal_draft' group.header.id %}" class="btn btn-success btn-sm" onclick="return confirm('Are you sure you want to approve this journal?');"><i class="bi bi-check-circle"></i> Approve</a>
                                     &nbsp;
                                     {% endif %}
+                                    {% if request.user == group.header.user %}
+                                    <button type="button" class="btn btn-info btn-sm" id="share_button" data-bs-toggle="modal" data-bs-target="#ShareDraftModal" data-id="{{ group.header.id }}" data-is-draft="true"><i class="bi bi-share"></i> Share</button>
+                                    &nbsp;
+                                    {% endif %}
                                     <form action="{% url 'AccountingSystem:delete_journal_draft' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
                                         {% csrf_token %}
                                         <button name="delete" class="btn btn-danger btn-sm">
@@ -199,8 +203,23 @@
                                     </form>   
                                 </th>
                             </tr>
-                            <tr>
+                            <tr class="table-light">
                                 <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
+                                {% if group.header.collaborators.all %}
+                                <th colspan="4"><strong>Collaborators:</strong> 
+                                    {% for collab in group.header.collaborators.all %}
+                                        <span class="badge bg-info">
+                                            {{ collab.collaborator.first_name|default:collab.collaborator.username }}
+                                            {% if request.user == group.header.user %}
+                                                <a href="{% url 'AccountingSystem:remove_collaborator_draft' group.header.id collab.collaborator.id %}" class="text-white" style="text-decoration: none; cursor: pointer;" onclick="return confirm('Remove this collaborator?');">×</a>
+                                            {% endif %}
+                                        </span>
+                                    {% endfor %}
+                                </th>
+                                {% endif %}
+                            </tr>
+                            <tr>
+                                <th></th>
                                 <th>Account Name</th>
                                 <th>Debit</th>
                                 <th>Credit</th>
@@ -278,11 +297,34 @@
                                             Delete
                                         </button>
                                     </form>
-                                    {% endif %}    
+                                    {% endif %}
+                                    &nbsp;
+                                    {% if request.user == group.header.user %}
+                                    <button type="button" class="btn btn-info btn-sm" id="share_button" 
+                                        data-bs-toggle="modal" data-bs-target="#ShareModal" 
+                                        data-id="{{ group.header.id }}" data-is-draft="false">
+                                        <i class="bi bi-share"></i> Share
+                                    </button>
+                                    {% endif %}
                                 </th>
                             </tr>
                             <tr>
                                 <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
+                                {% if group.header.collaborators.all %}
+                                <th colspan="3">
+                                    <strong>Collaborators:</strong>
+                                    {% for collab in group.header.collaborators.all %}
+                                    <span class="badge bg-info">{{ collab.collaborator.first_name|default:collab.collaborator.username }} 
+                                        {% if request.user == group.header.user %}
+                                        <a href="{% url 'AccountingSystem:remove_collaborator' group.header.id collab.collaborator.id %}" class="text-white" style="text-decoration: none; cursor: pointer;">×</a>
+                                        {% endif %}
+                                    </span>
+                                    {% endfor %}
+                                </th>
+                                {% endif %}
+                            </tr>
+                            <tr>
+                                <th></th>
                                 <th>Account Name</th>
                                 <th>Debit</th>
                                 <th>Credit</th>
@@ -522,6 +564,60 @@
         </div>
         <!-- End EDIT Modal -->
         
+        <!-- Share Journal Modal for Draft Journals -->
+        <div class="modal fade" id="ShareDraftModal" tabindex="-1" aria-labelledby="ShareDraftModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="ShareDraftModalLabel">Share Draft Journal</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="share_draft_form">
+                            {% csrf_token %}
+                            <label for="share_draft_collaborator">Select collaborator:</label>
+                            <select id="share_draft_collaborator" name="collaborator" class="form-select" required>
+                                <option value="">-- Select a student --</option>
+                            </select>
+                            <small class="text-muted">Students you've already shared with won't appear in this list.</small>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="share_draft_btn">Share</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End Share Draft Modal -->
+        
+        <!-- Share Journal Modal for Approved Journals -->
+        <div class="modal fade" id="ShareModal" tabindex="-1" aria-labelledby="ShareModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="ShareModalLabel">Share Journal</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="share_form">
+                            {% csrf_token %}
+                            <label for="share_collaborator">Select collaborator:</label>
+                            <select id="share_collaborator" name="collaborator" class="form-select" required>
+                                <option value="">-- Select a student --</option>
+                            </select>
+                            <small class="text-muted">Students you've already shared with won't appear in this list.</small>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="share_btn">Share</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End Share Modal -->
+        
         <!-- Information Modal for Journal Entries -->
         <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-lg">
@@ -607,5 +703,6 @@
     <script src="{% static 'scripts/insert_journal.js' %}"></script>
     <script src="{% static 'scripts/update_journal.js' %}"></script>
     <script src="{% static 'scripts/delete_journal.js' %}"></script>
+    <script src="{% static 'scripts/share_journal.js' %}"></script>
 </body>
 </html>

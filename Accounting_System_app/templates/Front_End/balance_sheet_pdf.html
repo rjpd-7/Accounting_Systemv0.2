@@ -18,10 +18,8 @@
 <body>
   <h2>Balance Sheet</h2>
   <div class="header-info">
-    {% if end_date %}
-      As of {{ end_date }}
-    {% elif start_date %}
-      As of {{ start_date }}
+    {% if start_date or end_date %}
+      Period: {{ start_date }} to {{ end_date }}
     {% else %}
       As of Date
     {% endif %}

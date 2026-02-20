@@ -42,6 +42,13 @@ urlpatterns = [
      path('create_user/', views.create_user, name='create_user'),
      path('teacher_create_user/', views.teacher_create_user, name='teacher_create_user'),
      
+     # Journal Collaborator URLs
+     path('add_collaborator/<int:id>/', views.add_collaborator, name='add_collaborator'),
+     path('remove_collaborator/<int:id>/<int:collaborator_id>/', views.remove_collaborator, name='remove_collaborator'),
+     path('add_collaborator_draft/<int:id>/', views.add_collaborator_draft, name='add_collaborator_draft'),
+     path('remove_collaborator_draft/<int:id>/<int:collaborator_id>/', views.remove_collaborator_draft, name='remove_collaborator_draft'),
+     path('get_available_collaborators/<int:journal_id>/<str:is_draft>/', views.get_available_collaborators, name='get_available_collaborators'),
+     
      # Messaging URLs
      path('messages/send/', views.send_message, name='send_message'),
      path('messages/get/', views.get_messages, name='get_messages'),
