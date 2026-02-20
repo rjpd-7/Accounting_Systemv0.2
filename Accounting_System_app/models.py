@@ -136,6 +136,32 @@ class JournalEntry(models.Model):
     class Meta:
         db_table = "journal_entries_table"
 
+# Journal Collaborators - tracks shared/collaborative journals between students
+class JournalCollaborator(models.Model):
+    journal_header = models.ForeignKey(JournalHeader, on_delete=models.CASCADE, related_name="collaborators")
+    collaborator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="collaborated_journals")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "journal_collaborators"
+        unique_together = ('journal_header', 'collaborator')
+
+    def __str__(self):
+        return f"{self.collaborator.username} collaborating on {self.journal_header.entry_no}"
+
+# Journal Draft Collaborators - tracks shared/collaborative draft journals between students
+class JournalDraftCollaborator(models.Model):
+    journal_header = models.ForeignKey(JournalHeaderDrafts, on_delete=models.CASCADE, related_name="collaborators")
+    collaborator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="collaborated_journal_drafts")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "journal_draft_collaborators"
+        unique_together = ('journal_header', 'collaborator')
+
+    def __str__(self):
+        return f"{self.collaborator.username} collaborating on draft {self.journal_header.entry_no}"
+
 # User Profiles for Admins, Teachers, Students
 class UserProfile(models.Model):
     ROLE_CHOICES = (

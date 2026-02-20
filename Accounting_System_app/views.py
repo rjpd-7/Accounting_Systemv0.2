@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
@@ -401,7 +401,11 @@ def journals(request):
     headers = JournalHeader.objects.all()
     # restrict to current user unless administrator/teacher should see all
     if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
-        headers = headers.filter(user=request.user)
+        # students see their own journals + journals they collaborate on
+        from .models import JournalCollaborator
+        headers = headers.filter(
+            Q(user=request.user) | Q(collaborators__collaborator=request.user)
+        ).distinct()
     headers = headers.order_by('-journal_date_created', '-id')
 
     for header in headers:
@@ -425,7 +429,11 @@ def journals(request):
     draft_headers = JournalHeaderDrafts.objects.all()
     # restrict to current user unless administrator/teacher should see all
     if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
-        draft_headers = draft_headers.filter(user=request.user)
+        # students see their own draft journals + draft journals they collaborate on
+        from .models import JournalDraftCollaborator
+        draft_headers = draft_headers.filter(
+            Q(user=request.user) | Q(collaborators__collaborator=request.user)
+        ).distinct()
     draft_headers = draft_headers.order_by('-journal_date_created', '-id')
 
     for header in draft_headers:
@@ -778,7 +786,103 @@ def delete_journal_draft(request, id):
         pass
     return redirect("AccountingSystem:journals")
 
-# General Ledger Page
+# Add Collaborator to Draft Journal
+def add_collaborator_draft(request, id):
+    if request.method == "POST":
+        # Only journal owner can add collaborators
+        try:
+            journal_header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+        except JournalHeaderDrafts.DoesNotExist:
+            messages.error(request, "You can only add collaborators to your own journals.")
+            return redirect("AccountingSystem:journals")
+        
+        collaborator_id = request.POST.get('collaborator_id')
+        try:
+            collaborator = User.objects.get(pk=collaborator_id)
+            # Check if already a collaborator
+            if JournalDraftCollaborator.objects.filter(journal_header=journal_header, collaborator=collaborator).exists():
+                messages.warning(request, f"{collaborator.get_full_name() or collaborator.username} is already a collaborator.")
+            else:
+                JournalDraftCollaborator.objects.create(journal_header=journal_header, collaborator=collaborator)
+                messages.success(request, f"Added {collaborator.get_full_name() or collaborator.username} as collaborator.")
+        except User.DoesNotExist:
+            messages.error(request, "User not found.")
+    
+    return redirect("AccountingSystem:journals")
+
+# Remove Collaborator from Draft Journal
+def remove_collaborator_draft(request, id, collaborator_id):
+    try:
+        journal_header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+        JournalDraftCollaborator.objects.filter(journal_header=journal_header, collaborator_id=collaborator_id).delete()
+        messages.success(request, "Collaborator removed.")
+    except JournalHeaderDrafts.DoesNotExist:
+        messages.error(request, "Journal not found or you don't have permission.")
+    
+    return redirect("AccountingSystem:journals")
+
+# Add Collaborator to Approved Journal
+def add_collaborator(request, id):
+    if request.method == "POST":
+        # Only journal owner can add collaborators
+        try:
+            journal_header = JournalHeader.objects.get(pk=id, user=request.user)
+        except JournalHeader.DoesNotExist:
+            messages.error(request, "You can only add collaborators to your own journals.")
+            return redirect("AccountingSystem:journals")
+        
+        collaborator_id = request.POST.get('collaborator_id')
+        try:
+            collaborator = User.objects.get(pk=collaborator_id)
+            # Check if already a collaborator
+            if JournalCollaborator.objects.filter(journal_header=journal_header, collaborator=collaborator).exists():
+                messages.warning(request, f"{collaborator.get_full_name() or collaborator.username} is already a collaborator.")
+            else:
+                JournalCollaborator.objects.create(journal_header=journal_header, collaborator=collaborator)
+                messages.success(request, f"Added {collaborator.get_full_name() or collaborator.username} as collaborator.")
+        except User.DoesNotExist:
+            messages.error(request, "User not found.")
+    
+    return redirect("AccountingSystem:journals")
+
+# Remove Collaborator from Approved Journal
+def remove_collaborator(request, id, collaborator_id):
+    try:
+        journal_header = JournalHeader.objects.get(pk=id, user=request.user)
+        JournalCollaborator.objects.filter(journal_header=journal_header, collaborator_id=collaborator_id).delete()
+        messages.success(request, "Collaborator removed.")
+    except JournalHeader.DoesNotExist:
+        messages.error(request, "Journal not found or you don't have permission.")
+    
+    return redirect("AccountingSystem:journals")
+
+# Get available collaborators (students only, AJAX)
+def get_available_collaborators(request, journal_id, is_draft):
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    try:
+        if is_draft == 'true':
+            journal_header = JournalHeaderDrafts.objects.get(pk=journal_id, user=request.user)
+            current_collaborators = JournalDraftCollaborator.objects.filter(journal_header=journal_header).values_list('collaborator_id', flat=True)
+        else:
+            journal_header = JournalHeader.objects.get(pk=journal_id, user=request.user)
+            current_collaborators = JournalCollaborator.objects.filter(journal_header=journal_header).values_list('collaborator_id', flat=True)
+        
+        # Get all students except current user and existing collaborators
+        from .models import UserProfile
+        available_students = User.objects.filter(
+            profile__role='student'
+        ).exclude(id=request.user.id).exclude(id__in=current_collaborators).values('id', 'username', 'first_name', 'last_name')
+        
+        return JsonResponse({
+            'collaborators': list(available_students),
+            'current': list(current_collaborators)
+        })
+    except (JournalHeaderDrafts.DoesNotExist, JournalHeader.DoesNotExist):
+        return JsonResponse({'error': 'Journal not found'}, status=404)
+
+# General Ledger
 def general_ledger(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
