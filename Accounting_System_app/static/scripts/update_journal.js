@@ -284,11 +284,17 @@ document.addEventListener("DOMContentLoaded", function () {
         const desc = $(this).data('description');
         const groupId = $(this).data('group');
         const groupName = $(this).data('group-name');
+        const isDraft = $(this).data('is-draft');
 
         // set form action (use your URL pattern)
         var form = document.getElementById('edit_journal_form');
         if (form) {
-            form.action = '/update_journal/' + encodeURIComponent(headerId) + '/';
+            // use draft URL if this is a draft (isDraft will be "true" string or true), otherwise use approved URL
+            if (isDraft === true || isDraft === 'true') {
+                form.action = '/update_journal_draft/' + encodeURIComponent(headerId) + '/';
+            } else {
+                form.action = '/update_journal/' + encodeURIComponent(headerId) + '/';
+            }
             // OR if you want a hidden field:
             var hid = form.querySelector('input[name="header_id"]');
             if (!hid) {
