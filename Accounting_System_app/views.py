@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeader, JournalEntry, Message, MessageAttachment
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
@@ -27,6 +27,9 @@ from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
 import os
+from django.core.mail import send_mail
+from django.conf import settings
+import random, string
 # pyright: ignore[reportMissingImports]
 try:
     from xhtml2pdf import pisa
@@ -41,7 +44,8 @@ def index(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
     total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
+    # students (and non-superusers) only count their own journals
+    total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
 
     context = {
@@ -117,6 +121,53 @@ def logout_view(request):
     messages.success(request, "Logout Successful")
     return render(request, "Front_End/login.html")
 
+
+# Forgot password: accepts username, generates temporary password, emails user
+def forgot_password(request):
+    if request.method != 'POST':
+        return redirect('AccountingSystem:login_view')
+
+    username = (request.POST.get('fp_username') or '').strip()
+    if not username:
+        messages.error(request, 'Please enter your username.')
+        return redirect('AccountingSystem:login_view')
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        messages.error(request, 'Username not found.')
+        return redirect('AccountingSystem:login_view')
+
+    if not user.email:
+        messages.error(request, 'No email associated with this account. Contact administrator.')
+        return redirect('AccountingSystem:login_view')
+
+    # generate temporary password
+    temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+
+    subject = 'Temporary Password - ACLC Accounting System'
+    message = (
+        f"Hello {user.username},\n\nA temporary password has been generated for your account:\n\n"
+        f"{temp_password}\n\nPlease login and change your password immediately.\n\nIf you did not request this, contact support."
+    )
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@example.com')
+
+    # Try to send the email first. Only change the stored password if email was sent.
+    try:
+        send_mail(subject, message, from_email, [user.email], fail_silently=False)
+    except Exception as e:
+        # Email failed — log details and keep the existing password unchanged
+        print(f"Failed to send email to {user.email}: {e}")
+        print(f"Temporary password (not applied) for {user.username}: {temp_password}")
+        messages.error(request, 'Unable to send email with temporary password. The temporary password was logged to the server console.')
+        return redirect('AccountingSystem:login_view')
+
+    # Email sent successfully — apply the temporary password
+    user.set_password(temp_password)
+    user.save()
+    messages.success(request, f'A temporary password has been sent to {user.email}.')
+    return redirect('AccountingSystem:login_view')
+
 # Admin Home Page
 @role_required(['admin'])
 def admin_dashboard(request):
@@ -124,7 +175,7 @@ def admin_dashboard(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
     total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
+    total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
@@ -147,7 +198,7 @@ def teacher_dashboard(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
     total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
+    total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
@@ -170,7 +221,7 @@ def student_dashboard(request):
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
     total_accounts = ChartOfAccounts.objects.count()
-    total_journals = JournalHeader.objects.count()
+    total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
@@ -342,11 +393,16 @@ def journals(request):
     
     account_groups = AccountGroups.objects.all()
     accounts = ChartOfAccounts.objects.all()
+    
+    # Fetch approved journals
     journal_entries = JournalEntry.objects.select_related('journal_header', 'account')
-    journal_groups = []
+    approved_groups = []
 
     headers = JournalHeader.objects.all()
-    headers = JournalHeader.objects.order_by('-journal_date_created', '-id')
+    # restrict to current user unless administrator/teacher should see all
+    if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
+        headers = headers.filter(user=request.user)
+    headers = headers.order_by('-journal_date_created', '-id')
 
     for header in headers:
         entries = journal_entries.filter(journal_header=header)
@@ -355,7 +411,31 @@ def journals(request):
             total_credit=Sum('credit')
         )
 
-        journal_groups.append({
+        approved_groups.append({
+            'header': header,
+            'entries': entries,
+            'total_debit': totals['total_debit'] or 0,
+            'total_credit': totals['total_credit'] or 0
+        })
+
+    # Fetch draft journals
+    journal_entries_drafts = JournalEntryDrafts.objects.select_related('journal_header', 'account')
+    draft_groups = []
+
+    draft_headers = JournalHeaderDrafts.objects.all()
+    # restrict to current user unless administrator/teacher should see all
+    if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
+        draft_headers = draft_headers.filter(user=request.user)
+    draft_headers = draft_headers.order_by('-journal_date_created', '-id')
+
+    for header in draft_headers:
+        entries = journal_entries_drafts.filter(journal_header=header)
+        totals = entries.aggregate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit')
+        )
+
+        draft_groups.append({
             'header': header,
             'entries': entries,
             'total_debit': totals['total_debit'] or 0,
@@ -363,7 +443,44 @@ def journals(request):
         })
 
     return render(request, 'Front_end/journal.html', {
-        'journal_groups': journal_groups,
+        'draft_groups': draft_groups,
+        'approved_groups': approved_groups,
+        'account_groups': account_groups,
+        "accounts" : accounts
+        })
+
+# Journal Drafts Page
+def journals_drafts(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+    
+    account_groups = AccountGroups.objects.all()
+    accounts = ChartOfAccounts.objects.all()
+    journal_entries_drafts = JournalEntryDrafts.objects.select_related('journal_header', 'account')
+    journal_drafts_groups = []
+
+    headers = JournalHeaderDrafts.objects.all()
+    # restrict to current user unless administrator/teacher should see all
+    if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
+        headers = headers.filter(user=request.user)
+    headers = headers.order_by('-journal_date_created', '-id')
+
+    for header in headers:
+        entries = journal_entries_drafts.filter(journal_header=header)
+        totals = entries.aggregate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit')
+        )
+
+        journal_drafts_groups.append({
+            'header': header,
+            'entries': entries,
+            'total_debit': totals['total_debit'] or 0,
+            'total_credit': totals['total_credit'] or 0
+        })
+
+    return render(request, 'Front_end/journal_drafts.html', {
+        'journal_groups': journal_drafts_groups,
         'account_groups': account_groups,
         "accounts" : accounts
         })
@@ -380,11 +497,12 @@ def insert_journals(request):
         description = request.POST['journal_description']
 
         # Creates Journal Header
-        header = JournalHeader.objects.create(
+        header = JournalHeaderDrafts.objects.create(
             entry_no = journal_code,
             entry_date = date_submit,
             journal_description = description,
             group_name = AccountGroups.objects.get(pk=account_group),
+            user = request.user,
         ) 
         header.save()
 
@@ -403,7 +521,7 @@ def insert_journals(request):
             except ChartOfAccounts.DoesNotExist:
                 continue
 
-            journal_entry = JournalEntry.objects.create(
+            journal_entry = JournalEntryDrafts.objects.create(
                 journal_header=header,
                 account=account,
                 debit=float(debit or 0),
@@ -420,7 +538,11 @@ def insert_journals(request):
 
 # Update Journal Entry
 def update_journal(request, id):
-    header = get_object_or_404(JournalHeader, pk=id)
+    # retrieve header only if user owns it or is superuser
+    if request.user.is_superuser:
+        header = get_object_or_404(JournalHeader, pk=id)
+    else:
+        header = get_object_or_404(JournalHeader, pk=id, user=request.user)
 
     if request.method != "POST":
         return redirect(reverse("AccountingSystem:journals"))  # adjust name
@@ -506,9 +628,153 @@ def update_journal(request, id):
 # Delete Journal Entry
 def delete_journal(request, id):
     try:
-        journal_header = JournalHeader.objects.get(pk=id)
+        if request.user.is_superuser:
+            journal_header = JournalHeader.objects.get(pk=id)
+        else:
+            journal_header = JournalHeader.objects.get(pk=id, user=request.user)
         journal_header.delete()
     except JournalHeader.DoesNotExist:
+        pass
+    return redirect("AccountingSystem:journals")
+
+# Approve Journal Draft Function - moves draft to approved journals
+def approve_journal_draft(request, id):
+    # only admins and teachers can approve
+    user_role = getattr(request.user, 'profile', None).role if getattr(request.user, 'profile', None) else None
+    if not request.user.is_superuser and user_role not in ['admin', 'teacher']:
+        return redirect("AccountingSystem:journals")
+    
+    try:
+        # get the draft header
+        draft_header = JournalHeaderDrafts.objects.get(pk=id)
+        
+        # create an approved header with same data
+        approved_header = JournalHeader.objects.create(
+            entry_no=draft_header.entry_no,
+            entry_date=draft_header.entry_date,
+            journal_description=draft_header.journal_description,
+            group_name=draft_header.group_name,
+            user=draft_header.user
+        )
+        
+        # copy all draft entries to approved entries
+        draft_entries = JournalEntryDrafts.objects.filter(journal_header=draft_header)
+        for draft_entry in draft_entries:
+            JournalEntry.objects.create(
+                journal_header=approved_header,
+                account=draft_entry.account,
+                debit=draft_entry.debit,
+                credit=draft_entry.credit,
+                description=draft_entry.description
+            )
+        
+        # delete draft entries and header
+        draft_entries.delete()
+        draft_header.delete()
+        
+        messages.success(request, f'Journal {draft_header.entry_no} has been approved successfully.')
+    except JournalHeaderDrafts.DoesNotExist:
+        messages.error(request, 'Draft journal not found.')
+    
+    return redirect("AccountingSystem:journals")
+
+# Update Journal Draft Function
+def update_journal_draft(request, id):
+    # retrieve header only if user owns it or is superuser
+    if request.user.is_superuser:
+        header = get_object_or_404(JournalHeaderDrafts, pk=id)
+    else:
+        header = get_object_or_404(JournalHeaderDrafts, pk=id, user=request.user)
+
+    if request.method != "POST":
+        return redirect(reverse("AccountingSystem:journals"))
+
+    # collect posted rows (names used in your update modal)
+    account_values = request.POST.getlist('edit_account_name')
+    debits = request.POST.getlist('edit_debit')
+    credits = request.POST.getlist('edit_credit')
+
+    # header fields
+    entry_date = request.POST.get('edit_entry-date') or request.POST.get('entry_date')
+    description = request.POST.get('edit_journal_description') or request.POST.get('journal_description')
+
+    # sanitize amounts and compute totals
+    total_debit = 0
+    total_credit = 0
+    parsed_debits = []
+    parsed_credits = []
+    for d in debits:
+        val = float(d) if d not in (None, '', 'NaN') else 0.0
+        parsed_debits.append(val)
+        total_debit += val
+    for c in credits:
+        val = float(c) if c not in (None, '', 'NaN') else 0.0
+        parsed_credits.append(val)
+        total_credit += val
+
+    # validation
+    if total_debit == 0:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Please enter amount!'})
+        return redirect(reverse("AccountingSystem:journals"))
+
+    if round(total_debit, 2) != round(total_credit, 2):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Total Debit and Credit must be equal!'})
+        return redirect(reverse("AccountingSystem:journals"))
+
+    # perform update inside transaction
+    with transaction.atomic():
+        # update header
+        if entry_date:
+            header.entry_date = entry_date
+        header.journal_description = description or header.description
+        header.save()
+
+        # remove existing entries
+        JournalEntryDrafts.objects.filter(journal_header=header).delete()
+
+        # recreate entries
+        for i, acc_val in enumerate(account_values):
+            # get amounts for this row
+            debit = parsed_debits[i] if i < len(parsed_debits) else 0.0
+            credit = parsed_credits[i] if i < len(parsed_credits) else 0.0
+            # skip empty rows (no account selected) or rows with no amounts
+            if not acc_val or (debit == 0 and credit == 0):
+                continue
+
+            # try to resolve account by PK first, fallback to name
+            account = None
+            try:
+                account = ChartOfAccounts.objects.get(pk=int(acc_val))
+            except (ValueError, ChartOfAccounts.DoesNotExist):
+                account = ChartOfAccounts.objects.filter(account_name=acc_val).first()
+
+            # if account still not found, skip
+            if not account:
+                continue
+
+            JournalEntryDrafts.objects.create(
+                journal_header=header,
+                account=account,
+                debit=debit,
+                credit=credit
+            )
+
+    # respond
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True})
+    return redirect(reverse("AccountingSystem:journals"))
+
+# Delete Journal Draft Function
+def delete_journal_draft(request, id):
+    try:
+        if request.user.is_superuser:
+            journal_header = JournalHeaderDrafts.objects.get(pk=id)
+        else:
+            journal_header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+        journal_header.delete()
+    except JournalHeaderDrafts.DoesNotExist:
         pass
     return redirect("AccountingSystem:journals")
 
@@ -1114,7 +1380,11 @@ def journal_pdf(request, id):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
 
-    header = get_object_or_404(JournalHeader, pk=id)
+    # only allow owner or superuser to view PDF
+    if request.user.is_superuser:
+        header = get_object_or_404(JournalHeader, pk=id)
+    else:
+        header = get_object_or_404(JournalHeader, pk=id, user=request.user)
     entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
 
     total_debit = sum((e.debit or 0) for e in entries)

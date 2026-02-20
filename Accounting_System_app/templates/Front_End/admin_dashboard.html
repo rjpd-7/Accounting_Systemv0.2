@@ -170,11 +170,21 @@
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <div class="password-container d-flex gap-2">
+                                    <input type="password" class="form-control" id="password" name="password" required>
+                                    <button type="button" class="btn btn-secondary-light" id="togglePassword">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="confirm_password" class="form-label">Confirm Password</label>
-                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                                <div class="password-container d-flex gap-2">
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                                    <button type="button" class="btn btn-secondary-light" id="toggleConfirmPassword">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="role" class="form-label">Role</label>
@@ -201,5 +211,32 @@
     <script src="scripts/scripts.js"></script>
     <script src="{% static 'scripts/create_user.js' %}"></script>
     <script src="{% static 'scripts/messaging.js' %}"></script>
+    <script>
+        // Password toggle for password field
+        const togglePassword = document.querySelector("#togglePassword");
+        const password = document.querySelector("#password");
+        const passwordIcon = togglePassword.querySelector("i");
+
+        togglePassword.addEventListener("click", function () {
+            const type = password.getAttribute("type") === "password" ? "text" : "password";
+            password.setAttribute("type", type);
+
+            passwordIcon.classList.toggle("bi-eye");
+            passwordIcon.classList.toggle("bi-eye-slash");
+        });
+
+        // Password toggle for confirm password field
+        const toggleConfirmPassword = document.querySelector("#toggleConfirmPassword");
+        const confirmPassword = document.querySelector("#confirm_password");
+        const confirmPasswordIcon = toggleConfirmPassword.querySelector("i");
+
+        toggleConfirmPassword.addEventListener("click", function () {
+            const type = confirmPassword.getAttribute("type") === "password" ? "text" : "password";
+            confirmPassword.setAttribute("type", type);
+
+            confirmPasswordIcon.classList.toggle("bi-eye");
+            confirmPasswordIcon.classList.toggle("bi-eye-slash");
+        });
+    </script>
 </body>
 </html>
