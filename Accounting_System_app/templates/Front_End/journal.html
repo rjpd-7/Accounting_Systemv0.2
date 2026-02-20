@@ -195,7 +195,7 @@
                                 </th>
                             </tr>
                             <tr>
-                                <th>Date: {{ group.header.entry_date }}</th>
+                                <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
                                 <th>Account Name</th>
                                 <th>Debit</th>
                                 <th>Credit</th>
@@ -220,7 +220,7 @@
                         </tbody>
                     </table>
                     {% empty %}
-                    <p>No Journal Entries are created.</p>
+                    <p>No Journal Entries Drafts are created.</p>
                     {% endfor %}
                 </table>
             </div>
@@ -298,7 +298,7 @@
                         </tbody>
                     </table>
                     {% empty %}
-                    <p>No Journal Entries are created.</p>
+                    <p>No Journal Entries are approved yet.</p>
                     {% endfor %}
                 </table>
             </div>

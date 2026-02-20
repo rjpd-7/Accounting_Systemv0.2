@@ -393,8 +393,10 @@ def journals(request):
     
     account_groups = AccountGroups.objects.all()
     accounts = ChartOfAccounts.objects.all()
+    
+    # Fetch approved journals
     journal_entries = JournalEntry.objects.select_related('journal_header', 'account')
-    journal_groups = []
+    approved_groups = []
 
     headers = JournalHeader.objects.all()
     # restrict to current user unless administrator/teacher should see all
@@ -409,19 +411,38 @@ def journals(request):
             total_credit=Sum('credit')
         )
 
-        journal_groups.append({
+        approved_groups.append({
             'header': header,
             'entries': entries,
             'total_debit': totals['total_debit'] or 0,
             'total_credit': totals['total_credit'] or 0
         })
 
-    # temporarily treat all groups as both drafts and approved; update filtering as needed
-    draft_groups = journal_groups
-    approved_groups = journal_groups
+    # Fetch draft journals
+    journal_entries_drafts = JournalEntryDrafts.objects.select_related('journal_header', 'account')
+    draft_groups = []
+
+    draft_headers = JournalHeaderDrafts.objects.all()
+    # restrict to current user unless administrator/teacher should see all
+    if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
+        draft_headers = draft_headers.filter(user=request.user)
+    draft_headers = draft_headers.order_by('-journal_date_created', '-id')
+
+    for header in draft_headers:
+        entries = journal_entries_drafts.filter(journal_header=header)
+        totals = entries.aggregate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit')
+        )
+
+        draft_groups.append({
+            'header': header,
+            'entries': entries,
+            'total_debit': totals['total_debit'] or 0,
+            'total_credit': totals['total_credit'] or 0
+        })
 
     return render(request, 'Front_end/journal.html', {
-        'journal_groups': journal_groups,
         'draft_groups': draft_groups,
         'approved_groups': approved_groups,
         'account_groups': account_groups,
@@ -476,7 +497,7 @@ def insert_journals(request):
         description = request.POST['journal_description']
 
         # Creates Journal Header
-        header = JournalHeader.objects.create(
+        header = JournalHeaderDrafts.objects.create(
             entry_no = journal_code,
             entry_date = date_submit,
             journal_description = description,
@@ -500,7 +521,7 @@ def insert_journals(request):
             except ChartOfAccounts.DoesNotExist:
                 continue
 
-            journal_entry = JournalEntry.objects.create(
+            journal_entry = JournalEntryDrafts.objects.create(
                 journal_header=header,
                 account=account,
                 debit=float(debit or 0),
