@@ -43,7 +43,12 @@ document.getElementById('share_draft_btn').addEventListener('click', function() 
         },
         body: JSON.stringify({ collaborator_id: collaboratorId })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert('Collaborator added successfully');
@@ -57,7 +62,7 @@ document.getElementById('share_draft_btn').addEventListener('click', function() 
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error adding collaborator');
+        alert('Error adding collaborator: ' + error.message);
     });
 });
 
@@ -106,7 +111,12 @@ document.getElementById('share_btn').addEventListener('click', function() {
         },
         body: JSON.stringify({ collaborator_id: collaboratorId })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert('Collaborator added successfully');
@@ -120,7 +130,7 @@ document.getElementById('share_btn').addEventListener('click', function() {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error adding collaborator');
+        alert('Error adding collaborator: ' + error.message);
     });
 });
 

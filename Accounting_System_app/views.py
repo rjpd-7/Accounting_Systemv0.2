@@ -793,22 +793,28 @@ def add_collaborator_draft(request, id):
         try:
             journal_header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
         except JournalHeaderDrafts.DoesNotExist:
-            messages.error(request, "You can only add collaborators to your own journals.")
-            return redirect("AccountingSystem:journals")
+            return JsonResponse({'success': False, 'message': 'You can only add collaborators to your own journals.'}, status=403)
         
-        collaborator_id = request.POST.get('collaborator_id')
+        # Handle JSON request body
+        import json
+        try:
+            data = json.loads(request.body)
+            collaborator_id = data.get('collaborator_id')
+        except json.JSONDecodeError:
+            collaborator_id = request.POST.get('collaborator_id')
+        
         try:
             collaborator = User.objects.get(pk=collaborator_id)
             # Check if already a collaborator
             if JournalDraftCollaborator.objects.filter(journal_header=journal_header, collaborator=collaborator).exists():
-                messages.warning(request, f"{collaborator.get_full_name() or collaborator.username} is already a collaborator.")
+                return JsonResponse({'success': False, 'message': f'{collaborator.get_full_name() or collaborator.username} is already a collaborator.'})
             else:
                 JournalDraftCollaborator.objects.create(journal_header=journal_header, collaborator=collaborator)
-                messages.success(request, f"Added {collaborator.get_full_name() or collaborator.username} as collaborator.")
+                return JsonResponse({'success': True, 'message': f'Added {collaborator.get_full_name() or collaborator.username} as collaborator.'})
         except User.DoesNotExist:
-            messages.error(request, "User not found.")
+            return JsonResponse({'success': False, 'message': 'User not found.'}, status=404)
     
-    return redirect("AccountingSystem:journals")
+    return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=400)
 
 # Remove Collaborator from Draft Journal
 def remove_collaborator_draft(request, id, collaborator_id):
@@ -828,22 +834,28 @@ def add_collaborator(request, id):
         try:
             journal_header = JournalHeader.objects.get(pk=id, user=request.user)
         except JournalHeader.DoesNotExist:
-            messages.error(request, "You can only add collaborators to your own journals.")
-            return redirect("AccountingSystem:journals")
+            return JsonResponse({'success': False, 'message': 'You can only add collaborators to your own journals.'}, status=403)
         
-        collaborator_id = request.POST.get('collaborator_id')
+        # Handle JSON request body
+        import json
+        try:
+            data = json.loads(request.body)
+            collaborator_id = data.get('collaborator_id')
+        except json.JSONDecodeError:
+            collaborator_id = request.POST.get('collaborator_id')
+        
         try:
             collaborator = User.objects.get(pk=collaborator_id)
             # Check if already a collaborator
             if JournalCollaborator.objects.filter(journal_header=journal_header, collaborator=collaborator).exists():
-                messages.warning(request, f"{collaborator.get_full_name() or collaborator.username} is already a collaborator.")
+                return JsonResponse({'success': False, 'message': f'{collaborator.get_full_name() or collaborator.username} is already a collaborator.'})
             else:
                 JournalCollaborator.objects.create(journal_header=journal_header, collaborator=collaborator)
-                messages.success(request, f"Added {collaborator.get_full_name() or collaborator.username} as collaborator.")
+                return JsonResponse({'success': True, 'message': f'Added {collaborator.get_full_name() or collaborator.username} as collaborator.'})
         except User.DoesNotExist:
-            messages.error(request, "User not found.")
+            return JsonResponse({'success': False, 'message': 'User not found.'}, status=404)
     
-    return redirect("AccountingSystem:journals")
+    return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=400)
 
 # Remove Collaborator from Approved Journal
 def remove_collaborator(request, id, collaborator_id):
