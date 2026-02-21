@@ -138,12 +138,12 @@ AUTHENTICATION_BACKENDS = [
 # Email configuration
 # For production (SMTP) - fill in your provider credentials below
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.example.com'                # e.g. 'smtp.gmail.com'
+EMAIL_HOST = 'smtp.gmail.com'                # e.g. 'smtp.gmail.com'
 EMAIL_PORT = 587                               # 587 for TLS, 465 for SSL
 EMAIL_USE_TLS = True                           # True if using STARTTLS
-EMAIL_HOST_USER = 'your-email@example.com'     # SMTP username
-EMAIL_HOST_PASSWORD = 'your-email-password'    # SMTP password or app password
-DEFAULT_FROM_EMAIL = 'ACLC Accounting <no-reply@example.com>'
+EMAIL_HOST_USER = 'dalistan.roeljoseph.aclcb@gmail.com'     # SMTP username
+EMAIL_HOST_PASSWORD = 'rjpd12062003_7'    # SMTP password or app password
+DEFAULT_FROM_EMAIL = 'ACLC Accounting <dalistan.roeljoseph.aclcb@gmail.com>'
 
 # For local development/testing you can instead use the console backend
 # which prints emails to the runserver console (no SMTP required):
