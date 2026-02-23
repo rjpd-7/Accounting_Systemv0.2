@@ -450,7 +450,7 @@ def journals(request):
             'total_credit': totals['total_credit'] or 0
         })
 
-    return render(request, 'Front_end/journal.html', {
+    return render(request, 'Front_End/journal.html', {
         'draft_groups': draft_groups,
         'approved_groups': approved_groups,
         'account_groups': account_groups,
@@ -487,7 +487,7 @@ def journals_drafts(request):
             'total_credit': totals['total_credit'] or 0
         })
 
-    return render(request, 'Front_end/journal_drafts.html', {
+    return render(request, 'Front_End/journal_drafts.html', {
         'journal_groups': journal_drafts_groups,
         'account_groups': account_groups,
         "accounts" : accounts

@@ -142,7 +142,7 @@ EMAIL_HOST = 'smtp.gmail.com'                # e.g. 'smtp.gmail.com'
 EMAIL_PORT = 587                               # 587 for TLS, 465 for SSL
 EMAIL_USE_TLS = True                           # True if using STARTTLS
 EMAIL_HOST_USER = 'dalistan.roeljoseph.aclcb@gmail.com'     # SMTP username
-EMAIL_HOST_PASSWORD = 'rjpd12062003_7'    # SMTP password or app password
+EMAIL_HOST_PASSWORD = ''    # SMTP password or app password
 DEFAULT_FROM_EMAIL = 'ACLC Accounting <dalistan.roeljoseph.aclcb@gmail.com>'
 
 # For local development/testing you can instead use the console backend
