@@ -147,6 +147,15 @@ def login_view(request):
         username = (raw_username or "").strip()
         password = request.POST.get("password", "")
 
+        # Validate empty fields
+        if not username:
+            messages.error(request, "Please enter a username.")
+            return render(request, "Front_End/login.html")
+        
+        if not password:
+            messages.error(request, "Please enter a password.")
+            return render(request, "Front_End/login.html")
+
         # use a normalized username for counting/lockout (case-insensitive + trimmed)
         norm_username = username.lower()
 
@@ -156,6 +165,14 @@ def login_view(request):
         if cache.get(lockout_key):
             messages.error(request, "Account locked due to multiple failed login attempts. Try again later.")
             return render(request, "Front_End/login.html")
+
+        # Check if username exists first
+        try:
+            user_exists = User.objects.get(username=username)
+            username_found = True
+        except User.DoesNotExist:
+            user_exists = None
+            username_found = False
 
         user = authenticate(request, username=username, password=password)
         if user is not None:
@@ -182,12 +199,21 @@ def login_view(request):
             cache.set(attempts_key, attempts, ATTEMPT_WINDOW)
 
             remaining = MAX_ATTEMPTS - attempts
+            
+            # Provide specific error messages
+            if not username_found:
+                # Username doesn't exist
+                error_message = f"Username '{username}' does not exist."
+            else:
+                # Username exists but password is wrong
+                error_message = f"Invalid password for user '{username}'."
+            
             if remaining <= 0:
                 cache.set(lockout_key, True, LOCKOUT_TIME)
                 cache.delete(attempts_key)
-                messages.error(request, f"Too many failed attempts. Account locked for {int(LOCKOUT_TIME/60)} minutes.")
+                messages.error(request, f"{error_message} Account locked for {int(LOCKOUT_TIME/60)} minutes due to multiple failed attempts.")
             else:
-                messages.error(request, f"Invalid credentials. {remaining} attempt(s) left.")
+                messages.error(request, f"{error_message} {remaining} attempt(s) remaining.")
 
             return render(request, "Front_End/login.html")
 
