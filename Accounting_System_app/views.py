@@ -8,7 +8,7 @@ from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, Jour
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
-from django.db.models import Sum, RestrictedError, Q, Value, DecimalField
+from django.db.models import Sum, RestrictedError, Q, Value, DecimalField, Max
 from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.contrib import messages
@@ -30,6 +30,84 @@ import os
 from django.core.mail import send_mail
 from django.conf import settings
 import random, string
+
+# Helper function to generate next account code
+def get_next_account_code(account_type):
+    """Generate next account code based on type"""
+    type_prefixes = {
+        "Assets": 100000,
+        "Liabilities": 200000,
+        "Equity": 300000,
+        "Revenue": 400000,
+        "Expenses": 500000,
+    }
+    
+    prefix = type_prefixes.get(account_type, 100000)
+    
+    # Get the highest existing code for this type
+    accounts = ChartOfAccounts.objects.filter(account_type=account_type).values_list('account_code', flat=True)
+    
+    max_number = 0
+    for code in accounts:
+        try:
+            num = int(code) - prefix
+            if num > max_number:
+                max_number = num
+        except (ValueError, TypeError):
+            pass
+    
+    return str(prefix + max_number + 1)
+
+# Helper function to generate next journal code
+def get_next_journal_code():
+    """Generate next journal code in format JE-XXXXXXXXXX"""
+    # Get the latest journal code from both draft and approved journals
+    latest_draft = JournalHeaderDrafts.objects.values_list('entry_no', flat=True).order_by('-id').first()
+    latest_approved = JournalHeader.objects.values_list('entry_no', flat=True).order_by('-id').first()
+    
+    max_number = 0
+    
+    # Extract number from draft journals
+    if latest_draft:
+        try:
+            num_str = latest_draft.replace('JE-', '').lstrip('0') or '0'
+            num = int(num_str)
+            if num > max_number:
+                max_number = num
+        except (ValueError, TypeError):
+            pass
+    
+    # Extract number from approved journals
+    if latest_approved:
+        try:
+            num_str = latest_approved.replace('JE-', '').lstrip('0') or '0'
+            num = int(num_str)
+            if num > max_number:
+                max_number = num
+        except (ValueError, TypeError):
+            pass
+    
+    next_number = str(max_number + 1).zfill(10)
+    return f'JE-{next_number}'
+
+# API endpoint to get next account code
+@require_http_methods(["GET"])
+def get_next_account_code_api(request):
+    """API endpoint to get next account code for a given type"""
+    account_type = request.GET.get('type', 'Assets')
+    if account_type not in ["Assets", "Liabilities", "Equity", "Revenue", "Expenses"]:
+        return JsonResponse({'success': False, 'error': 'Invalid account type'}, status=400)
+    
+    next_code = get_next_account_code(account_type)
+    return JsonResponse({'success': True, 'code': next_code})
+
+# API endpoint to get next journal code
+@require_http_methods(["GET"])
+def get_next_journal_code_api(request):
+    """API endpoint to get next journal code"""
+    next_code = get_next_journal_code()
+    return JsonResponse({'success': True, 'code': next_code})
+
 # pyright: ignore[reportMissingImports]
 try:
     from xhtml2pdf import pisa
@@ -289,13 +367,13 @@ def create_group(request):
 
 # Create Account Function to Backend
 def create_account(request):
-    account_code_submit = request.POST['account_code']
+    account_code_submit = request.POST.get('account_code', '').strip()
     account_name_submit = request.POST['account_name']
     account_type_submit = request.POST['account_type']
     account_description_submit = request.POST['account_description']
     account_group_id = request.POST.get('account_group')  # may be '' when "All Groups" selected
 
-     # Validate required fields
+    # Validate required fields
     if not account_name_submit:
         messages.error(request, "Account name is required.")
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
@@ -305,6 +383,9 @@ def create_account(request):
         messages.error(request, f'Account "{account_name_submit}" already exists.')
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
+    # If no code provided or empty, generate it automatically
+    if not account_code_submit:
+        account_code_submit = get_next_account_code(account_type_submit)
 
     # convert posted group id to FK id (use _id to assign directly) and handle empty selection
     group_id = int(account_group_id) if account_group_id not in (None, '') else None
@@ -445,6 +526,40 @@ def change_user_password(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
+# Change Own Password
+@require_http_methods(["POST"])
+def change_own_password(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        if not current_password or not new_password:
+            return JsonResponse({'success': False, 'error': 'Current password and new password are required'}, status=400)
+        
+        # Verify current password
+        user = request.user
+        if not user.check_password(current_password):
+            return JsonResponse({'success': False, 'error': 'Current password is incorrect'}, status=400)
+        
+        if len(new_password) < 8:
+            return JsonResponse({'success': False, 'error': 'Password must be at least 8 characters long'}, status=400)
+        
+        if current_password == new_password:
+            return JsonResponse({'success': False, 'error': 'New password must be different from current password'}, status=400)
+        
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        
+        return JsonResponse({'success': True, 'message': 'Password changed successfully'})
+    
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 # Journal Entries Page
 def journals(request):
     if not request.user.is_authenticated:
@@ -555,13 +670,17 @@ def journals_drafts(request):
 # Insert Journal Function to Backend
 def insert_journals(request):
     if request.method == "POST":
-        journal_code = request.POST["journal_code"]
+        journal_code = request.POST.get("journal_code", '').strip()
         date_submit = request.POST['entry-date']
         account_group = request.POST["account_group"]
         account_ids = request.POST.getlist('account_name')
         debits = request.POST.getlist('debit')
         credits = request.POST.getlist('credit')
         description = request.POST['journal_description']
+
+        # If no code provided or empty, generate it automatically
+        if not journal_code:
+            journal_code = get_next_journal_code()
 
         # Creates Journal Header
         header = JournalHeaderDrafts.objects.create(

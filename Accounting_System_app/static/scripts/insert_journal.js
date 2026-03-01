@@ -1,21 +1,23 @@
 document.addEventListener("DOMContentLoaded", function () {
-    if(!localStorage.getItem('journal_code_counter')){
-        localStorage.setItem('journal_code_counter', 0);
-    }
-
     // Journal Code Generation
     function generateJournalCode(){
-        let last_number = parseInt(localStorage.getItem('journal_code_counter'), 10);
-        let incremental = last_number.toString().padStart(10, '0');
-        return 'JE-' + incremental;
+        // Fetch the next code from the server
+        fetch('/api/next_journal_code/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    var jc = document.getElementById("journal_code");
+                    if (jc) jc.value = data.code;
+                }
+            })
+            .catch(error => console.error('Error fetching journal code:', error));
     }
 
     // Generate journal code once insert journal modal opens
     var insertModal = document.getElementById('staticBackdrop');
     if (insertModal) {
         insertModal.addEventListener('shown.bs.modal', function () {
-            var jc = document.getElementById("journal_code");
-            if (jc) jc.value = generateJournalCode();
+            generateJournalCode();
         });
     }
 
@@ -237,9 +239,6 @@ document.addEventListener("DOMContentLoaded", function () {
     var journalForm = document.getElementById("journal_form");
 if (journalForm) {
     journalForm.addEventListener("submit", function (e) {
-        // increment code counter
-        localStorage.setItem('journal_code_counter', parseInt(localStorage.getItem('journal_code_counter'), 10) + 1);
-
         var total_debit = parseFloat((totalDebitField && totalDebitField.value) || 0) || 0;
         var total_credit = parseFloat((totalCreditField && totalCreditField.value) || 0) || 0;
 
