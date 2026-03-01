@@ -386,6 +386,65 @@ def teacher_create_user(request):
 
     return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
 
+# Toggle User Active Status
+@require_http_methods(["POST"])
+def toggle_user_active(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return JsonResponse({'success': False, 'error': 'User ID is required'}, status=400)
+        
+        user = User.objects.get(id=user_id)
+        
+        # Prevent deactivating yourself
+        if user.id == request.user.id:
+            return JsonResponse({'success': False, 'error': 'You cannot deactivate your own account'}, status=400)
+        
+        # Toggle the active status
+        user.is_active = not user.is_active
+        user.save()
+        
+        status_text = 'activated' if user.is_active else 'deactivated'
+        return JsonResponse({'success': True, 'message': f'User {user.username} has been {status_text}', 'is_active': user.is_active})
+    
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+# Change User Password
+@require_http_methods(["POST"])
+def change_user_password(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+        new_password = data.get('new_password')
+        
+        if not user_id or not new_password:
+            return JsonResponse({'success': False, 'error': 'User ID and new password are required'}, status=400)
+        
+        if len(new_password) < 8:
+            return JsonResponse({'success': False, 'error': 'Password must be at least 8 characters long'}, status=400)
+        
+        user = User.objects.get(id=user_id)
+        user.set_password(new_password)
+        user.save()
+        
+        return JsonResponse({'success': True, 'message': f'Password for {user.username} has been changed successfully'})
+    
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 # Journal Entries Page
 def journals(request):
     if not request.user.is_authenticated:

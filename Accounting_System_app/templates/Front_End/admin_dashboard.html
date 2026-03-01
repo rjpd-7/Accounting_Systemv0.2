@@ -12,6 +12,7 @@
         .dash-card h3 { margin:0 0 8px; font-size:20px; }
         .dash-card p { margin:0; font-size:28px; font-weight:700; }
         .dash-card:hover { transform:translateY(-4px); background:#311413; box-shadow:0 6px 18px rgba(0,0,0,.12); cursor:pointer; }
+        .user-management-section .table-responsive { max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; }
     </style>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
@@ -140,6 +141,57 @@
         {% include "Front_End/messaging.html" %}
         <!-- End of Messages Section -->
 
+        <br> <br>
+        <!-- User Management Section -->
+        <div class="user-management-section">
+            <h3>User Management</h3>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Active</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.first_name }} {{ user.last_name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                {% if user.profile %}
+                                    {{ user.profile.get_role_display }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-warning" onclick="openChangePasswordModal({{ user.id }}, '{{ user.username }}')">
+                                    <i class="bi bi-key"></i> Change Password
+                                </button>
+                                <button type="button" class="btn btn-sm {% if user.is_active %}btn-danger{% else %}btn-success{% endif %}" 
+                                        onclick="toggleUserStatus({{ user.id }}, {{ user.is_active|lower }})">
+                                    <i class="bi {% if user.is_active %}bi-x-circle{% else %}bi-check-circle{% endif %}"></i>
+                                    {% if user.is_active %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- End of User Management Section -->
 
         <!-- Create User Modal -->
         <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
@@ -203,6 +255,47 @@
                 </div>
             </div>
         </div>
+
+        <!-- Change Password Modal -->
+        <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="changePasswordModalLabel">Change Password for <span id="changePasswordUsername"></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="change_password_form">
+                        {% csrf_token %}
+                        <input type="hidden" id="change_password_user_id" name="user_id">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="new_password" class="form-label">New Password</label>
+                                <div class="password-container d-flex gap-2">
+                                    <input type="password" class="form-control" id="new_password" name="new_password" required>
+                                    <button type="button" class="btn btn-secondary-light" id="toggleNewPassword">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="confirm_new_password" class="form-label">Confirm New Password</label>
+                                <div class="password-container d-flex gap-2">
+                                    <input type="password" class="form-control" id="confirm_new_password" name="confirm_new_password" required>
+                                    <button type="button" class="btn btn-secondary-light" id="toggleConfirmNewPassword">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="changePasswordError" class="alert alert-danger" style="display: none;"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Change Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </main>
 <!------ Main Page End ------>
 
@@ -237,6 +330,125 @@
             confirmPasswordIcon.classList.toggle("bi-eye");
             confirmPasswordIcon.classList.toggle("bi-eye-slash");
         });
+
+        // Password toggle for new password field
+        const toggleNewPassword = document.querySelector("#toggleNewPassword");
+        const newPassword = document.querySelector("#new_password");
+        const newPasswordIcon = toggleNewPassword.querySelector("i");
+
+        toggleNewPassword.addEventListener("click", function () {
+            const type = newPassword.getAttribute("type") === "password" ? "text" : "password";
+            newPassword.setAttribute("type", type);
+
+            newPasswordIcon.classList.toggle("bi-eye");
+            newPasswordIcon.classList.toggle("bi-eye-slash");
+        });
+
+        // Password toggle for confirm new password field
+        const toggleConfirmNewPassword = document.querySelector("#toggleConfirmNewPassword");
+        const confirmNewPassword = document.querySelector("#confirm_new_password");
+        const confirmNewPasswordIcon = toggleConfirmNewPassword.querySelector("i");
+
+        toggleConfirmNewPassword.addEventListener("click", function () {
+            const type = confirmNewPassword.getAttribute("type") === "password" ? "text" : "password";
+            confirmNewPassword.setAttribute("type", type);
+
+            confirmNewPasswordIcon.classList.toggle("bi-eye");
+            confirmNewPasswordIcon.classList.toggle("bi-eye-slash");
+        });
+
+        // Open change password modal
+        function openChangePasswordModal(userId, username) {
+            document.getElementById('change_password_user_id').value = userId;
+            document.getElementById('changePasswordUsername').textContent = username;
+            document.getElementById('new_password').value = '';
+            document.getElementById('confirm_new_password').value = '';
+            document.getElementById('changePasswordError').style.display = 'none';
+            
+            const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+            modal.show();
+        }
+
+        // Handle change password form submission
+        document.getElementById('change_password_form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const newPassword = document.getElementById('new_password').value;
+            const confirmNewPassword = document.getElementById('confirm_new_password').value;
+            const userId = document.getElementById('change_password_user_id').value;
+            const errorDiv = document.getElementById('changePasswordError');
+            
+            if (newPassword !== confirmNewPassword) {
+                errorDiv.textContent = 'Passwords do not match!';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (newPassword.length < 8) {
+                errorDiv.textContent = 'Password must be at least 8 characters long!';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Submit password change via AJAX
+            fetch("{% url 'AccountingSystem:change_user_password' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    new_password: newPassword
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                    alert('Password changed successfully!');
+                } else {
+                    errorDiv.textContent = data.error || 'Failed to change password';
+                    errorDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                errorDiv.textContent = 'An error occurred while changing the password';
+                errorDiv.style.display = 'block';
+                console.error('Error:', error);
+            });
+        });
+
+        // Toggle user active status
+        function toggleUserStatus(userId, isActive) {
+            const action = isActive ? 'deactivate' : 'activate';
+            if (!confirm(`Are you sure you want to ${action} this user?`)) {
+                return;
+            }
+            
+            fetch("{% url 'AccountingSystem:toggle_user_active' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    user_id: userId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Reload to reflect changes
+                } else {
+                    alert('Failed to update user status: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('An error occurred while updating user status');
+                console.error('Error:', error);
+            });
+        }
     </script>
 </body>
 </html>

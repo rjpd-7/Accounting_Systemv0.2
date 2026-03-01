@@ -41,6 +41,8 @@ urlpatterns = [
      path('journal_pdf/<int:id>/', views.journal_pdf, name='journal_pdf'),
      path('create_user/', views.create_user, name='create_user'),
      path('teacher_create_user/', views.teacher_create_user, name='teacher_create_user'),
+     path('toggle_user_active/', views.toggle_user_active, name='toggle_user_active'),
+     path('change_user_password/', views.change_user_password, name='change_user_password'),
      
      # Journal Collaborator URLs
      path('add_collaborator/<int:id>/', views.add_collaborator, name='add_collaborator'),
