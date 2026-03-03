@@ -31,6 +31,46 @@ from django.core.mail import send_mail
 from django.conf import settings
 import random, string
 
+# Helper function to send credentials email to new user
+def send_credentials_email(user, password):
+    """
+    Send account credentials to the newly created user's email.
+    """
+    if not user.email:
+        return False, 'No email address provided for this user.'
+    
+    subject = 'Your ACLC Accounting System Account Credentials'
+    message = f"""
+Hello {user.first_name or user.username},
+
+Your account has been created in the ACLC Accounting System.
+
+Account Details:
+- Username: {user.username}
+- Password: {password}
+- Email: {user.email}
+
+Please log in at: {settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else 'your-system-url'}
+
+For security, please change your password after your first login.
+
+Best regards,
+ACLC Accounting System
+    """
+    
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+        return True, ''
+    except Exception as e:
+        print(f"Error sending email to {user.email}: {str(e)}")
+        return False, str(e)
+
 # Helper function to generate next account code
 def get_next_account_code(account_type):
     """Generate next account code based on type"""
@@ -556,7 +596,8 @@ def create_user(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
+            password = form.cleaned_data['password']
+            user.set_password(password)
             user.save()
 
             # Update user profile with role (created by signal)
@@ -564,7 +605,12 @@ def create_user(request):
             profile.role = form.cleaned_data['role']
             profile.save()
 
-            messages.success(request, f'User "{user.username}" created successfully.')
+            # Send credentials email
+            email_sent, email_error = send_credentials_email(user, password)
+            if email_sent:
+                messages.success(request, f'User "{user.username}" created successfully. Credentials sent to {user.email}.')
+            else:
+                messages.warning(request, f'User "{user.username}" created but email could not be sent to {user.email}. Reason: {email_error or "Unknown SMTP error"}')
             return HttpResponseRedirect(reverse("AccountingSystem:admin_dashboard"))
         else:
             for error in form.errors.values():
@@ -579,7 +625,8 @@ def teacher_create_user(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
+            password = form.cleaned_data['password']
+            user.set_password(password)
             user.save()
 
             # Update user profile with role (created by signal)
@@ -587,7 +634,12 @@ def teacher_create_user(request):
             profile.role = form.cleaned_data['role']
             profile.save()
 
-            messages.success(request, f'User "{user.username}" created successfully.')
+            # Send credentials email
+            email_sent, email_error = send_credentials_email(user, password)
+            if email_sent:
+                messages.success(request, f'User "{user.username}" created successfully. Credentials sent to {user.email}.')
+            else:
+                messages.warning(request, f'User "{user.username}" created but email could not be sent to {user.email}. Reason: {email_error or "Unknown SMTP error"}')
             return HttpResponseRedirect(reverse("AccountingSystem:teacher_dashboard"))
         else:
             for error in form.errors.values():
