@@ -390,6 +390,81 @@ def create_student_section(request):
     return redirect('AccountingSystem:teacher_dashboard')
 
 
+@role_required(['admin'])
+@require_http_methods(["POST"])
+def admin_create_student_section(request):
+    section_name = (request.POST.get('section_name') or '').strip()
+
+    if not section_name:
+        messages.error(request, "Section name is required.")
+        return redirect('AccountingSystem:admin_dashboard')
+
+    if StudentSection.objects.filter(name__iexact=section_name).exists():
+        messages.error(request, f'Section "{section_name}" already exists.')
+        return redirect('AccountingSystem:admin_dashboard')
+
+    StudentSection.objects.create(name=section_name)
+    messages.success(request, f'Section "{section_name}" created successfully.')
+    return redirect('AccountingSystem:admin_dashboard')
+
+@role_required(['admin'])
+@require_http_methods(["POST"])
+def admin_assign_student_sections_bulk(request):
+    assignments = request.POST
+    section_ids = {v for k, v in assignments.items() if k.startswith('section_for_') and v}
+
+    valid_sections = {
+        str(section.id): section
+        for section in StudentSection.objects.filter(id__in=section_ids)
+    }
+
+    updated_count = 0
+    for key, section_id in assignments.items():
+        if not key.startswith('section_for_'):
+            continue
+
+        student_id = key.replace('section_for_', '')
+        try:
+            student = User.objects.select_related('profile').get(id=student_id, profile__role='student')
+        except User.DoesNotExist:
+            continue
+
+        target_section = valid_sections.get(section_id) if section_id else None
+
+        if student.profile.section_id != (target_section.id if target_section else None):
+            student.profile.section = target_section
+            student.profile.save(update_fields=['section'])
+            updated_count += 1
+
+    messages.success(request, f'Section assignments saved for {updated_count} student(s).')
+    return redirect('AccountingSystem:admin_dashboard')
+
+
+@role_required(['admin'])
+@require_http_methods(["POST"])
+def admin_assign_account_groups_to_section(request):
+    section_id = request.POST.get('section_id')
+    
+    if not section_id:
+        messages.error(request, "Section is required.")
+        return redirect('AccountingSystem:admin_dashboard')
+    
+    section = get_object_or_404(StudentSection, id=section_id)
+    
+    # Get all selected account group IDs from the form
+    selected_group_ids = request.POST.getlist('account_groups')
+    
+    # Clear existing assignments and set new ones
+    section.account_groups.clear()
+    if selected_group_ids:
+        groups = AccountGroups.objects.filter(id__in=selected_group_ids)
+        section.account_groups.set(groups)
+        messages.success(request, f'{len(selected_group_ids)} account group(s) assigned to section {section.name}.')
+    else:
+        messages.success(request, f'All account groups removed from section {section.name}.')
+    
+    return redirect('AccountingSystem:admin_dashboard')
+
 @role_required(['teacher'])
 @require_http_methods(["POST"])
 def assign_student_sections_bulk(request):
