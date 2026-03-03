@@ -122,6 +122,18 @@
         </div>
         {% endif %}
 
+        {% if not user_section %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <strong>No Section Assigned:</strong> You are not currently assigned to a section. Please contact your teacher to assign you to a section so you can view accounts.
+        </div>
+        {% elif not accounts %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle-fill"></i>
+            <strong>No Accounts Available:</strong> Your section ({{ user_section.name }}) does not have any account groups assigned yet. Please contact your teacher to assign account groups to your section.
+        </div>
+        {% endif %}
+
         <!-- Button trigger modal -->
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
             <i class="bi bi-info-circle-fill"></i>

@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
@@ -282,6 +282,9 @@ def admin_dashboard(request):
     total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
+    students = User.objects.filter(profile__role='student').select_related('profile', 'profile__section').order_by('last_name', 'first_name', 'username')
+    sections = StudentSection.objects.all().prefetch_related('account_groups').order_by('name')
+    account_groups = AccountGroups.objects.all().order_by('group_name')
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
     sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
@@ -290,6 +293,9 @@ def admin_dashboard(request):
         'total_journals': total_journals,
         'total_entries': total_entries,
         'users': users,
+        'students': students,
+        'sections': sections,
+        'account_groups': account_groups,
         'received_messages': received_messages,
         'sent_messages': sent_messages,
     }
@@ -305,6 +311,9 @@ def teacher_dashboard(request):
     total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
+    students = User.objects.filter(profile__role='student').select_related('profile', 'profile__section').order_by('last_name', 'first_name', 'username')
+    sections = StudentSection.objects.all().prefetch_related('account_groups').order_by('name')
+    account_groups = AccountGroups.objects.all().order_by('group_name')
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
     sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
@@ -313,10 +322,91 @@ def teacher_dashboard(request):
         'total_journals': total_journals,
         'total_entries': total_entries,
         'users': users,
+        'students': students,
+        'sections': sections,
+        'account_groups': account_groups,
+        'selected_section': '',
         'received_messages': received_messages,
         'sent_messages': sent_messages,
     }
     return render(request, "Front_End/teacher_dashboard.html", context)
+
+
+@role_required(['teacher'])
+@require_http_methods(["POST"])
+def create_student_section(request):
+    section_name = (request.POST.get('section_name') or '').strip()
+
+    if not section_name:
+        messages.error(request, "Section name is required.")
+        return redirect('AccountingSystem:teacher_dashboard')
+
+    if StudentSection.objects.filter(name__iexact=section_name).exists():
+        messages.error(request, f'Section "{section_name}" already exists.')
+        return redirect('AccountingSystem:teacher_dashboard')
+
+    StudentSection.objects.create(name=section_name)
+    messages.success(request, f'Section "{section_name}" created successfully.')
+    return redirect('AccountingSystem:teacher_dashboard')
+
+
+@role_required(['teacher'])
+@require_http_methods(["POST"])
+def assign_student_sections_bulk(request):
+    assignments = request.POST
+    section_ids = {v for k, v in assignments.items() if k.startswith('section_for_') and v}
+
+    valid_sections = {
+        str(section.id): section
+        for section in StudentSection.objects.filter(id__in=section_ids)
+    }
+
+    updated_count = 0
+    for key, section_id in assignments.items():
+        if not key.startswith('section_for_'):
+            continue
+
+        student_id = key.replace('section_for_', '')
+        try:
+            student = User.objects.select_related('profile').get(id=student_id, profile__role='student')
+        except User.DoesNotExist:
+            continue
+
+        target_section = valid_sections.get(section_id) if section_id else None
+
+        if student.profile.section_id != (target_section.id if target_section else None):
+            student.profile.section = target_section
+            student.profile.save(update_fields=['section'])
+            updated_count += 1
+
+    messages.success(request, f'Section assignments saved for {updated_count} student(s).')
+    return redirect('AccountingSystem:teacher_dashboard')
+
+
+@role_required(['teacher'])
+@require_http_methods(["POST"])
+def assign_account_groups_to_section(request):
+    section_id = request.POST.get('section_id')
+    
+    if not section_id:
+        messages.error(request, "Section is required.")
+        return redirect('AccountingSystem:teacher_dashboard')
+    
+    section = get_object_or_404(StudentSection, id=section_id)
+    
+    # Get all selected account group IDs from the form
+    selected_group_ids = request.POST.getlist('account_groups')
+    
+    # Clear existing assignments and set new ones
+    section.account_groups.clear()
+    if selected_group_ids:
+        groups = AccountGroups.objects.filter(id__in=selected_group_ids)
+        section.account_groups.set(groups)
+        messages.success(request, f'{len(selected_group_ids)} account group(s) assigned to section {section.name}.')
+    else:
+        messages.success(request, f'All account groups removed from section {section.name}.')
+    
+    return redirect('AccountingSystem:teacher_dashboard')
 
 # Student Home Page
 @role_required(['student'])
@@ -362,12 +452,25 @@ def chart_of_accounts_students(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
 
-    account_groups = AccountGroups.objects.all()
-    results = ChartOfAccounts.objects.all()
-    results = ChartOfAccounts.objects.order_by('-date_created', '-id')
+    # Get user's section and filter account groups/accounts accordingly
+    user_section = None
+    if hasattr(request.user, 'profile') and request.user.profile.section:
+        user_section = request.user.profile.section
+        # Only show account groups assigned to this section
+        account_groups = user_section.account_groups.all()
+        # Only show accounts in those groups
+        results = ChartOfAccounts.objects.filter(
+            group_name__in=account_groups
+        ).order_by('-date_created', '-id')
+    else:
+        # Student not assigned to a section - show no accounts
+        account_groups = AccountGroups.objects.none()
+        results = ChartOfAccounts.objects.none()
+    
     return render(request, "Front_End/accounts_students.html", {
         "account_groups": account_groups,
-        "accounts" : results
+        "accounts": results,
+        "user_section": user_section,
     })
 
 # Create Account Group Function to Backend
@@ -591,8 +694,22 @@ def journals(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
     
-    account_groups = AccountGroups.objects.all()
-    accounts = ChartOfAccounts.objects.all()
+    # Filter account groups and accounts based on user role and section
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            # Only show account groups assigned to this section
+            account_groups = user_section.account_groups.all()
+            # Only show accounts in those groups
+            accounts = ChartOfAccounts.objects.filter(group_name__in=account_groups)
+        else:
+            # Student not assigned to a section - show no accounts
+            account_groups = AccountGroups.objects.none()
+            accounts = ChartOfAccounts.objects.none()
+    else:
+        # Admin/Teacher sees all
+        account_groups = AccountGroups.objects.all()
+        accounts = ChartOfAccounts.objects.all()
     
     # Fetch approved journals
     journal_entries = JournalEntry.objects.select_related('journal_header', 'account')
@@ -1010,24 +1127,64 @@ def add_collaborator_draft(request, id):
         except JournalHeaderDrafts.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'You can only add collaborators to your own journals.'}, status=403)
         
-        # Handle JSON request body
-        import json
+        # Handle JSON request body for single or bulk add
         try:
             data = json.loads(request.body)
-            collaborator_id = data.get('collaborator_id')
         except json.JSONDecodeError:
+            data = {}
+
+        collaborator_ids = data.get('collaborator_ids')
+        collaborator_id = data.get('collaborator_id')
+
+        if collaborator_ids is None:
+            collaborator_ids = request.POST.getlist('collaborator_ids')
+        if not collaborator_ids and collaborator_id is None:
             collaborator_id = request.POST.get('collaborator_id')
-        
+
+        if collaborator_ids is None:
+            collaborator_ids = []
+        if collaborator_id and not collaborator_ids:
+            collaborator_ids = [collaborator_id]
+
         try:
-            collaborator = User.objects.get(pk=collaborator_id)
-            # Check if already a collaborator
-            if JournalDraftCollaborator.objects.filter(journal_header=journal_header, collaborator=collaborator).exists():
-                return JsonResponse({'success': False, 'message': f'{collaborator.get_full_name() or collaborator.username} is already a collaborator.'})
-            else:
-                JournalDraftCollaborator.objects.create(journal_header=journal_header, collaborator=collaborator)
-                return JsonResponse({'success': True, 'message': f'Added {collaborator.get_full_name() or collaborator.username} as collaborator.'})
-        except User.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'User not found.'}, status=404)
+            collaborator_ids = [int(cid) for cid in collaborator_ids if cid]
+        except (TypeError, ValueError):
+            return JsonResponse({'success': False, 'message': 'Invalid collaborator selection.'}, status=400)
+
+        if not collaborator_ids:
+            return JsonResponse({'success': False, 'message': 'Please select at least one collaborator.'}, status=400)
+
+        sharer_section_id = getattr(getattr(request.user, 'profile', None), 'section_id', None)
+        if not sharer_section_id:
+            return JsonResponse({'success': False, 'message': 'You must be assigned to a section to share journals.'}, status=400)
+
+        existing_ids = set(
+            JournalDraftCollaborator.objects.filter(journal_header=journal_header)
+            .values_list('collaborator_id', flat=True)
+        )
+
+        eligible_students = User.objects.filter(
+            id__in=collaborator_ids,
+            profile__role='student',
+            profile__section_id=sharer_section_id
+        ).exclude(id=request.user.id)
+
+        added_count = 0
+        skipped_count = 0
+        for collaborator in eligible_students:
+            if collaborator.id in existing_ids:
+                skipped_count += 1
+                continue
+            JournalDraftCollaborator.objects.create(journal_header=journal_header, collaborator=collaborator)
+            added_count += 1
+
+        if added_count == 0:
+            return JsonResponse({'success': False, 'message': 'Selected students are already collaborators or not eligible.'})
+
+        message = f'Added {added_count} collaborator(s).'
+        if skipped_count:
+            message += f' Skipped {skipped_count} already shared.'
+        return JsonResponse({'success': True, 'message': message, 'added_count': added_count, 'skipped_count': skipped_count})
     
     return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=400)
 
@@ -1051,24 +1208,64 @@ def add_collaborator(request, id):
         except JournalHeader.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'You can only add collaborators to your own journals.'}, status=403)
         
-        # Handle JSON request body
-        import json
+        # Handle JSON request body for single or bulk add
         try:
             data = json.loads(request.body)
-            collaborator_id = data.get('collaborator_id')
         except json.JSONDecodeError:
+            data = {}
+
+        collaborator_ids = data.get('collaborator_ids')
+        collaborator_id = data.get('collaborator_id')
+
+        if collaborator_ids is None:
+            collaborator_ids = request.POST.getlist('collaborator_ids')
+        if not collaborator_ids and collaborator_id is None:
             collaborator_id = request.POST.get('collaborator_id')
-        
+
+        if collaborator_ids is None:
+            collaborator_ids = []
+        if collaborator_id and not collaborator_ids:
+            collaborator_ids = [collaborator_id]
+
         try:
-            collaborator = User.objects.get(pk=collaborator_id)
-            # Check if already a collaborator
-            if JournalCollaborator.objects.filter(journal_header=journal_header, collaborator=collaborator).exists():
-                return JsonResponse({'success': False, 'message': f'{collaborator.get_full_name() or collaborator.username} is already a collaborator.'})
-            else:
-                JournalCollaborator.objects.create(journal_header=journal_header, collaborator=collaborator)
-                return JsonResponse({'success': True, 'message': f'Added {collaborator.get_full_name() or collaborator.username} as collaborator.'})
-        except User.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'User not found.'}, status=404)
+            collaborator_ids = [int(cid) for cid in collaborator_ids if cid]
+        except (TypeError, ValueError):
+            return JsonResponse({'success': False, 'message': 'Invalid collaborator selection.'}, status=400)
+
+        if not collaborator_ids:
+            return JsonResponse({'success': False, 'message': 'Please select at least one collaborator.'}, status=400)
+
+        sharer_section_id = getattr(getattr(request.user, 'profile', None), 'section_id', None)
+        if not sharer_section_id:
+            return JsonResponse({'success': False, 'message': 'You must be assigned to a section to share journals.'}, status=400)
+
+        existing_ids = set(
+            JournalCollaborator.objects.filter(journal_header=journal_header)
+            .values_list('collaborator_id', flat=True)
+        )
+
+        eligible_students = User.objects.filter(
+            id__in=collaborator_ids,
+            profile__role='student',
+            profile__section_id=sharer_section_id
+        ).exclude(id=request.user.id)
+
+        added_count = 0
+        skipped_count = 0
+        for collaborator in eligible_students:
+            if collaborator.id in existing_ids:
+                skipped_count += 1
+                continue
+            JournalCollaborator.objects.create(journal_header=journal_header, collaborator=collaborator)
+            added_count += 1
+
+        if added_count == 0:
+            return JsonResponse({'success': False, 'message': 'Selected students are already collaborators or not eligible.'})
+
+        message = f'Added {added_count} collaborator(s).'
+        if skipped_count:
+            message += f' Skipped {skipped_count} already shared.'
+        return JsonResponse({'success': True, 'message': message, 'added_count': added_count, 'skipped_count': skipped_count})
     
     return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=400)
 
@@ -1096,14 +1293,39 @@ def get_available_collaborators(request, journal_id, is_draft):
             journal_header = JournalHeader.objects.get(pk=journal_id, user=request.user)
             current_collaborators = JournalCollaborator.objects.filter(journal_header=journal_header).values_list('collaborator_id', flat=True)
         
+        sharer_section_id = getattr(getattr(request.user, 'profile', None), 'section_id', None)
+        section_id = request.GET.get('section_id')
+
         # Get all students except current user and existing collaborators
-        from .models import UserProfile
         available_students = User.objects.filter(
             profile__role='student'
-        ).exclude(id=request.user.id).exclude(id__in=current_collaborators).values('id', 'username', 'first_name', 'last_name')
-        
+        ).exclude(id=request.user.id).exclude(id__in=current_collaborators)
+
+        if sharer_section_id:
+            available_students = available_students.filter(profile__section_id=sharer_section_id)
+        else:
+            available_students = available_students.none()
+
+        if section_id:
+            available_students = available_students.filter(profile__section_id=section_id)
+
+        available_students = available_students.values(
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'profile__section_id',
+            'profile__section__name'
+        )
+
+        sharer_section_name = ''
+        if sharer_section_id:
+            sharer_section_name = StudentSection.objects.filter(id=sharer_section_id).values_list('name', flat=True).first() or ''
+
         return JsonResponse({
             'collaborators': list(available_students),
+            'sharer_section_id': sharer_section_id,
+            'sharer_section_name': sharer_section_name,
             'current': list(current_collaborators)
         })
     except (JournalHeaderDrafts.DoesNotExist, JournalHeader.DoesNotExist):
@@ -1117,7 +1339,18 @@ def general_ledger(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
 
-    account_groups = AccountGroups.objects.all()
+    # Filter account groups based on user role and section
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            account_groups = user_section.account_groups.all()
+            allowed_group_ids = list(account_groups.values_list('id', flat=True))
+        else:
+            account_groups = AccountGroups.objects.none()
+            allowed_group_ids = []
+    else:
+        account_groups = AccountGroups.objects.all()
+        allowed_group_ids = None  # None means no filtering
 
     # build a Q filter for JournalEntry -> JournalHeader.entry_date
     date_q = Q()
@@ -1134,7 +1367,13 @@ def general_ledger(request):
         date_q = Q()
 
     # annotate accounts with sums filtered by date_q
-    accounts_summary = ChartOfAccounts.objects.annotate(
+    accounts_query = ChartOfAccounts.objects
+    
+    # Filter by section's account groups for students
+    if allowed_group_ids is not None:
+        accounts_query = accounts_query.filter(group_name_id__in=allowed_group_ids)
+    
+    accounts_summary = accounts_query.annotate(
     total_debit=Coalesce(Sum('journalentry__debit'), Value(0), output_field=DecimalField()),
     total_credit=Coalesce(Sum('journalentry__credit'), Value(0), output_field=DecimalField()),
 ).order_by('group_name__id', 'account_code')
@@ -1307,6 +1546,7 @@ def trial_balance_pdf(request):
 
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('account_group')
 
     start_date = end_date = None
     try:
@@ -1323,7 +1563,31 @@ def trial_balance_pdf(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
-    accounts_qs = ChartOfAccounts.objects.annotate(
+    # Filter by student's section if applicable
+    group_ids = None
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            group_ids = list(user_section.account_groups.values_list('id', flat=True))
+        else:
+            # Student not in a section - return no data
+            accounts = []
+            total_debit = total_credit = 0.0
+            ending_balance = 0.0
+
+    # Build account query
+    accounts_query = ChartOfAccounts.objects
+    if group_ids is not None:
+        accounts_query = accounts_query.filter(group_name_id__in=group_ids)
+    
+    # Further filter by selected account group if provided
+    if group_id:
+        try:
+            accounts_query = accounts_query.filter(group_name_id=int(group_id))
+        except (ValueError, TypeError):
+            pass
+    
+    accounts_qs = accounts_query.annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
@@ -1400,15 +1664,24 @@ def income_statement(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
+    account_groups = AccountGroups.objects.all().order_by('group_name')
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            account_groups = user_section.account_groups.all().order_by('group_name')
+        else:
+            account_groups = AccountGroups.objects.none()
+
     # Optional filter by Account Group
     group_filter = Q()
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        group_filter &= Q(group_name__in=account_groups)
+
     selected_group = None
     if group_id:
-        try:
-            selected_group = AccountGroups.objects.get(id=group_id)
+        selected_group = account_groups.filter(id=group_id).first()
+        if selected_group:
             group_filter &= Q(group_name=selected_group)
-        except AccountGroups.DoesNotExist:
-            selected_group = None
 
     # Revenues: normally credit balances (credit - debit)
     revenue_filter = Q(account_type='Revenue') & group_filter
@@ -1475,7 +1748,7 @@ def income_statement(request):
         'net_income': net_income,
         'start_date': start_str,
         'end_date': end_str,
-        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'account_groups': account_groups,
         'selected_group': selected_group,
         'cost_of_sales': cost_of_sales,
     }
@@ -1512,15 +1785,24 @@ def balance_sheet(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
+    account_groups = AccountGroups.objects.all().order_by('group_name')
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            account_groups = user_section.account_groups.all().order_by('group_name')
+        else:
+            account_groups = AccountGroups.objects.none()
+
     # Optional filter by Account Group
     group_filter = Q()
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        group_filter &= Q(group_name__in=account_groups)
+
     selected_group = None
     if group_id:
-        try:
-            selected_group = AccountGroups.objects.get(id=group_id)
+        selected_group = account_groups.filter(id=group_id).first()
+        if selected_group:
             group_filter &= Q(group_name=selected_group)
-        except AccountGroups.DoesNotExist:
-            selected_group = None
 
     assets_filter = Q(account_type='Assets') & group_filter
     assets_qs = ChartOfAccounts.objects.filter(assets_filter).annotate(
@@ -1597,7 +1879,7 @@ def balance_sheet(request):
         'start_date': start_str,
         'end_date': end_str,
         'cost_of_sales': cost_of_sales,
-        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'account_groups': account_groups,
         'selected_group': selected_group,
     }
 
@@ -1649,6 +1931,7 @@ def ledger_account_transactions(request, account_id):
 def trial_balance_json(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
+    group_id = request.GET.get('account_group')
 
     start_date = end_date = None
     try:
@@ -1666,7 +1949,29 @@ def trial_balance_json(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
-    accounts_qs = ChartOfAccounts.objects.annotate(
+    # Filter by student's section if applicable
+    group_ids = None
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            group_ids = list(user_section.account_groups.values_list('id', flat=True))
+        else:
+            # Student not in a section - return empty
+            return JsonResponse({'success': True, 'start_date': start_str, 'end_date': end_str, 'accounts': []})
+
+    # Start with all accounts or filtered by student's section
+    accounts_qs = ChartOfAccounts.objects
+    if group_ids is not None:
+        accounts_qs = accounts_qs.filter(group_name_id__in=group_ids)
+    
+    # Further filter by selected account group if provided
+    if group_id:
+        try:
+            accounts_qs = accounts_qs.filter(group_name_id=int(group_id))
+        except (ValueError, TypeError):
+            pass
+    
+    accounts_qs = accounts_qs.annotate(
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('account_code')
@@ -1813,15 +2118,24 @@ def income_statement_pdf(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
+    account_groups = AccountGroups.objects.all().order_by('group_name')
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            account_groups = user_section.account_groups.all().order_by('group_name')
+        else:
+            account_groups = AccountGroups.objects.none()
+
     # Optional filter by Account Group
     group_filter = Q()
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        group_filter &= Q(group_name__in=account_groups)
+
     selected_group = None
     if group_id:
-        try:
-            selected_group = AccountGroups.objects.get(id=group_id)
+        selected_group = account_groups.filter(id=group_id).first()
+        if selected_group:
             group_filter &= Q(group_name=selected_group)
-        except AccountGroups.DoesNotExist:
-            selected_group = None
 
     # Revenues: normally credit balances (credit - debit)
     revenue_filter = Q(account_type='Revenue') & group_filter
@@ -1892,7 +2206,7 @@ def income_statement_pdf(request):
         'net_income': net_income,
         'start_date': start_str or '',
         'end_date': end_str or '',
-        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'account_groups': account_groups,
         'selected_group': selected_group,
         'cost_of_sales': cost_of_sales,
     }
@@ -1946,15 +2260,24 @@ def balance_sheet_pdf(request):
     if end_date:
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
+    account_groups = AccountGroups.objects.all().order_by('group_name')
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            account_groups = user_section.account_groups.all().order_by('group_name')
+        else:
+            account_groups = AccountGroups.objects.none()
+
     # Optional filter by Account Group
     group_filter = Q()
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        group_filter &= Q(group_name__in=account_groups)
+
     selected_group = None
     if group_id:
-        try:
-            selected_group = AccountGroups.objects.get(id=group_id)
+        selected_group = account_groups.filter(id=group_id).first()
+        if selected_group:
             group_filter &= Q(group_name=selected_group)
-        except AccountGroups.DoesNotExist:
-            selected_group = None
 
     assets_filter = Q(account_type='Assets') & group_filter
     assets_qs = ChartOfAccounts.objects.filter(assets_filter).annotate(
@@ -2029,7 +2352,7 @@ def balance_sheet_pdf(request):
         'start_date': start_str or '',
         'end_date': end_str or '',
         'cost_of_sales': cost_of_sales,
-        'account_groups': AccountGroups.objects.all().order_by('group_name'),
+        'account_groups': account_groups,
         'selected_group': selected_group,
     }
 

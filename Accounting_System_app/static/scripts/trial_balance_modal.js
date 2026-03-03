@@ -79,10 +79,11 @@ document.addEventListener('DOMContentLoaded', function () {
         resultsContainer.innerHTML = html.join('');
     }
 
-    function fetchTrialBalance(start, end) {
+    function fetchTrialBalance(start, end, group) {
         var params = new URLSearchParams();
         if (start) params.set('start_date', start);
         if (end) params.set('end_date', end);
+        if (group) params.set('account_group', group);
         var url = trialBalanceJsonUrl + (params.toString() ? ('?' + params.toString()) : '');
 
         resultsContainer.innerHTML = '<div class="text-muted">Loading...</div>';
@@ -107,14 +108,15 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             var start = document.getElementById('tb-start-date').value;
             var end = document.getElementById('tb-end-date').value;
+            var group = document.getElementById('tb-account-group').value;
             // validation: start must not be after end
             if (start && end && start > end) {
                 alert('Start date cannot be later than end date.');
                 return;
             }
-            fetchTrialBalance(start, end);
+            fetchTrialBalance(start, end, group);
             // update download link
-            updateDownloadLink(start, end);
+            updateDownloadLink(start, end, group);
         });
     }
 
@@ -122,8 +124,9 @@ document.addEventListener('DOMContentLoaded', function () {
         clearBtn.addEventListener('click', function () {
             document.getElementById('tb-start-date').value = '';
             document.getElementById('tb-end-date').value = '';
+            document.getElementById('tb-account-group').value = '';
             resultsContainer.innerHTML = '<div class="text-muted">No data. Choose a date range and click Generate.</div>';
-            updateDownloadLink('', '');
+            updateDownloadLink('', '', '');
         });
     }
 
@@ -141,12 +144,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // optional: auto-generate using page-level filters if present when modal opens
-    function updateDownloadLink(start, end) {
+    function updateDownloadLink(start, end, group) {
         var link = document.getElementById('tb-download-link');
         if (!link) return;
         var params = new URLSearchParams();
         if (start) params.set('start_date', start);
         if (end) params.set('end_date', end);
+        if (group) params.set('account_group', group);
         var pdfUrl = trialBalancePdfUrl + (params.toString() ? ('?' + params.toString()) : '');
         link.href = pdfUrl;
         // Enable button only if at least one date is set
@@ -166,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var pageEnd = document.getElementById('end_date') ? document.getElementById('end_date').value : '';
             if (pageStart) document.getElementById('tb-start-date').value = pageStart;
             if (pageEnd) document.getElementById('tb-end-date').value = pageEnd;
-            updateDownloadLink(document.getElementById('tb-start-date').value, document.getElementById('tb-end-date').value);
+            updateDownloadLink(document.getElementById('tb-start-date').value, document.getElementById('tb-end-date').value, document.getElementById('tb-account-group').value);
         });
     }
 });

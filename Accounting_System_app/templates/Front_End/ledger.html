@@ -267,6 +267,15 @@
                                     <label for="tb-end-date" class="form-label">End Date</label>
                                     <input type="date" id="tb-end-date" name="end_date" class="form-control">
                                 </div>
+                                <div class="col-auto">
+                                    <label for="tb-account-group" class="form-label">Account Group</label>
+                                    <select id="tb-account-group" name="account_group" class="form-select">
+                                        <option value="">All Groups</option>
+                                        {% for group in account_groups %}
+                                            <option value="{{ group.id }}">{{ group.group_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
                                 <div class="col-auto align-self-end">
                                     <button type="submit" class="btn btn-primary">Generate</button>
                                     <button type="button" id="tb-clear-btn" class="btn btn-secondary">Clear</button>

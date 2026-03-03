@@ -575,10 +575,13 @@
                     <div class="modal-body">
                         <form id="share_draft_form">
                             {% csrf_token %}
-                            <label for="share_draft_collaborator">Select collaborator:</label>
-                            <select id="share_draft_collaborator" name="collaborator" class="form-select" required>
-                                <option value="">-- Select a student --</option>
-                            </select>
+                            <p class="mb-2"><strong>Section:</strong> <span id="share_draft_section_text" class="text-muted">Loading...</span></p>
+                            <label class="form-label">Select collaborator(s):</label>
+                            <div id="share_draft_collaborator_list" class="border rounded p-2" style="max-height: 260px; overflow-y: auto;"><div class="text-muted">Loading students...</div></div>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="select_all_draft_collaborators">Select All</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="clear_all_draft_collaborators">Clear</button>
+                            </div>
                             <small class="text-muted">Students you've already shared with won't appear in this list.</small>
                         </form>
                     </div>
@@ -602,10 +605,13 @@
                     <div class="modal-body">
                         <form id="share_form">
                             {% csrf_token %}
-                            <label for="share_collaborator">Select collaborator:</label>
-                            <select id="share_collaborator" name="collaborator" class="form-select" required>
-                                <option value="">-- Select a student --</option>
-                            </select>
+                            <p class="mb-2"><strong>Section:</strong> <span id="share_section_text" class="text-muted">Loading...</span></p>
+                            <label class="form-label">Select collaborator(s):</label>
+                            <div id="share_collaborator_list" class="border rounded p-2" style="max-height: 260px; overflow-y: auto;"><div class="text-muted">Loading students...</div></div>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="select_all_collaborators">Select All</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="clear_all_collaborators">Clear</button>
+                            </div>
                             <small class="text-muted">Students you've already shared with won't appear in this list.</small>
                         </form>
                     </div>
