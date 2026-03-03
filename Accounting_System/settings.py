@@ -123,6 +123,10 @@ import os
 
 STATIC_URL = '/static/'
 
+# Store uploaded files (including message attachments) under project root
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR
+
 #STATIC_ROOT = '/home/rjpd7/rjpd7.pythonanywhere.com/static'
 
 # Default primary key field type

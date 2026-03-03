@@ -1,4 +1,4 @@
-from django.http import HttpResponseRedirect, JsonResponse, Http404
+from django.http import HttpResponseRedirect, JsonResponse, Http404, FileResponse
 from django import forms
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -2570,7 +2570,8 @@ def get_messages(request):
                 'id': att.id,
                 'filename': att.filename,
                 'file_size': att.file_size,
-                'url': att.file.url
+                'url': att.file.url,
+                'download_url': reverse('AccountingSystem:download_attachment', kwargs={'attachment_id': att.id})
             })
         received_data.append({
             'id': msg.id,
@@ -2592,7 +2593,8 @@ def get_messages(request):
                 'id': att.id,
                 'filename': att.filename,
                 'file_size': att.file_size,
-                'url': att.file.url
+                'url': att.file.url,
+                'download_url': reverse('AccountingSystem:download_attachment', kwargs={'attachment_id': att.id})
             })
         sent_data.append({
             'id': msg.id,
@@ -2650,10 +2652,15 @@ def download_attachment(request, attachment_id):
     # Check if user has access
     if message.sender != request.user and message.recipient != request.user:
         return HttpResponse('Forbidden', status=403)
-    
-    response = HttpResponse(attachment.file.read(), content_type='application/octet-stream')
-    response['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
-    return response
+
+    if not attachment.file or not attachment.file.name:
+        return HttpResponse('File not available on site (missing file reference).', status=404)
+
+    if not attachment.file.storage.exists(attachment.file.name):
+        return HttpResponse('File not available on site (file not found on server).', status=404)
+
+    attachment.file.open('rb')
+    return FileResponse(attachment.file, as_attachment=True, filename=attachment.filename)
 
 @require_http_methods(["GET"])
 def get_users_api(request):

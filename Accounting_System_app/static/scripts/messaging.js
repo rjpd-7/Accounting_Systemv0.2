@@ -197,7 +197,7 @@ function displayMessageDetail(message) {
                     ${message.attachments.map(att => `
                         <li>
                             <i class="bi bi-file"></i>
-                            <a href="${att.url}" download="${att.filename}" class="ms-2">
+                            <a href="${att.download_url || att.url}" class="ms-2">
                                 ${att.filename} (${formatFileSize(att.file_size)})
                             </a>
                         </li>
