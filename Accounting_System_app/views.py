@@ -977,6 +977,80 @@ def change_own_password(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
+# Update User
+@require_http_methods(["POST"])
+def update_user(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        email = data.get('email', '').strip()
+        role = data.get('role', '').strip()
+        
+        if not user_id:
+            return JsonResponse({'success': False, 'error': 'User ID is required'}, status=400)
+        
+        user = User.objects.get(id=user_id)
+        
+        # Prevent editing yourself
+        if user.id == request.user.id:
+            return JsonResponse({'success': False, 'error': 'You cannot edit your own account'}, status=400)
+        
+        # Update user fields
+        if first_name:
+            user.first_name = first_name
+        if last_name:
+            user.last_name = last_name
+        if email:
+            user.email = email
+        
+        user.save()
+        
+        # Update role if provided
+        if role and hasattr(user, 'profile'):
+            user.profile.role = role
+            user.profile.save()
+        
+        return JsonResponse({'success': True, 'message': f'User {user.username} has been updated successfully'})
+    
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+# Delete User
+@require_http_methods(["POST"])
+def delete_user(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return JsonResponse({'success': False, 'error': 'User ID is required'}, status=400)
+        
+        user = User.objects.get(id=user_id)
+        
+        # Prevent deleting yourself
+        if user.id == request.user.id:
+            return JsonResponse({'success': False, 'error': 'You cannot delete your own account'}, status=400)
+        
+        username = user.username
+        user.delete()
+        
+        return JsonResponse({'success': True, 'message': f'User {username} has been deleted successfully'})
+    
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 # Journal Entries Page
 def journals(request):
     if not request.user.is_authenticated:

@@ -54,6 +54,8 @@ urlpatterns = [
      path('toggle_user_active/', views.toggle_user_active, name='toggle_user_active'),
      path('change_user_password/', views.change_user_password, name='change_user_password'),
      path('change_own_password/', views.change_own_password, name='change_own_password'),
+     path('update_user/', views.update_user, name='update_user'),
+     path('delete_user/', views.delete_user, name='delete_user'),
      path('api/next_account_code/', views.get_next_account_code_api, name='get_next_account_code_api'),
      path('api/next_journal_code/', views.get_next_journal_code_api, name='get_next_journal_code_api'),
      
