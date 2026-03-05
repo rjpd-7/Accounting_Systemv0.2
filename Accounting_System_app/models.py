@@ -167,6 +167,7 @@ class StudentSection(models.Model):
     name = models.CharField(max_length=100, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     account_groups = models.ManyToManyField(AccountGroups, related_name='sections', blank=True)
+    teachers = models.ManyToManyField(User, related_name='managed_sections', blank=True)
 
     class Meta:
         db_table = "student_sections"
@@ -185,6 +186,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     section = models.ForeignKey(StudentSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    account_groups = models.ManyToManyField(AccountGroups, related_name='assigned_users', blank=True)
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"

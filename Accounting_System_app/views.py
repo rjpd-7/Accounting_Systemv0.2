@@ -98,6 +98,31 @@ def get_next_account_code(account_type):
     
     return str(prefix + max_number + 1)
 
+def get_account_groups_for_section(section):
+    """
+    Get all account groups available to a section.
+    Account groups come from all teachers/admins managing that section.
+    """
+    if not section:
+        return AccountGroups.objects.none()
+    
+    # Get all teachers managing this section
+    teachers = section.teachers.all()
+    
+    if not teachers.exists():
+        # No teachers assigned to this section
+        return AccountGroups.objects.none()
+    
+    # Collect all account groups from all teachers managing this section
+    account_group_ids = set()
+    for teacher in teachers:
+        if hasattr(teacher, 'profile'):
+            teacher_groups = teacher.profile.account_groups.values_list('id', flat=True)
+            account_group_ids.update(teacher_groups)
+    
+    # Return distinct account groups
+    return AccountGroups.objects.filter(id__in=account_group_ids)
+
 # Helper function to generate next journal code
 def get_next_journal_code():
     """Generate next journal code in format JE-XXXXXXXXXX"""
@@ -344,6 +369,11 @@ def admin_dashboard(request):
     account_groups = AccountGroups.objects.all().order_by('group_name')
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
     sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
+    
+    # Get sections managed by this admin
+    admin_managed_sections = request.user.managed_sections.all()
+    # Get account groups assigned to this admin
+    admin_account_groups = request.user.profile.account_groups.all()
 
     context = {
         'total_accounts': total_accounts,
@@ -353,6 +383,8 @@ def admin_dashboard(request):
         'students': students,
         'sections': sections,
         'account_groups': account_groups,
+        'admin_managed_sections': admin_managed_sections,
+        'admin_account_groups': admin_account_groups,
         'received_messages': received_messages,
         'sent_messages': sent_messages,
     }
@@ -373,6 +405,11 @@ def teacher_dashboard(request):
     account_groups = AccountGroups.objects.all().order_by('group_name')
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
     sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
+    
+    # Get sections managed by this teacher
+    teacher_managed_sections = request.user.managed_sections.all()
+    # Get account groups assigned to this teacher
+    teacher_account_groups = request.user.profile.account_groups.all()
 
     context = {
         'total_accounts': total_accounts,
@@ -382,6 +419,8 @@ def teacher_dashboard(request):
         'students': students,
         'sections': sections,
         'account_groups': account_groups,
+        'teacher_managed_sections': teacher_managed_sections,
+        'teacher_account_groups': teacher_account_groups,
         'selected_section': '',
         'received_messages': received_messages,
         'sent_messages': sent_messages,
@@ -540,6 +579,110 @@ def assign_account_groups_to_section(request):
     
     return redirect('AccountingSystem:teacher_dashboard')
 
+@role_required(['teacher'])
+@require_http_methods(["POST"])
+def assign_teacher_to_sections(request):
+    """
+    Allow teachers to assign themselves to manage multiple sections.
+    """
+    teacher = request.user
+    
+    # Get all selected section IDs from the form
+    selected_section_ids = request.POST.getlist('section_ids')
+    
+    # Get all StudentSection objects
+    all_sections = StudentSection.objects.all()
+    
+    # Remove teacher from all sections first, then add to selected ones
+    for section in all_sections:
+        section.teachers.remove(teacher)
+    
+    # Add teacher to selected sections
+    if selected_section_ids:
+        selected_sections = StudentSection.objects.filter(id__in=selected_section_ids)
+        for section in selected_sections:
+            section.teachers.add(teacher)
+        messages.success(request, f'You have been assigned to {len(selected_section_ids)} section(s).')
+    else:
+        messages.success(request, 'You have been removed from all sections.')
+    
+    return redirect('AccountingSystem:teacher_dashboard')
+
+@role_required(['admin'])
+@require_http_methods(["POST"])
+def assign_admin_to_sections(request):
+    """
+    Allow admins to assign themselves to manage multiple sections.
+    """
+    admin = request.user
+    
+    # Get all selected section IDs from the form
+    selected_section_ids = request.POST.getlist('section_ids')
+    
+    # Get all StudentSection objects
+    all_sections = StudentSection.objects.all()
+    
+    # Remove admin from all sections first, then add to selected ones
+    for section in all_sections:
+        section.teachers.remove(admin)
+    
+    # Add admin to selected sections
+    if selected_section_ids:
+        selected_sections = StudentSection.objects.filter(id__in=selected_section_ids)
+        for section in selected_sections:
+            section.teachers.add(admin)
+        messages.success(request, f'You have been assigned to {len(selected_section_ids)} section(s).')
+    else:
+        messages.success(request, 'You have been removed from all sections.')
+    
+    return redirect('AccountingSystem:admin_dashboard')
+
+@role_required(['teacher'])
+@require_http_methods(["POST"])
+def assign_account_groups_to_teacher(request):
+    """
+    Allow teachers to assign account groups to themselves.
+    Sections they manage will automatically inherit these account groups.
+    """
+    teacher = request.user
+    
+    # Get all selected account group IDs from the form
+    selected_group_ids = request.POST.getlist('account_group_ids')
+    
+    # Clear existing assignments and set new ones
+    teacher.profile.account_groups.clear()
+    if selected_group_ids:
+        groups = AccountGroups.objects.filter(id__in=selected_group_ids)
+        teacher.profile.account_groups.set(groups)
+        messages.success(request, f'{len(selected_group_ids)} account group(s) assigned to you. Your managed sections will automatically have access to these groups.')
+    else:
+        messages.success(request, 'All account groups removed from your profile.')
+    
+    return redirect('AccountingSystem:teacher_dashboard')
+
+@role_required(['admin'])
+@require_http_methods(["POST"])
+def assign_account_groups_to_admin(request):
+    """
+    Allow admins to assign account groups to themselves.
+    Sections they manage will automatically inherit these account groups.
+    """
+    admin = request.user
+    
+    # Get all selected account group IDs from the form
+    selected_group_ids = request.POST.getlist('account_group_ids')
+    
+    # Clear existing assignments and set new ones
+    admin.profile.account_groups.clear()
+    if selected_group_ids:
+        groups = AccountGroups.objects.filter(id__in=selected_group_ids)
+        admin.profile.account_groups.set(groups)
+        messages.success(request, f'{len(selected_group_ids)} account group(s) assigned to you. Your managed sections will automatically have access to these groups.')
+    else:
+        messages.success(request, 'All account groups removed from your profile.')
+    
+    return redirect('AccountingSystem:admin_dashboard')
+
 # Student Home Page
 @role_required(['student'])
 def student_dashboard(request):
@@ -588,8 +731,8 @@ def chart_of_accounts_students(request):
     user_section = None
     if hasattr(request.user, 'profile') and request.user.profile.section:
         user_section = request.user.profile.section
-        # Only show account groups assigned to this section
-        account_groups = user_section.account_groups.all()
+        # Get account groups from teachers managing this section
+        account_groups = get_account_groups_for_section(user_section)
         # Only show accounts in those groups
         results = ChartOfAccounts.objects.filter(
             group_name__in=account_groups
@@ -842,8 +985,8 @@ def journals(request):
     if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
         user_section = request.user.profile.section
         if user_section:
-            # Only show account groups assigned to this section
-            account_groups = user_section.account_groups.all()
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section)
             # Only show accounts in those groups
             accounts = ChartOfAccounts.objects.filter(group_name__in=account_groups)
         else:
@@ -1650,7 +1793,8 @@ def general_ledger(request):
     if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
         user_section = request.user.profile.section
         if user_section:
-            account_groups = user_section.account_groups.all()
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section)
             allowed_group_ids = list(account_groups.values_list('id', flat=True))
         else:
             account_groups = AccountGroups.objects.none()
@@ -1875,7 +2019,9 @@ def trial_balance_pdf(request):
     if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
         user_section = request.user.profile.section
         if user_section:
-            group_ids = list(user_section.account_groups.values_list('id', flat=True))
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section)
+            group_ids = list(account_groups.values_list('id', flat=True))
         else:
             # Student not in a section - return no data
             accounts = []
@@ -1975,7 +2121,8 @@ def income_statement(request):
     if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
         user_section = request.user.profile.section
         if user_section:
-            account_groups = user_section.account_groups.all().order_by('group_name')
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section).order_by('group_name')
         else:
             account_groups = AccountGroups.objects.none()
 
@@ -2096,7 +2243,8 @@ def balance_sheet(request):
     if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
         user_section = request.user.profile.section
         if user_section:
-            account_groups = user_section.account_groups.all().order_by('group_name')
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section).order_by('group_name')
         else:
             account_groups = AccountGroups.objects.none()
 
@@ -2261,7 +2409,9 @@ def trial_balance_json(request):
     if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
         user_section = request.user.profile.section
         if user_section:
-            group_ids = list(user_section.account_groups.values_list('id', flat=True))
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section)
+            group_ids = list(account_groups.values_list('id', flat=True))
         else:
             # Student not in a section - return empty
             return JsonResponse({'success': True, 'start_date': start_str, 'end_date': end_str, 'accounts': []})
@@ -2429,7 +2579,8 @@ def income_statement_pdf(request):
     if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
         user_section = request.user.profile.section
         if user_section:
-            account_groups = user_section.account_groups.all().order_by('group_name')
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section).order_by('group_name')
         else:
             account_groups = AccountGroups.objects.none()
 
@@ -2571,7 +2722,8 @@ def balance_sheet_pdf(request):
     if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
         user_section = request.user.profile.section
         if user_section:
-            account_groups = user_section.account_groups.all().order_by('group_name')
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section).order_by('group_name')
         else:
             account_groups = AccountGroups.objects.none()
 
@@ -2680,6 +2832,47 @@ def balance_sheet_pdf(request):
     return response
 
 # Messaging Views
+def _get_user_section_ids(user):
+    """Return section IDs connected to a user based on role."""
+    if not getattr(user, 'is_authenticated', False) or not hasattr(user, 'profile'):
+        return set()
+
+    role = user.profile.role
+    if role == 'student':
+        return {user.profile.section_id} if user.profile.section_id else set()
+
+    if role in ('teacher', 'admin'):
+        return set(user.managed_sections.values_list('id', flat=True))
+
+    return set()
+
+
+def _get_connected_users_queryset(user):
+    """
+    Enforce messaging scope based on handled sections:
+    - Teacher/Admin: students in sections they manage, plus all teachers/admins.
+    - Student: only teachers/admins who manage the student's section.
+    """
+    section_ids = _get_user_section_ids(user)
+    if not section_ids:
+        return User.objects.none()
+
+    role = user.profile.role if hasattr(user, 'profile') else None
+    if role in ('teacher', 'admin'):
+        return User.objects.exclude(id=user.id).filter(
+            Q(profile__role='student', profile__section_id__in=section_ids) |
+            Q(profile__role__in=['teacher', 'admin'])
+        ).distinct()
+
+    if role == 'student':
+        return User.objects.exclude(id=user.id).filter(
+            profile__role__in=['teacher', 'admin'],
+            managed_sections__id__in=section_ids,
+        ).distinct()
+
+    return User.objects.none()
+
+
 @require_http_methods(["GET", "POST"])
 def send_message(request):
     """Send a new message with optional attachments"""
@@ -2692,6 +2885,22 @@ def send_message(request):
         
         if form.is_valid():
             message = form.save(commit=False)
+            allowed_recipient_ids = set(
+                _get_connected_users_queryset(request.user).values_list('id', flat=True)
+            )
+            if message.recipient_id not in allowed_recipient_ids:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'error': 'Recipient is not connected to you.'}, status=403)
+                messages.error(request, 'You can only message users connected to your sections.')
+                if hasattr(request.user, 'profile'):
+                    role = request.user.profile.role
+                    if role == 'admin':
+                        return redirect('AccountingSystem:admin_dashboard')
+                    elif role == 'teacher':
+                        return redirect('AccountingSystem:teacher_dashboard')
+                    return redirect('AccountingSystem:student_dashboard')
+                return redirect('AccountingSystem:login_view')
+
             message.sender = request.user
             message.save()
             
@@ -2729,7 +2938,7 @@ def send_message(request):
             return redirect('AccountingSystem:admin_dashboard')
     
     form = MessageForm()
-    form.fields['recipient'].queryset = User.objects.exclude(id=request.user.id)
+    form.fields['recipient'].queryset = _get_connected_users_queryset(request.user)
     return render(request, 'Front_End/send_message.html', {'form': form})
 
 @require_http_methods(["GET"])
@@ -2738,9 +2947,17 @@ def get_messages(request):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Not authenticated'}, status=401)
     
-    # Get all messages involving the current user
-    received = Message.objects.filter(recipient=request.user).order_by('-created_at')
-    sent = Message.objects.filter(sender=request.user).order_by('-created_at')
+    connected_user_ids = list(_get_connected_users_queryset(request.user).values_list('id', flat=True))
+
+    # Only include messages with currently connected users
+    received = Message.objects.filter(
+        recipient=request.user,
+        sender_id__in=connected_user_ids,
+    ).order_by('-created_at')
+    sent = Message.objects.filter(
+        sender=request.user,
+        recipient_id__in=connected_user_ids,
+    ).order_by('-created_at')
     
     received_data = []
     for msg in received:
@@ -2793,7 +3010,11 @@ def get_messages(request):
     return JsonResponse({
         'received': received_data,
         'sent': sent_data,
-        'unread_count': Message.objects.filter(recipient=request.user, is_read=False).count()
+        'unread_count': Message.objects.filter(
+            recipient=request.user,
+            is_read=False,
+            sender_id__in=connected_user_ids,
+        ).count()
     })
 
 @require_http_methods(["GET"])
@@ -2802,7 +3023,12 @@ def get_unread_count(request):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Not authenticated'}, status=401)
     
-    unread_count = Message.objects.filter(recipient=request.user, is_read=False).count()
+    connected_user_ids = list(_get_connected_users_queryset(request.user).values_list('id', flat=True))
+    unread_count = Message.objects.filter(
+        recipient=request.user,
+        is_read=False,
+        sender_id__in=connected_user_ids,
+    ).count()
     return JsonResponse({'unread_count': unread_count})
 
 @require_http_methods(["POST"])
@@ -2844,19 +3070,30 @@ def download_attachment(request, attachment_id):
 
 @require_http_methods(["GET"])
 def get_users_api(request):
-    """Get list of all users (excluding current user) for messaging"""
+    """Get list of connected users for messaging."""
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Not authenticated'}, status=401)
     
-    users = User.objects.exclude(id=request.user.id).values('id', 'username', 'first_name', 'last_name')
+    users = _get_connected_users_queryset(request.user).select_related('profile', 'profile__section').prefetch_related('managed_sections')
     users_list = []
     
     for user in users:
-        full_name = f"{user['first_name']} {user['last_name']}".strip() if user['first_name'] or user['last_name'] else user['username']
+        full_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
+        role = getattr(user.profile, 'role', '') if hasattr(user, 'profile') else ''
+
+        # Students have one section; teacher/admin may handle multiple sections.
+        section_names = []
+        if role == 'student' and user.profile.section:
+            section_names = [user.profile.section.name]
+        elif role in ('teacher', 'admin'):
+            section_names = list(user.managed_sections.values_list('name', flat=True))
+
         users_list.append({
-            'id': user['id'],
-            'username': user['username'],
-            'full_name': full_name
+            'id': user.id,
+            'username': user.username,
+            'full_name': full_name,
+            'role': role,
+            'sections': section_names,
         })
     
     return JsonResponse({'users': users_list})

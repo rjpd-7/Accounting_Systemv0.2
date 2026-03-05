@@ -1,5 +1,7 @@
 // Messaging System JavaScript
 
+let allConnectedRecipients = [];
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize messaging on page load
     initializeMessaging();
@@ -33,6 +35,8 @@ function loadAllUsers() {
 // Load recipients list (other users)
 function loadRecipientsList() {
     const recipientSelect = document.getElementById('recipient');
+    const roleFilter = document.getElementById('recipient_role_filter');
+    const sectionFilter = document.getElementById('recipient_section_filter');
     if (!recipientSelect) return;
     
     // Fetch users from the API endpoint
@@ -44,26 +48,80 @@ function loadRecipientsList() {
         return response.json();
     })
     .then(data => {
-        recipientSelect.innerHTML = '<option value="">-- Select Recipient --</option>';        
-        if (data.users && data.users.length > 0) {
-            data.users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user.id;
-                option.textContent = user.full_name;
-                recipientSelect.appendChild(option);
-            });
-        } else {
-            const option = document.createElement('option');
-            option.textContent = 'No users available';
-            option.disabled = true;
-            recipientSelect.appendChild(option);
-        }
+        allConnectedRecipients = Array.isArray(data.users) ? data.users : [];
+
+        populateSectionFilterOptions(allConnectedRecipients, sectionFilter);
+        applyRecipientFilters();
+
+        if (roleFilter) roleFilter.value = '';
+        if (sectionFilter) sectionFilter.value = '';
     })
     .catch(error => {
         console.error('Error loading users:', error);
         const option = document.createElement('option');
         option.textContent = 'Error loading users';
         option.disabled = true;
+        recipientSelect.appendChild(option);
+    });
+}
+
+function populateSectionFilterOptions(users, sectionFilter) {
+    if (!sectionFilter) return;
+
+    const uniqueSections = new Set();
+    users.forEach(user => {
+        if (Array.isArray(user.sections)) {
+            user.sections.forEach(sectionName => {
+                if (sectionName) uniqueSections.add(sectionName);
+            });
+        }
+    });
+
+    sectionFilter.innerHTML = '<option value="">All Sections</option>';
+    Array.from(uniqueSections)
+        .sort((a, b) => a.localeCompare(b))
+        .forEach(sectionName => {
+            const option = document.createElement('option');
+            option.value = sectionName;
+            option.textContent = sectionName;
+            sectionFilter.appendChild(option);
+        });
+}
+
+function applyRecipientFilters() {
+    const recipientSelect = document.getElementById('recipient');
+    const roleFilter = document.getElementById('recipient_role_filter');
+    const sectionFilter = document.getElementById('recipient_section_filter');
+    if (!recipientSelect) return;
+
+    const selectedRole = roleFilter ? roleFilter.value : '';
+    const selectedSection = sectionFilter ? sectionFilter.value : '';
+
+    const filteredUsers = allConnectedRecipients.filter(user => {
+        const roleMatch = !selectedRole || user.role === selectedRole;
+        const sectionMatch = !selectedSection || (Array.isArray(user.sections) && user.sections.includes(selectedSection));
+        return roleMatch && sectionMatch;
+    });
+
+    recipientSelect.innerHTML = '<option value="">-- Select Recipient --</option>';
+    if (filteredUsers.length === 0) {
+        const option = document.createElement('option');
+        option.textContent = 'No users match this filter';
+        option.disabled = true;
+        recipientSelect.appendChild(option);
+        return;
+    }
+
+    filteredUsers.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.id;
+
+        const roleLabel = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User';
+        const sectionLabel = Array.isArray(user.sections) && user.sections.length > 0
+            ? ` | ${user.sections.join(', ')}`
+            : '';
+
+        option.textContent = `${user.full_name} (${roleLabel}${sectionLabel})`;
         recipientSelect.appendChild(option);
     });
 }
@@ -249,6 +307,16 @@ function setupEventListeners() {
     const messageForm = document.getElementById('messageForm');
     if (messageForm) {
         messageForm.addEventListener('submit', handleMessageSubmit);
+    }
+
+    const roleFilter = document.getElementById('recipient_role_filter');
+    if (roleFilter) {
+        roleFilter.addEventListener('change', applyRecipientFilters);
+    }
+
+    const sectionFilter = document.getElementById('recipient_section_filter');
+    if (sectionFilter) {
+        sectionFilter.addEventListener('change', applyRecipientFilters);
     }
     
     // Handle message deletion

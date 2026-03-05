@@ -93,6 +93,23 @@
             <form method="POST" action="{% url 'AccountingSystem:send_message' %}" enctype="multipart/form-data" id="messageForm">
                 {% csrf_token %}
                 <div class="modal-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label for="recipient_role_filter" class="form-label">Filter by Role</label>
+                            <select class="form-control" id="recipient_role_filter">
+                                <option value="">All Roles</option>
+                                <option value="teacher">Teachers</option>
+                                <option value="admin">Admins</option>
+                                <option value="student">Students</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="recipient_section_filter" class="form-label">Filter by Section</label>
+                            <select class="form-control" id="recipient_section_filter">
+                                <option value="">All Sections</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label for="recipient" class="form-label">Send to</label>
                         <select class="form-control" id="recipient" name="recipient" required>
