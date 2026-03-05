@@ -100,7 +100,9 @@
                                 <option value="">All Roles</option>
                                 <option value="teacher">Teachers</option>
                                 <option value="admin">Admins</option>
+                                {% if request.user.profile.role != 'student' %}
                                 <option value="student">Students</option>
+                                {% endif %}
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -111,17 +113,14 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label for="recipient" class="form-label">Send to</label>
-                        <select class="form-control" id="recipient" name="recipient" required>
-                            <option value="">-- Select Recipient --</option>
-                            {% for user in users %}
-                                {% if user.id != request.user.id %}
-                                    <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
-                                {% endif %}
-                            {% empty %}
-                                <option value="">No users available</option>
-                            {% endfor %}
-                        </select>
+                        <label for="recipient_list" class="form-label">Select recipient(s):</label>
+                        <div id="recipient_list" class="border rounded p-2" style="max-height: 260px; overflow-y: auto;">
+                            <div class="text-muted">Loading recipients...</div>
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="select_all_recipients">Select All</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clear_all_recipients">Clear</button>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="subject" class="form-label">Subject (Optional)</label>

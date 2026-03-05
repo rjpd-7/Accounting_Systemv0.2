@@ -29,6 +29,7 @@ from django.views.decorators.http import require_http_methods
 import os
 from django.core.mail import send_mail
 from django.conf import settings
+from django.core.files.base import ContentFile
 import random, string
 
 # Helper function to send credentials email to new user
@@ -2850,21 +2851,30 @@ def _get_user_section_ids(user):
 def _get_connected_users_queryset(user):
     """
     Enforce messaging scope based on handled sections:
-    - Teacher/Admin: students in sections they manage, plus all teachers/admins.
+    - Teacher/Admin: students in sections they manage, plus all teachers/admins (even without sections).
     - Student: only teachers/admins who manage the student's section.
     """
     section_ids = _get_user_section_ids(user)
-    if not section_ids:
-        return User.objects.none()
-
     role = user.profile.role if hasattr(user, 'profile') else None
+
     if role in ('teacher', 'admin'):
-        return User.objects.exclude(id=user.id).filter(
-            Q(profile__role='student', profile__section_id__in=section_ids) |
-            Q(profile__role__in=['teacher', 'admin'])
-        ).distinct()
+        # Teachers/Admins can always message other teachers/admins
+        # Plus students in their managed sections (if any)
+        if section_ids:
+            return User.objects.exclude(id=user.id).filter(
+                Q(profile__role='student', profile__section_id__in=section_ids) |
+                Q(profile__role__in=['teacher', 'admin'])
+            ).distinct()
+        else:
+            # Teacher/Admin with no sections can still message other teachers/admins
+            return User.objects.exclude(id=user.id).filter(
+                profile__role__in=['teacher', 'admin']
+            ).distinct()
 
     if role == 'student':
+        if not section_ids:
+            return User.objects.none()
+        # Students can only message teachers/admins who manage their section
         return User.objects.exclude(id=user.id).filter(
             profile__role__in=['teacher', 'admin'],
             managed_sections__id__in=section_ids,
@@ -2875,68 +2885,100 @@ def _get_connected_users_queryset(user):
 
 @require_http_methods(["GET", "POST"])
 def send_message(request):
-    """Send a new message with optional attachments"""
+    """Send a new message to one or more connected users with optional attachments."""
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Not authenticated'}, status=401)
-    
-    if request.method == 'POST':
-        form = MessageForm(request.POST, request.FILES)
-        files = request.FILES.getlist('attachments')
-        
-        if form.is_valid():
-            message = form.save(commit=False)
-            allowed_recipient_ids = set(
-                _get_connected_users_queryset(request.user).values_list('id', flat=True)
-            )
-            if message.recipient_id not in allowed_recipient_ids:
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'error': 'Recipient is not connected to you.'}, status=403)
-                messages.error(request, 'You can only message users connected to your sections.')
-                if hasattr(request.user, 'profile'):
-                    role = request.user.profile.role
-                    if role == 'admin':
-                        return redirect('AccountingSystem:admin_dashboard')
-                    elif role == 'teacher':
-                        return redirect('AccountingSystem:teacher_dashboard')
-                    return redirect('AccountingSystem:student_dashboard')
-                return redirect('AccountingSystem:login_view')
 
-            message.sender = request.user
-            message.save()
-            
-            # Handle file attachments
-            for file in files:
-                if file.size > 0:
-                    attachment = MessageAttachment(
-                        message=message,
-                        file=file,
-                        filename=file.name,
-                        file_size=file.size
-                    )
-                    attachment.save()
-            
+    def _redirect_to_dashboard():
+        if hasattr(request.user, 'profile'):
+            role = request.user.profile.role
+            if role == 'admin':
+                return redirect('AccountingSystem:admin_dashboard')
+            if role == 'teacher':
+                return redirect('AccountingSystem:teacher_dashboard')
+            return redirect('AccountingSystem:student_dashboard')
+        return redirect('AccountingSystem:admin_dashboard')
+
+    if request.method == 'POST':
+        files = request.FILES.getlist('attachments')
+
+        subject = (request.POST.get('subject') or '').strip()
+        content = (request.POST.get('content') or '').strip()
+
+        # Backward compatibility: accept both single and multi recipient payloads.
+        selected_recipient_ids = request.POST.getlist('recipients') or request.POST.getlist('recipient')
+
+        if not content:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'status': 'success',
-                    'message_id': message.id,
-                    'message': 'Message sent successfully'
-                })
-            # Redirect back to the current dashboard
-            if hasattr(request.user, 'profile'):
-                role = request.user.profile.role
-                if role == 'admin':
-                    return redirect('AccountingSystem:admin_dashboard')
-                elif role == 'teacher':
-                    return redirect('AccountingSystem:teacher_dashboard')
-                else:
-                    return redirect('AccountingSystem:student_dashboard')
-            return redirect('AccountingSystem:admin_dashboard')
-        else:
+                return JsonResponse({'error': 'Message content is required.'}, status=400)
+            messages.error(request, 'Message content is required.')
+            return _redirect_to_dashboard()
+
+        if not selected_recipient_ids:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'error': 'Form invalid', 'errors': form.errors}, status=400)
-            # If form is invalid, redirect back with error
-            return redirect('AccountingSystem:admin_dashboard')
-    
+                return JsonResponse({'error': 'Please select at least one recipient.'}, status=400)
+            messages.error(request, 'Please select at least one recipient.')
+            return _redirect_to_dashboard()
+
+        try:
+            selected_recipient_ids = [int(recipient_id) for recipient_id in selected_recipient_ids if str(recipient_id).strip()]
+        except (TypeError, ValueError):
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'error': 'Invalid recipient selection.'}, status=400)
+            messages.error(request, 'Invalid recipient selection.')
+            return _redirect_to_dashboard()
+
+        selected_recipient_ids = list(set(selected_recipient_ids))
+
+        allowed_recipient_ids = set(
+            _get_connected_users_queryset(request.user).values_list('id', flat=True)
+        )
+        valid_recipient_ids = [recipient_id for recipient_id in selected_recipient_ids if recipient_id in allowed_recipient_ids]
+
+        if not valid_recipient_ids:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'error': 'Selected recipients are not connected to your sections.'}, status=403)
+            messages.error(request, 'You can only message users connected to your sections.')
+            return _redirect_to_dashboard()
+
+        created_message_ids = []
+        with transaction.atomic():
+            recipients = User.objects.filter(id__in=valid_recipient_ids)
+            for recipient in recipients:
+                message = Message.objects.create(
+                    sender=request.user,
+                    recipient=recipient,
+                    subject=subject,
+                    content=content,
+                )
+                created_message_ids.append(message.id)
+
+                # Duplicate each attachment per recipient message.
+                for file in files:
+                    if file.size > 0:
+                        file.seek(0)
+                        attachment = MessageAttachment(
+                            message=message,
+                            filename=file.name,
+                            file_size=file.size,
+                        )
+                        attachment.file.save(file.name, ContentFile(file.read()), save=True)
+
+        skipped_count = len(selected_recipient_ids) - len(valid_recipient_ids)
+        success_message = f'Message sent to {len(valid_recipient_ids)} recipient(s).'
+        if skipped_count > 0:
+            success_message += f' Skipped {skipped_count} invalid recipient(s).'
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'status': 'success',
+                'message_ids': created_message_ids,
+                'message': success_message,
+            })
+
+        messages.success(request, success_message)
+        return _redirect_to_dashboard()
+
     form = MessageForm()
     form.fields['recipient'].queryset = _get_connected_users_queryset(request.user)
     return render(request, 'Front_End/send_message.html', {'form': form})

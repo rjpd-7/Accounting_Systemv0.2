@@ -34,10 +34,10 @@ function loadAllUsers() {
 
 // Load recipients list (other users)
 function loadRecipientsList() {
-    const recipientSelect = document.getElementById('recipient');
+    const recipientContainer = document.getElementById('recipient_list');
     const roleFilter = document.getElementById('recipient_role_filter');
     const sectionFilter = document.getElementById('recipient_section_filter');
-    if (!recipientSelect) return;
+    if (!recipientContainer) return;
     
     // Fetch users from the API endpoint
     fetch(window.messagingApiUrls.getUsers, {
@@ -50,18 +50,63 @@ function loadRecipientsList() {
     .then(data => {
         allConnectedRecipients = Array.isArray(data.users) ? data.users : [];
 
-        populateSectionFilterOptions(allConnectedRecipients, sectionFilter);
-        applyRecipientFilters();
-
         if (roleFilter) roleFilter.value = '';
         if (sectionFilter) sectionFilter.value = '';
+
+        populateSectionFilterOptions(allConnectedRecipients, sectionFilter);
+        renderRecipientCheckboxes(recipientContainer, allConnectedRecipients);
     })
     .catch(error => {
         console.error('Error loading users:', error);
-        const option = document.createElement('option');
-        option.textContent = 'Error loading users';
-        option.disabled = true;
-        recipientSelect.appendChild(option);
+        recipientContainer.innerHTML = '<div class="alert alert-danger">Error loading recipients: ' + error.message + '</div>';
+    });
+}
+
+// Render recipient checkboxes
+function renderRecipientCheckboxes(container, recipients) {
+    container.innerHTML = '';
+
+    if (!recipients.length) {
+        container.innerHTML = '<div class="text-muted">No recipients available.</div>';
+        return;
+    }
+
+    recipients.forEach((user, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check mb-1';
+
+        const input = document.createElement('input');
+        input.className = 'form-check-input recipient-checkbox';
+        input.type = 'checkbox';
+        input.value = user.id;
+        input.id = `recipient_${user.id}_${index}`;
+
+        const label = document.createElement('label');
+        label.className = 'form-check-label';
+        label.setAttribute('for', input.id);
+        
+        const roleLabel = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User';
+        const sectionLabel = Array.isArray(user.sections) && user.sections.length > 0
+            ? ` | ${user.sections.join(', ')}`
+            : '';
+        
+        label.textContent = `${user.full_name} (${roleLabel}${sectionLabel})`;
+
+        wrapper.appendChild(input);
+        wrapper.appendChild(label);
+        container.appendChild(wrapper);
+    });
+}
+
+// Get selected recipient IDs
+function getSelectedRecipientIds() {
+    return Array.from(document.querySelectorAll('input.recipient-checkbox:checked')).map(el => el.value);
+}
+
+// Set all recipients
+function setAllRecipients(checked) {
+    document.querySelectorAll('input.recipient-checkbox').forEach(el => {
+        el.checked = checked;
     });
 }
 
@@ -89,10 +134,10 @@ function populateSectionFilterOptions(users, sectionFilter) {
 }
 
 function applyRecipientFilters() {
-    const recipientSelect = document.getElementById('recipient');
+    const recipientContainer = document.getElementById('recipient_list');
     const roleFilter = document.getElementById('recipient_role_filter');
     const sectionFilter = document.getElementById('recipient_section_filter');
-    if (!recipientSelect) return;
+    if (!recipientContainer) return;
 
     const selectedRole = roleFilter ? roleFilter.value : '';
     const selectedSection = sectionFilter ? sectionFilter.value : '';
@@ -103,27 +148,7 @@ function applyRecipientFilters() {
         return roleMatch && sectionMatch;
     });
 
-    recipientSelect.innerHTML = '<option value="">-- Select Recipient --</option>';
-    if (filteredUsers.length === 0) {
-        const option = document.createElement('option');
-        option.textContent = 'No users match this filter';
-        option.disabled = true;
-        recipientSelect.appendChild(option);
-        return;
-    }
-
-    filteredUsers.forEach(user => {
-        const option = document.createElement('option');
-        option.value = user.id;
-
-        const roleLabel = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User';
-        const sectionLabel = Array.isArray(user.sections) && user.sections.length > 0
-            ? ` | ${user.sections.join(', ')}`
-            : '';
-
-        option.textContent = `${user.full_name} (${roleLabel}${sectionLabel})`;
-        recipientSelect.appendChild(option);
-    });
+    renderRecipientCheckboxes(recipientContainer, filteredUsers);
 }
 
 // Load messages
@@ -318,6 +343,22 @@ function setupEventListeners() {
     if (sectionFilter) {
         sectionFilter.addEventListener('change', applyRecipientFilters);
     }
+
+    const selectAllBtn = document.getElementById('select_all_recipients');
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            setAllRecipients(true);
+        });
+    }
+
+    const clearAllBtn = document.getElementById('clear_all_recipients');
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            setAllRecipients(false);
+        });
+    }
     
     // Handle message deletion
     const deleteBtn = document.getElementById('deleteMessageBtn');
@@ -349,9 +390,37 @@ function handleFileSelection(event) {
 function handleMessageSubmit(event) {
     event.preventDefault();
     
-    const formData = new FormData(this);
-    const submitBtn = document.getElementById('sendMessageBtn');
+    const selectedRecipients = getSelectedRecipientIds();
+    if (!selectedRecipients || selectedRecipients.length === 0) {
+        showAlert('Please select at least one recipient', 'warning');
+        return;
+    }
     
+    const subject = document.getElementById('subject').value;
+    const content = document.getElementById('content').value;
+    
+    if (!content.trim()) {
+        showAlert('Please enter a message', 'warning');
+        return;
+    }
+    
+    const formData = new FormData();
+    selectedRecipients.forEach(id => {
+        formData.append('recipients', id);
+    });
+    formData.append('subject', subject);
+    formData.append('content', content);
+
+    const csrfToken = document.querySelector('[name="csrfmiddlewaretoken"]')?.value;
+    
+    const attachmentsInput = document.getElementById('attachments');
+    if (attachmentsInput && attachmentsInput.files.length > 0) {
+        for (let file of attachmentsInput.files) {
+            formData.append('attachments', file);
+        }
+    }
+    
+    const submitBtn = document.getElementById('sendMessageBtn');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
     
@@ -359,10 +428,25 @@ function handleMessageSubmit(event) {
         method: 'POST',
         body: formData,
         headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrfToken || ''
         }
     })
-    .then(response => response.json())
+    .then(async response => {
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (err) {
+            data = { error: 'Unexpected server response.' };
+        }
+
+        if (!response.ok) {
+            const message = data.error || data.message || `Request failed (${response.status})`;
+            throw new Error(message);
+        }
+
+        return data;
+    })
     .then(data => {
         if (data.status === 'success') {
             // Reset form
@@ -374,17 +458,18 @@ function handleMessageSubmit(event) {
             if (modal) modal.hide();
             
             // Show success message
-            showAlert('Message sent successfully!', 'success');
+            showAlert(data.message || 'Message sent successfully!', 'success');
             
-            // Refresh messages
+            // Refresh messages and recipients
             loadMessages();
+            loadRecipientsList();
         } else {
-            showAlert('Failed to send message: ' + (data.message || 'Unknown error'), 'danger');
+            showAlert('Failed to send message: ' + (data.error || data.message || 'Unknown error'), 'danger');
         }
     })
     .catch(error => {
         console.error('Error sending message:', error);
-        showAlert('Error sending message', 'danger');
+        showAlert('Error sending message: ' + error.message, 'danger');
     })
     .finally(() => {
         submitBtn.disabled = false;
