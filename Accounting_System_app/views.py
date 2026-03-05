@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection, JournalAuditTrail
 from django.contrib.auth import authenticate, login, logout
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
@@ -153,6 +153,23 @@ try:
     from xhtml2pdf import pisa
 except Exception:
     pisa = None
+
+# Helper function to log audit trail
+def log_audit_trail(journal_header=None, journal_header_draft=None, changed_by=None, change_type='updated', field_name=None, old_value=None, new_value=None, entry_id=None):
+    """Log changes to journal entries in audit trail"""
+    try:
+        JournalAuditTrail.objects.create(
+            journal_header=journal_header,
+            journal_header_draft=journal_header_draft,
+            changed_by=changed_by,
+            change_type=change_type,
+            field_name=field_name,
+            old_value=str(old_value) if old_value is not None else None,
+            new_value=str(new_value) if new_value is not None else None,
+            entry_id=entry_id
+        )
+    except Exception as e:
+        print(f"Error logging audit trail: {e}")
 
 # Create your views here.
 
@@ -961,6 +978,15 @@ def insert_journals(request):
             user = request.user,
         ) 
         header.save()
+        
+        # Log journal header creation
+        log_audit_trail(
+            journal_header_draft=header,
+            changed_by=request.user,
+            change_type='created',
+            field_name='journal_created',
+            new_value=f'Journal {journal_code} created'
+        )
 
         # Loops through the rows and create Journal Entries
         for i in range(len(account_ids)):
@@ -986,6 +1012,17 @@ def insert_journals(request):
             )
 
             journal_entry.save()
+            
+            # Log journal entry creation
+            log_audit_trail(
+                journal_header_draft=header,
+                changed_by=request.user,
+                change_type='created',
+                field_name='entry_created',
+                new_value=f'{account.account_name} (D:{debit}, C:{credit})',
+                entry_id=journal_entry.id
+            )
+            
         return redirect('AccountingSystem:journals')  # or render success message
 
     # GET request
@@ -1045,11 +1082,36 @@ def update_journal(request, id):
 
     # perform update inside transaction
     with transaction.atomic():
+        # Store old values for audit trail
+        old_entry_date = header.entry_date
+        old_description = header.journal_description
+        old_entries = list(JournalEntry.objects.filter(journal_header=header).values('id', 'account__account_name', 'debit', 'credit'))
+        
         # update header
         if entry_date:
             header.entry_date = entry_date
         header.journal_description = description or header.description
         header.save()
+        
+        # Log header changes
+        if old_entry_date != header.entry_date:
+            log_audit_trail(
+                journal_header=header,
+                changed_by=request.user,
+                change_type='updated',
+                field_name='entry_date',
+                old_value=old_entry_date,
+                new_value=header.entry_date
+            )
+        if old_description != header.journal_description:
+            log_audit_trail(
+                journal_header=header,
+                changed_by=request.user,
+                change_type='updated',
+                field_name='journal_description',
+                old_value=old_description,
+                new_value=header.journal_description
+            )
 
         # remove existing entries
         JournalEntry.objects.filter(journal_header=header).delete()
@@ -1074,11 +1136,21 @@ def update_journal(request, id):
             if not account:
                 continue
 
-            JournalEntry.objects.create(
+            new_entry = JournalEntry.objects.create(
                 journal_header=header,
                 account=account,
                 debit=debit,
                 credit=credit
+            )
+            
+            # Log entry creation
+            log_audit_trail(
+                journal_header=header,
+                changed_by=request.user,
+                change_type='updated',
+                field_name='entry_added',
+                new_value=f'{account.account_name} (D:{debit}, C:{credit})',
+                entry_id=new_entry.id
             )
 
     # respond
@@ -1098,6 +1170,70 @@ def delete_journal(request, id):
         pass
     return redirect("AccountingSystem:journals")
 
+# Get Journal Audit Trail History
+def get_journal_history(request, id):
+    """API endpoint to get audit trail history for a journal"""
+    try:
+        if request.user.is_superuser:
+            header = JournalHeader.objects.get(pk=id)
+        else:
+            # Check if user is the owner or a collaborator
+            try:
+                header = JournalHeader.objects.get(pk=id, user=request.user)
+            except JournalHeader.DoesNotExist:
+                header = get_object_or_404(JournalHeader, pk=id, collaborators__collaborator=request.user)
+    except JournalHeader.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Journal not found'}, status=404)
+    
+    # Get audit trails for this journal
+    audit_trails = JournalAuditTrail.objects.filter(journal_header=header).order_by('-changed_at')
+    
+    history = []
+    for trail in audit_trails:
+        history.append({
+            'id': trail.id,
+            'changed_by': trail.changed_by.username if trail.changed_by else 'System',
+            'change_type': trail.get_change_type_display(),
+            'changed_at': trail.changed_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'field_name': trail.field_name,
+            'old_value': trail.old_value,
+            'new_value': trail.new_value,
+        })
+    
+    return JsonResponse({'success': True, 'history': history})
+
+# Get Journal Draft Audit Trail History
+def get_journal_draft_history(request, id):
+    """API endpoint to get audit trail history for a draft journal"""
+    try:
+        if request.user.is_superuser:
+            header = JournalHeaderDrafts.objects.get(pk=id)
+        else:
+            # Check if user is the owner or a collaborator
+            try:
+                header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+            except JournalHeaderDrafts.DoesNotExist:
+                header = get_object_or_404(JournalHeaderDrafts, pk=id, collaborators__collaborator=request.user)
+    except JournalHeaderDrafts.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Journal not found'}, status=404)
+    
+    # Get audit trails for this journal
+    audit_trails = JournalAuditTrail.objects.filter(journal_header_draft=header).order_by('-changed_at')
+    
+    history = []
+    for trail in audit_trails:
+        history.append({
+            'id': trail.id,
+            'changed_by': trail.changed_by.username if trail.changed_by else 'System',
+            'change_type': trail.get_change_type_display(),
+            'changed_at': trail.changed_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'field_name': trail.field_name,
+            'old_value': trail.old_value,
+            'new_value': trail.new_value,
+        })
+    
+    return JsonResponse({'success': True, 'history': history})
+
 # Approve Journal Draft Function - moves draft to approved journals
 def approve_journal_draft(request, id):
     # only admins and teachers can approve
@@ -1116,6 +1252,15 @@ def approve_journal_draft(request, id):
             journal_description=draft_header.journal_description,
             group_name=draft_header.group_name,
             user=draft_header.user
+        )
+        
+        # Log the approval in the new approved journal
+        log_audit_trail(
+            journal_header=approved_header,
+            changed_by=request.user,
+            change_type='updated',
+            field_name='journal_approved',
+            new_value=f'Journal approved from draft {draft_header.entry_no}'
         )
         
         # copy all draft entries to approved entries
@@ -1192,11 +1337,36 @@ def update_journal_draft(request, id):
 
     # perform update inside transaction
     with transaction.atomic():
+        # Store old values for audit trail
+        old_entry_date = header.entry_date
+        old_description = header.journal_description
+        old_entries = list(JournalEntryDrafts.objects.filter(journal_header=header).values('id', 'account__account_name', 'debit', 'credit'))
+        
         # update header
         if entry_date:
             header.entry_date = entry_date
         header.journal_description = description or header.description
         header.save()
+        
+        # Log header changes
+        if old_entry_date != header.entry_date:
+            log_audit_trail(
+                journal_header_draft=header,
+                changed_by=request.user,
+                change_type='updated',
+                field_name='entry_date',
+                old_value=old_entry_date,
+                new_value=header.entry_date
+            )
+        if old_description != header.journal_description:
+            log_audit_trail(
+                journal_header_draft=header,
+                changed_by=request.user,
+                change_type='updated',
+                field_name='journal_description',
+                old_value=old_description,
+                new_value=header.journal_description
+            )
 
         # remove existing entries
         JournalEntryDrafts.objects.filter(journal_header=header).delete()
@@ -1221,11 +1391,21 @@ def update_journal_draft(request, id):
             if not account:
                 continue
 
-            JournalEntryDrafts.objects.create(
+            new_entry = JournalEntryDrafts.objects.create(
                 journal_header=header,
                 account=account,
                 debit=debit,
                 credit=credit
+            )
+            
+            # Log entry creation
+            log_audit_trail(
+                journal_header_draft=header,
+                changed_by=request.user,
+                change_type='updated',
+                field_name='entry_added',
+                new_value=f'{account.account_name} (D:{debit}, C:{credit})',
+                entry_id=new_entry.id
             )
 
     # respond

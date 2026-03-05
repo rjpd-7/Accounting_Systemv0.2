@@ -53,6 +53,10 @@ urlpatterns = [
      path('api/next_account_code/', views.get_next_account_code_api, name='get_next_account_code_api'),
      path('api/next_journal_code/', views.get_next_journal_code_api, name='get_next_journal_code_api'),
      
+     # Journal History/Audit Trail URLs
+     path('journal_history/<int:id>/', views.get_journal_history, name='journal_history'),
+     path('journal_draft_history/<int:id>/', views.get_journal_draft_history, name='journal_draft_history'),
+     
      # Journal Collaborator URLs
      path('add_collaborator/<int:id>/', views.add_collaborator, name='add_collaborator'),
      path('remove_collaborator/<int:id>/<int:collaborator_id>/', views.remove_collaborator, name='remove_collaborator'),

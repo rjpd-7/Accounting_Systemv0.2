@@ -159,6 +159,15 @@
                                 <th colspan="2" class="text-end">
                                     <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
                                     &nbsp;
+                                    <button type="button" class="btn btn-info btn-sm" title="View Change History"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#historyModal"  
+                                        data-id="{{ group.header.id }}"
+                                        data-is-draft="true"
+                                        onclick="loadJournalHistory(this)">
+                                        <i class="bi bi-clock-history"></i> History
+                                    </button>
+                                    &nbsp;
                                     <button type="button" class="btn btn-primary btn-sm" id="edit_button"
                                         data-bs-toggle="modal" 
                                         data-bs-target="#EDITstaticBackdrop"  
@@ -260,6 +269,15 @@
                                 <th><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
                                 <th colspan="2" class="text-end">
                                     <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
+                                    &nbsp;
+                                    <button type="button" class="btn btn-info btn-sm" title="View Change History"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#historyModal"  
+                                        data-id="{{ group.header.id }}"
+                                        data-is-draft="false"
+                                        onclick="loadJournalHistory(this)">
+                                        <i class="bi bi-clock-history"></i> History
+                                    </button>
                                     &nbsp;
                                     {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
                                     <button type="button" class="btn btn-primary btn-sm" id="edit_button"
@@ -699,6 +717,30 @@
 
         <!-- End of Information Modal -->
 
+        <!-- History/Audit Trail Modal -->
+        <div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="historyModalLabel">Journal Change History</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="historyContent" style="max-height: 500px; overflow-y: auto;">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End of History Modal -->
 
     </main>
     <!------ Main Page End ------>
@@ -710,5 +752,65 @@
     <script src="{% static 'scripts/update_journal.js' %}"></script>
     <script src="{% static 'scripts/delete_journal.js' %}"></script>
     <script src="{% static 'scripts/share_journal.js' %}"></script>
+
+    <script>
+    // Function to load journal history
+    function loadJournalHistory(button) {
+        const journalId = button.getAttribute('data-id');
+        const isDraft = button.getAttribute('data-is-draft') === 'true';
+        const historyUrl = isDraft 
+            ? `{% url 'AccountingSystem:journal_draft_history' 0 %}`.replace('0', journalId)
+            : `{% url 'AccountingSystem:journal_history' 0 %}`.replace('0', journalId);
+        
+        // Show loading spinner
+        const historyContent = document.getElementById('historyContent');
+        historyContent.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        
+        // Fetch history data
+        fetch(historyUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const history = data.history;
+                    if (history.length === 0) {
+                        historyContent.innerHTML = '<p class="text-center text-muted">No changes recorded yet.</p>';
+                    } else {
+                        let html = '<table class="table table-sm table-striped">';
+                        html += '<thead><tr><th>Changed By</th><th>Date & Time</th><th>Field</th><th>Old Value</th><th>New Value</th></tr></thead>';
+                        html += '<tbody>';
+                        
+                        history.forEach(item => {
+                            const oldVal = item.old_value ? `<code>${item.old_value}</code>` : '<span class="text-muted">N/A</span>';
+                            const newVal = item.new_value ? `<code>${item.new_value}</code>` : '<span class="text-muted">N/A</span>';
+                            html += `
+                                <tr>
+                                    <td><strong>${item.changed_by}</strong></td>
+                                    <td><small>${item.changed_at}</small></td>
+                                    <td><span class="badge bg-primary">${item.field_name}</span></td>
+                                    <td>${oldVal}</td>
+                                    <td>${newVal}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += '</tbody></table>';
+                        historyContent.innerHTML = html;
+                    }
+                } else {
+                    historyContent.innerHTML = '<p class="text-center text-danger">Failed to load history.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                historyContent.innerHTML = '<p class="text-center text-danger">Error loading history.</p>';
+            });
+    }
+    </script>
 </body>
 </html>

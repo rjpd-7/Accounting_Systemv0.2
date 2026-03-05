@@ -227,3 +227,32 @@ class MessageAttachment(models.Model):
 
     def __str__(self):
         return f"Attachment: {self.filename}"
+
+# Journal Audit Trail - tracks all changes made to journal entries
+class JournalAuditTrail(models.Model):
+    CHANGE_TYPE_CHOICES = [
+        ('created', 'Created'),
+        ('updated', 'Updated'),
+        ('deleted', 'Deleted'),
+    ]
+    
+    journal_header = models.ForeignKey(JournalHeader, on_delete=models.CASCADE, related_name='audit_trails', null=True, blank=True)
+    journal_header_draft = models.ForeignKey(JournalHeaderDrafts, on_delete=models.CASCADE, related_name='audit_trails', null=True, blank=True)
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    change_type = models.CharField(max_length=20, choices=CHANGE_TYPE_CHOICES, default='updated')
+    changed_at = models.DateTimeField(auto_now_add=True)
+    
+    # What changed
+    field_name = models.CharField(max_length=100, null=True, blank=True)  # e.g., 'entry_date', 'journal_description', 'account', 'debit', 'credit'
+    old_value = models.TextField(null=True, blank=True)
+    new_value = models.TextField(null=True, blank=True)
+    
+    # For entry-level changes
+    entry_id = models.IntegerField(null=True, blank=True)  # JournalEntry or JournalEntryDrafts id
+
+    class Meta:
+        db_table = "journal_audit_trail"
+        ordering = ['-changed_at']
+
+    def __str__(self):
+        return f"Change to journal {self.journal_header or self.journal_header_draft} on {self.changed_at}"
