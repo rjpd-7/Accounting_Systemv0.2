@@ -31,10 +31,17 @@
         <div class="tab-content">
             <!-- Received Messages Tab -->
             <div class="tab-pane fade show active" id="received-messages" role="tabpanel">
+                <div class="mb-3 mt-3" style="display: none;">
+                    <input type="text" class="form-control" id="searchReceivedMessages" placeholder="Search received messages by sender, subject, or content...">
+                </div>
                 <div class="messages-list" id="received-messages-list">
                     {% if received_messages %}
                         {% for message in received_messages %}
-                            <div class="message-item {% if not message.is_read %}unread{% endif %}" data-message-id="{{ message.id }}" >
+                            <div class="message-item {% if not message.is_read %}unread{% endif %}" 
+                                data-message-id="{{ message.id }}" 
+                                data-sender="{{ message.sender.get_full_name|default:message.sender.username|lower }}" 
+                                data-subject="{{ message.subject|default:'No Subject'|lower }}" 
+                                data-content="{{ message.content|lower }}">
                                 <div class="message-header">
                                     <strong>{{ message.sender.get_full_name|default:message.sender.username }}</strong>
                                     <small class="text-muted">{{ message.created_at|date:"Y-m-d H:i" }}</small>
@@ -56,10 +63,17 @@
 
             <!-- Sent Messages Tab -->
             <div class="tab-pane fade" id="sent-messages" role="tabpanel">
+                <div class="mb-3 mt-3" style="display: none;">
+                    <input type="text" class="form-control" id="searchSentMessages" placeholder="Search sent messages by recipient, subject, or content...">
+                </div>
                 <div class="messages-list" id="sent-messages-list">
                     {% if sent_messages %}
                         {% for message in sent_messages %}
-                            <div class="message-item" data-message-id="{{ message.id }}">
+                            <div class="message-item" 
+                                data-message-id="{{ message.id }}" 
+                                data-recipient="{{ message.recipient.get_full_name|default:message.recipient.username|lower }}" 
+                                data-subject="{{ message.subject|default:'No Subject'|lower }}" 
+                                data-content="{{ message.content|lower }}">
                                 <div class="message-header">
                                     <strong>To: {{ message.recipient.get_full_name|default:message.recipient.username }}</strong>
                                     <small class="text-muted">{{ message.created_at|date:"Y-m-d H:i" }}</small>
@@ -174,5 +188,66 @@
         sendMessage: '{% url "AccountingSystem:send_message" %}',
         deleteMessage: '{% url "AccountingSystem:delete_message" message_id=0 %}'
     };
+
+    // Global message search filter function
+    window.filterMessages = function(searchInput, messagesContainer) {
+        if (!searchInput || !messagesContainer) return;
+        
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const messageItems = messagesContainer.querySelectorAll('.message-item');
+        let visibleCount = 0;
+
+        messageItems.forEach(item => {
+            const sender = item.getAttribute('data-sender') || '';
+            const recipient = item.getAttribute('data-recipient') || '';
+            const subject = item.getAttribute('data-subject') || '';
+            const content = item.getAttribute('data-content') || '';
+
+            const isMatch = sender.includes(searchTerm) ||
+                           recipient.includes(searchTerm) ||
+                           subject.includes(searchTerm) ||
+                           content.includes(searchTerm);
+
+            if (isMatch) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        // Show "No results" message if needed
+        let noResultsMsg = messagesContainer.querySelector('.no-message-search-results');
+        if (visibleCount === 0 && searchTerm !== '') {
+            if (!noResultsMsg) {
+                noResultsMsg = document.createElement('div');
+                noResultsMsg.className = 'text-center text-muted p-4 no-message-search-results';
+                noResultsMsg.innerHTML = '<p>No messages match your search.</p>';
+                messagesContainer.appendChild(noResultsMsg);
+            }
+        } else if (noResultsMsg) {
+            noResultsMsg.remove();
+        }
+    };
+
+    // Message Search Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchReceivedInput = document.getElementById('searchReceivedMessages');
+        const searchSentInput = document.getElementById('searchSentMessages');
+
+        if (searchReceivedInput) {
+            searchReceivedInput.addEventListener('input', function() {
+                const receivedContainer = document.getElementById('received-messages-list');
+                window.filterMessages(searchReceivedInput, receivedContainer);
+            });
+        }
+
+        if (searchSentInput) {
+            searchSentInput.addEventListener('input', function() {
+                const sentContainer = document.getElementById('sent-messages-list');
+                window.filterMessages(searchSentInput, sentContainer);
+            });
+        }
+    });
 </script>
 <script src="{% static 'scripts/messaging_realtime.js' %}"></script>

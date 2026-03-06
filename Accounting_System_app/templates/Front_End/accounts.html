@@ -138,12 +138,19 @@
 
         <!-- Account Group Filter Dropdown -->
         <label for="accountGroupFilter" class="form-label"><strong>Filter by Group:</strong></label>
-        <select id="accountGroupFilter" class="form-select" style="max-width: 300px;">
-            <option value="">All Groups</option>
-            {% for group in account_groups %}
-            <option value="{{ group.id }}">{{ group.group_name }}</option>
-            {% endfor %}
-        </select>
+        <div class="row g-2 mb-3">
+            <div class="col-md-3">
+                <select id="accountGroupFilter" class="form-select">
+                    <option value="">All Groups</option>
+                    {% for group in account_groups %}
+                    <option value="{{ group.id }}">{{ group.group_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control" id="accountSearch" placeholder="Search by code, name, or type...">
+            </div>
+        </div>
 
         <br>
         <br>
@@ -163,7 +170,12 @@
                 </thead>
                 <tbody id="accountsTableBody">
                     {% for account in accounts %}
-                    <tr data-group-id="{% if account.group_name %}{{ account.group_name.id }}{% else %}null{% endif %}">
+                    <tr class="account-row" 
+                        data-group-id="{% if account.group_name %}{{ account.group_name.id }}{% else %}null{% endif %}"
+                        data-code="{{ account.account_code|lower }}"
+                        data-name="{{ account.account_name|lower }}"
+                        data-type="{{ account.account_type|lower }}"
+                        data-description="{{ account.account_description|lower }}">
                         <td>{{ account.date_created }}</td>
                         <td>{{ account.group_name.group_name }}</td>
                         <td>{{ account.account_code }}</td>

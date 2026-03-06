@@ -5,6 +5,14 @@ let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 const reconnectDelay = 3000; // 3 seconds
 
+// Helper function to escape HTML for attributes
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize messaging on page load
     initializeMessaging();
@@ -120,6 +128,9 @@ function displayNewMessage(messageData) {
     const messageElement = document.createElement('div');
     messageElement.className = 'message-item unread';
     messageElement.setAttribute('data-message-id', messageData.message_id);
+    messageElement.setAttribute('data-sender', (messageData.sender || '').toLowerCase());
+    messageElement.setAttribute('data-subject', (messageData.subject || 'No Subject').toLowerCase());
+    messageElement.setAttribute('data-content', (messageData.content || '').toLowerCase());
     messageElement.innerHTML = `
         <div class="message-header">
             <strong>${messageData.sender}</strong>
@@ -202,6 +213,9 @@ function loadMessages() {
         displayReceivedMessages(data.received || []);
         displaySentMessages(data.sent || []);
         updateUnreadCount(data.unread_count || 0);
+        
+        // Re-apply search filters if they exist
+        reapplySearchFilters();
     })
     .catch(error => console.error('Error loading messages:', error));
 }
@@ -222,7 +236,12 @@ function displayReceivedMessages(messages) {
     }
     
     container.innerHTML = messages.map(msg => `
-        <div class="message-item ${msg.is_read ? '' : 'unread'}" onclick="viewMessage('received', ${msg.id})">
+        <div class="message-item ${msg.is_read ? '' : 'unread'}" 
+            data-message-id="${msg.id}"
+            data-sender="${escapeHtml((msg.sender || '').toLowerCase())}"
+            data-subject="${escapeHtml((msg.subject || 'No Subject').toLowerCase())}"
+            data-content="${escapeHtml((msg.content || '').toLowerCase())}"
+            onclick="viewMessage('received', ${msg.id})">
             <div class="message-header">
                 <strong>${msg.sender}</strong>
                 <small class="text-muted">${msg.created_at}</small>
@@ -253,7 +272,12 @@ function displaySentMessages(messages) {
     }
     
     container.innerHTML = messages.map(msg => `
-        <div class="message-item" onclick="viewMessage('sent', ${msg.id})">
+        <div class="message-item" 
+            data-message-id="${msg.id}"
+            data-recipient="${escapeHtml((msg.recipient || '').toLowerCase())}"
+            data-subject="${escapeHtml((msg.subject || 'No Subject').toLowerCase())}"
+            data-content="${escapeHtml((msg.content || '').toLowerCase())}"
+            onclick="viewMessage('sent', ${msg.id})">
             <div class="message-header">
                 <strong>To: ${msg.recipient}</strong>
                 <small class="text-muted">${msg.created_at}</small>
@@ -271,6 +295,30 @@ function displaySentMessages(messages) {
             viewMessage('sent', messageId);
         });
     });
+}
+
+// Re-apply search filters after messages reload
+function reapplySearchFilters() {
+    // Use setTimeout to ensure DOM is fully updated after innerHTML changes
+    setTimeout(function() {
+        // Apply search for received messages if there's a search term
+        const searchReceivedInput = document.getElementById('searchReceivedMessages');
+        if (searchReceivedInput && searchReceivedInput.value.trim() !== '') {
+            const receivedContainer = document.getElementById('received-messages-list');
+            if (window.filterMessages && receivedContainer) {
+                window.filterMessages(searchReceivedInput, receivedContainer);
+            }
+        }
+        
+        // Apply search for sent messages if there's a search term
+        const searchSentInput = document.getElementById('searchSentMessages');
+        if (searchSentInput && searchSentInput.value.trim() !== '') {
+            const sentContainer = document.getElementById('sent-messages-list');
+            if (window.filterMessages && sentContainer) {
+                window.filterMessages(searchSentInput, sentContainer);
+            }
+        }
+    }, 50); // Small delay to ensure DOM is updated
 }
 
 // Update unread count badge

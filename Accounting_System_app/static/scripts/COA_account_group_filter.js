@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Group filter for accounts table
     const groupFilterSelect = document.getElementById('accountGroupFilter');
+    const accountSearchInput = document.getElementById('accountSearch');
     const accountsTableBody = document.getElementById('accountsTableBody');
     var journalEntryBody = document.getElementById('journal-entry-body');
 
@@ -21,16 +22,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Filter accounts table based on selected group
-    function filterAccountsTable(groupId) {
+    // Filter accounts table based on selected group and search term
+    function filterAccountsTable() {
         if (!accountsTableBody) return;
         
-        const rows = accountsTableBody.querySelectorAll('tr');
+        const groupId = groupFilterSelect ? groupFilterSelect.value : '';
+        const searchTerm = accountSearchInput ? accountSearchInput.value.toLowerCase().trim() : '';
+        
+        const rows = accountsTableBody.querySelectorAll('tr.account-row');
+        let visibleCount = 0;
+        
         rows.forEach(row => {
             const rowGroupId = row.dataset.groupId;
-            // Show row if no filter selected (empty string) or if row's group matches
-            if (!groupId || rowGroupId === groupId || rowGroupId === 'null') {
+            const code = row.dataset.code || '';
+            const name = row.dataset.name || '';
+            const type = row.dataset.type || '';
+            const description = row.dataset.description || '';
+            
+            // Check group filter
+            const groupMatch = !groupId || rowGroupId === groupId || rowGroupId === 'null';
+            
+            // Check search filter
+            const searchMatch = !searchTerm || 
+                               code.includes(searchTerm) || 
+                               name.includes(searchTerm) || 
+                               type.includes(searchTerm) ||
+                               description.includes(searchTerm);
+            
+            // Show row only if both filters match
+            if (groupMatch && searchMatch) {
                 row.style.display = '';
+                visibleCount++;
             } else {
                 row.style.display = 'none';
             }
@@ -38,9 +60,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (groupFilterSelect) {
-        groupFilterSelect.addEventListener('change', function() {
-            filterAccountsTable(this.value);
-        });
+        groupFilterSelect.addEventListener('change', filterAccountsTable);
+    }
+    
+    if (accountSearchInput) {
+        accountSearchInput.addEventListener('input', filterAccountsTable);
     }
 
     function buildOptionsFromMaster(masterOptions, groupId) {
