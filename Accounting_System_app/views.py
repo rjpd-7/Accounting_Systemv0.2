@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
 from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection, JournalAuditTrail
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError, Q, Value, DecimalField, Max
@@ -954,6 +954,40 @@ def change_user_password(request):
         user.set_password(new_password)
         user.save()
         
+        # Send email notification to user about password change
+        if user.email:
+            try:
+                admin_name = request.user.get_full_name() or request.user.username
+                subject = f'Your Password Has Been Changed'
+                message = f"""
+Dear {user.first_name or user.username},
+
+An administrator has reset your password in the Accounting System.
+
+Your New Temporary Password:
+{new_password}
+
+Changed By: {admin_name}
+Change Date: {localdate().strftime('%B %d, %Y')}
+
+IMPORTANT: For security reasons, please login immediately and change this password to something only you know. You will be prompted to change it on your next login.
+
+If you did not request this password change, please contact your administrator immediately.
+
+Best regards,
+Accounting System
+                """
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=True
+                )
+            except Exception as e:
+                # Log the error but don't interrupt the password change
+                print(f"Error sending password change email to {user.email}: {str(e)}")
+        
         return JsonResponse({'success': True, 'message': f'Password for {user.username} has been changed successfully'})
     
     except User.DoesNotExist:
@@ -989,6 +1023,9 @@ def change_own_password(request):
         # Set new password
         user.set_password(new_password)
         user.save()
+        
+        # Update session to prevent logout
+        update_session_auth_hash(request, user)
         
         return JsonResponse({'success': True, 'message': 'Password changed successfully'})
     
@@ -1514,6 +1551,40 @@ def approve_journal_draft(request, id):
         draft_entries.delete()
         draft_header.delete()
         
+        # Send email notification to journal creator
+        creator = draft_header.user
+        if creator and creator.email:
+            try:
+                approver_name = request.user.get_full_name() or request.user.username
+                subject = f'Journal Entry Approved: {draft_header.entry_no}'
+                message = f"""
+Dear {creator.first_name or creator.username},
+
+Your journal entry has been approved!
+
+Journal Details:
+- Journal Code: {draft_header.entry_no}
+- Entry Date: {draft_header.entry_date}
+- Description: {draft_header.journal_description or 'N/A'}
+- Approved By: {approver_name}
+- Approval Date: {localdate().strftime('%B %d, %Y')}
+
+You can now view the approved journal in the Accounting System.
+
+Best regards,
+Accounting System
+                """
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [creator.email],
+                    fail_silently=True
+                )
+            except Exception as e:
+                # Log the error but don't interrupt the approval process
+                print(f"Error sending approval email to {creator.email}: {str(e)}")
+        
         messages.success(request, f'Journal {draft_header.entry_no} has been approved successfully.')
     except JournalHeaderDrafts.DoesNotExist:
         messages.error(request, 'Draft journal not found.')
@@ -1983,7 +2054,32 @@ def general_ledger_pdf(request):
     # Format date and time as a string for PDF (xhtml2pdf has limited template filter support)
     formatted_date_time = current_date_time.strftime('%B %d, %Y at %I:%M %p')
 
-    account_groups = AccountGroups.objects.all()
+    # Filter account groups based on user role and section
+    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+        user_section = request.user.profile.section
+        if user_section:
+            # Get account groups from teachers managing this section
+            account_groups = get_account_groups_for_section(user_section)
+            allowed_group_ids = list(account_groups.values_list('id', flat=True))
+        else:
+            account_groups = AccountGroups.objects.none()
+            allowed_group_ids = []
+    elif hasattr(request.user, 'profile') and request.user.profile.role == 'teacher':
+        # Teachers see only their assigned account groups
+        account_groups = request.user.profile.account_groups.all()
+        allowed_group_ids = list(account_groups.values_list('id', flat=True))
+    elif hasattr(request.user, 'profile') and request.user.profile.role == 'admin':
+        # Admins see only their assigned account groups (if any)
+        account_groups = request.user.profile.account_groups.all()
+        if account_groups.exists():
+            allowed_group_ids = list(account_groups.values_list('id', flat=True))
+        else:
+            # Admin with no specific groups sees all
+            account_groups = AccountGroups.objects.all()
+            allowed_group_ids = None
+    else:
+        account_groups = AccountGroups.objects.all()
+        allowed_group_ids = None  # None means no filtering
 
     start_date = end_date = None
     try:
@@ -2004,6 +2100,10 @@ def general_ledger_pdf(request):
         total_debit=Coalesce(Sum('journalentry__debit', filter=date_filter), Value(0), output_field=DecimalField()),
         total_credit=Coalesce(Sum('journalentry__credit', filter=date_filter), Value(0), output_field=DecimalField()),
     ).order_by('group_name__id', 'account_code')
+
+    # Filter by allowed account groups
+    if allowed_group_ids is not None:
+        accounts_qs = accounts_qs.filter(group_name_id__in=allowed_group_ids)
 
     ledger_rows = []
     total_debit = 0
