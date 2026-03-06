@@ -148,10 +148,18 @@
         </ul>
         <div class="tab-content" id="journalTabContent">
           <div class="tab-pane fade show active" id="draft" role="tabpanel" aria-labelledby="draft-tab">
+            <div class="mb-3 mt-3">
+                <input type="text" class="form-control" id="searchDraftJournals" placeholder="Search drafts by journal code, account, creator, or description...">
+            </div>
             <div class="display_table">
                 <table class="table table-bordered">
                     {% for group in draft_groups %}
-                    <table class="table table-bordered mb-4">
+                    <table class="table table-bordered mb-4 journal-entry-table" 
+                        data-journal-code="{{ group.header.entry_no }}"
+                        data-creator="{{ group.header.user.get_full_name|default:group.header.user.username }}"
+                        data-description="{{ group.header.journal_description }}"
+                        data-date="{{ group.header.entry_date }}"
+                        data-accounts="{% for entry in group.entries %}{{ entry.account.account_name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
                         <thead class="table-light">
                             <tr>
                                 <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
@@ -159,6 +167,19 @@
                                 <th colspan="2" class="text-end">
                                     <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
                                     &nbsp;
+                                    {% if request.user != group.header.user %}
+                                    <button
+                                        type="button"
+                                        class="btn btn-dark btn-sm collaborator-message-trigger"
+                                        data-collaborator-id="{{ group.header.user.id }}"
+                                        data-collaborator-name="{{ group.header.user.get_full_name|default:group.header.user.username }}"
+                                        data-journal-code="{{ group.header.entry_no }}"
+                                        title="Message the journal owner"
+                                    >
+                                        <i class="bi bi-envelope"></i> Message Owner
+                                    </button>
+                                    &nbsp;
+                                    {% endif %}
                                     <button type="button" class="btn btn-info btn-sm" title="View Change History"
                                         data-bs-toggle="modal" 
                                         data-bs-target="#historyModal"  
@@ -218,7 +239,19 @@
                                 <th colspan="4"><strong>Collaborators:</strong> 
                                     {% for collab in group.header.collaborators.all %}
                                         <span class="badge bg-info">
-                                            {{ collab.collaborator.first_name|default:collab.collaborator.username }}
+                                            {% if collab.collaborator == request.user %}
+                                                {{ collab.collaborator.first_name|default:collab.collaborator.username }}
+                                            {% else %}
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-link btn-sm p-0 text-white text-decoration-none collaborator-message-trigger"
+                                                    data-collaborator-id="{{ collab.collaborator.id }}"
+                                                    data-collaborator-name="{{ collab.collaborator.get_full_name|default:collab.collaborator.username }}"
+                                                    data-journal-code="{{ group.header.entry_no }}"
+                                                >
+                                                    {{ collab.collaborator.first_name|default:collab.collaborator.username }}
+                                                </button>
+                                            {% endif %}
                                             {% if request.user == group.header.user %}
                                                 <a href="{% url 'AccountingSystem:remove_collaborator_draft' group.header.id collab.collaborator.id %}" class="text-white" style="text-decoration: none; cursor: pointer;" onclick="return confirm('Remove this collaborator?');">×</a>
                                             {% endif %}
@@ -259,10 +292,18 @@
             </div>
           </div>
           <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab">
+            <div class="mb-3 mt-3">
+                <input type="text" class="form-control" id="searchApprovedJournals" placeholder="Search approved journals by journal code, account, creator, or description...">
+            </div>
             <div class="display_table">
                 <table class="table table-bordered">
                     {% for group in approved_groups %}
-                    <table class="table table-bordered mb-4">
+                    <table class="table table-bordered mb-4 journal-entry-table" 
+                        data-journal-code="{{ group.header.entry_no }}"
+                        data-creator="{{ group.header.user.get_full_name|default:group.header.user.username }}"
+                        data-description="{{ group.header.journal_description }}"
+                        data-date="{{ group.header.entry_date }}"
+                        data-accounts="{% for entry in group.entries %}{{ entry.account.account_name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
                         <thead class="table-light">
                             <tr>
                                 <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
@@ -270,6 +311,19 @@
                                 <th colspan="2" class="text-end">
                                     <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
                                     &nbsp;
+                                    {% if request.user != group.header.user %}
+                                    <button
+                                        type="button"
+                                        class="btn btn-dark btn-sm collaborator-message-trigger"
+                                        data-collaborator-id="{{ group.header.user.id }}"
+                                        data-collaborator-name="{{ group.header.user.get_full_name|default:group.header.user.username }}"
+                                        data-journal-code="{{ group.header.entry_no }}"
+                                        title="Message the journal owner"
+                                    >
+                                        <i class="bi bi-envelope"></i> Message Owner
+                                    </button>
+                                    &nbsp;
+                                    {% endif %}
                                     <button type="button" class="btn btn-info btn-sm" title="View Change History"
                                         data-bs-toggle="modal" 
                                         data-bs-target="#historyModal"  
@@ -332,7 +386,20 @@
                                 <th colspan="3">
                                     <strong>Collaborators:</strong>
                                     {% for collab in group.header.collaborators.all %}
-                                    <span class="badge bg-info">{{ collab.collaborator.first_name|default:collab.collaborator.username }} 
+                                    <span class="badge bg-info">
+                                        {% if collab.collaborator == request.user %}
+                                            {{ collab.collaborator.first_name|default:collab.collaborator.username }}
+                                        {% else %}
+                                            <button
+                                                type="button"
+                                                class="btn btn-link btn-sm p-0 text-white text-decoration-none collaborator-message-trigger"
+                                                data-collaborator-id="{{ collab.collaborator.id }}"
+                                                data-collaborator-name="{{ collab.collaborator.get_full_name|default:collab.collaborator.username }}"
+                                                data-journal-code="{{ group.header.entry_no }}"
+                                            >
+                                                {{ collab.collaborator.first_name|default:collab.collaborator.username }}
+                                            </button>
+                                        {% endif %}
                                         {% if request.user == group.header.user %}
                                         <a href="{% url 'AccountingSystem:remove_collaborator' group.header.id collab.collaborator.id %}" class="text-white" style="text-decoration: none; cursor: pointer;">×</a>
                                         {% endif %}
@@ -742,6 +809,42 @@
         </div>
         <!-- End of History Modal -->
 
+        <!-- Message Collaborator Modal -->
+        <div class="modal fade" id="messageCollaboratorModal" tabindex="-1" aria-labelledby="messageCollaboratorModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="messageCollaboratorModalLabel">Message Collaborator</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="journal_collaborator_message_form">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <input type="hidden" id="message_collaborator_id" name="message_collaborator_id">
+                            <p class="mb-2">
+                                <strong>To:</strong>
+                                <span id="message_collaborator_name" class="text-muted"></span>
+                            </p>
+                            <div class="mb-3">
+                                <label for="message_collaborator_subject" class="form-label">Subject (Optional)</label>
+                                <input type="text" class="form-control" id="message_collaborator_subject" name="subject" placeholder="Message subject">
+                            </div>
+                            <div class="mb-3">
+                                <label for="message_collaborator_content" class="form-label">Message</label>
+                                <textarea class="form-control" id="message_collaborator_content" name="content" rows="4" placeholder="Type your message..." required></textarea>
+                            </div>
+                            <div id="message_collaborator_feedback"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="send_collaborator_message_btn">Send Message</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- End Message Collaborator Modal -->
+
     </main>
     <!------ Main Page End ------>
 
@@ -752,6 +855,75 @@
     <script src="{% static 'scripts/update_journal.js' %}"></script>
     <script src="{% static 'scripts/delete_journal.js' %}"></script>
     <script src="{% static 'scripts/share_journal.js' %}"></script>
+    <script src="{% static 'scripts/journal_collaboration_messaging.js' %}"></script>
+
+    <script>
+        window.journalMessagingApiUrls = {
+            sendMessage: '{% url "AccountingSystem:send_message" %}'
+        };
+    </script>
+
+    <script>
+    // Journal Search Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchDraftInput = document.getElementById('searchDraftJournals');
+        const searchApprovedInput = document.getElementById('searchApprovedJournals');
+
+        function filterJournals(searchInput, tabPane) {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const journalTables = tabPane.querySelectorAll('.journal-entry-table');
+            let visibleCount = 0;
+
+            journalTables.forEach(table => {
+                const journalCode = (table.getAttribute('data-journal-code') || '').toLowerCase();
+                const creator = (table.getAttribute('data-creator') || '').toLowerCase();
+                const description = (table.getAttribute('data-description') || '').toLowerCase();
+                const date = (table.getAttribute('data-date') || '').toLowerCase();
+                const accounts = (table.getAttribute('data-accounts') || '').toLowerCase();
+
+                const isMatch = journalCode.includes(searchTerm) ||
+                               creator.includes(searchTerm) ||
+                               description.includes(searchTerm) ||
+                               date.includes(searchTerm) ||
+                               accounts.includes(searchTerm);
+
+                if (isMatch) {
+                    table.style.display = '';
+                    visibleCount++;
+                } else {
+                    table.style.display = 'none';
+                }
+            });
+
+            // Show "No results" message if needed
+            let noResultsMsg = tabPane.querySelector('.no-search-results');
+            if (visibleCount === 0 && searchTerm !== '') {
+                if (!noResultsMsg) {
+                    noResultsMsg = document.createElement('p');
+                    noResultsMsg.className = 'alert alert-info no-search-results';
+                    noResultsMsg.textContent = 'No journal entries match your search.';
+                    tabPane.querySelector('.display_table').insertBefore(noResultsMsg, tabPane.querySelector('.display_table').firstChild);
+                }
+            } else if (noResultsMsg) {
+                noResultsMsg.remove();
+            }
+        }
+
+        if (searchDraftInput) {
+            searchDraftInput.addEventListener('input', function() {
+                const draftTabPane = document.getElementById('draft');
+                filterJournals(searchDraftInput, draftTabPane);
+            });
+        }
+
+        if (searchApprovedInput) {
+            searchApprovedInput.addEventListener('input', function() {
+                const approvedTabPane = document.getElementById('approved');
+                filterJournals(searchApprovedInput, approvedTabPane);
+            });
+        }
+    });
+    </script>
 
     <script>
     // Function to load journal history

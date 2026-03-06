@@ -2927,34 +2927,96 @@ def _get_connected_users_queryset(user):
     Enforce messaging scope based on handled sections:
     - Teacher/Admin: students in sections they manage, plus all teachers/admins (even without sections).
     - Student: only teachers/admins who manage the student's section.
+    - Any user: users they are directly connected to through journal collaboration (draft or approved).
     """
+    def _get_journal_collaboration_user_ids(current_user):
+        # Approved journals where current user is a collaborator.
+        approved_shared_journal_ids = list(
+            JournalCollaborator.objects.filter(collaborator=current_user)
+            .values_list('journal_header_id', flat=True)
+        )
+
+        collaborator_ids = set(
+            JournalCollaborator.objects.filter(journal_header__user=current_user)
+            .values_list('collaborator_id', flat=True)
+        )
+        owner_ids = set(
+            JournalCollaborator.objects.filter(collaborator=current_user)
+            .values_list('journal_header__user_id', flat=True)
+        )
+        peer_collaborator_ids = set(
+            JournalCollaborator.objects.filter(journal_header_id__in=approved_shared_journal_ids)
+            .exclude(collaborator=current_user)
+            .values_list('collaborator_id', flat=True)
+        )
+
+        # Draft journals where current user is a collaborator.
+        draft_shared_journal_ids = list(
+            JournalDraftCollaborator.objects.filter(collaborator=current_user)
+            .values_list('journal_header_id', flat=True)
+        )
+
+        draft_collaborator_ids = set(
+            JournalDraftCollaborator.objects.filter(journal_header__user=current_user)
+            .values_list('collaborator_id', flat=True)
+        )
+        draft_owner_ids = set(
+            JournalDraftCollaborator.objects.filter(collaborator=current_user)
+            .values_list('journal_header__user_id', flat=True)
+        )
+        draft_peer_collaborator_ids = set(
+            JournalDraftCollaborator.objects.filter(journal_header_id__in=draft_shared_journal_ids)
+            .exclude(collaborator=current_user)
+            .values_list('collaborator_id', flat=True)
+        )
+
+        allowed_ids = (
+            collaborator_ids
+            | owner_ids
+            | peer_collaborator_ids
+            | draft_collaborator_ids
+            | draft_owner_ids
+            | draft_peer_collaborator_ids
+        )
+        allowed_ids.discard(current_user.id)
+        return allowed_ids
+
     section_ids = _get_user_section_ids(user)
     role = user.profile.role if hasattr(user, 'profile') else None
+    base_queryset = User.objects.none()
 
     if role in ('teacher', 'admin'):
         # Teachers/Admins can always message other teachers/admins
         # Plus students in their managed sections (if any)
         if section_ids:
-            return User.objects.exclude(id=user.id).filter(
+            base_queryset = User.objects.exclude(id=user.id).filter(
                 Q(profile__role='student', profile__section_id__in=section_ids) |
                 Q(profile__role__in=['teacher', 'admin'])
             ).distinct()
         else:
             # Teacher/Admin with no sections can still message other teachers/admins
-            return User.objects.exclude(id=user.id).filter(
+            base_queryset = User.objects.exclude(id=user.id).filter(
                 profile__role__in=['teacher', 'admin']
             ).distinct()
 
-    if role == 'student':
+    elif role == 'student':
         if not section_ids:
-            return User.objects.none()
-        # Students can only message teachers/admins who manage their section
-        return User.objects.exclude(id=user.id).filter(
-            profile__role__in=['teacher', 'admin'],
-            managed_sections__id__in=section_ids,
-        ).distinct()
+            base_queryset = User.objects.none()
+        else:
+            # Students can only message teachers/admins who manage their section,
+            # plus journal collaborators handled below.
+            base_queryset = User.objects.exclude(id=user.id).filter(
+                profile__role__in=['teacher', 'admin'],
+                managed_sections__id__in=section_ids,
+            ).distinct()
 
-    return User.objects.none()
+    collaboration_ids = _get_journal_collaboration_user_ids(user)
+    allowed_ids = set(base_queryset.values_list('id', flat=True)) | collaboration_ids
+
+    if not allowed_ids:
+        return User.objects.none()
+
+    return User.objects.exclude(id=user.id).filter(id__in=allowed_ids).distinct()
 
 
 @require_http_methods(["GET", "POST"])
