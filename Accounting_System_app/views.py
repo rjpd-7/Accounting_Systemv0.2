@@ -1953,19 +1953,29 @@ def general_ledger(request):
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
 
-    # Filter account groups based on user role and section
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
-        user_section = request.user.profile.section
-        if user_section:
-            # Get account groups from teachers managing this section
-            account_groups = get_account_groups_for_section(user_section)
-            allowed_group_ids = list(account_groups.values_list('id', flat=True))
+    # Filter account groups based on user role and their assignments
+    allowed_group_ids = None  # None means no filtering (shouldn't happen with this logic)
+    
+    if hasattr(request.user, 'profile'):
+        user_profile = request.user.profile
+        
+        if user_profile.role == 'student':
+            # Students: get account groups from their assigned section
+            user_section = user_profile.section
+            if user_section:
+                account_groups = get_account_groups_for_section(user_section)
+                allowed_group_ids = list(account_groups.values_list('id', flat=True))
+            else:
+                account_groups = AccountGroups.objects.none()
+                allowed_group_ids = []
         else:
-            account_groups = AccountGroups.objects.none()
-            allowed_group_ids = []
+            # Admins and teachers: get their assigned account groups
+            user_account_groups = user_profile.account_groups.all()
+            account_groups = user_account_groups
+            allowed_group_ids = list(user_account_groups.values_list('id', flat=True))
     else:
         account_groups = AccountGroups.objects.all()
-        allowed_group_ids = None  # None means no filtering
+        allowed_group_ids = []
 
     # build a Q filter for JournalEntry -> JournalHeader.entry_date
     date_q = Q()
@@ -1984,8 +1994,8 @@ def general_ledger(request):
     # annotate accounts with sums filtered by date_q
     accounts_query = ChartOfAccounts.objects
     
-    # Filter by section's account groups for students
-    if allowed_group_ids is not None:
+    # Filter by account groups (applies to students, admins, and teachers)
+    if allowed_group_ids:
         accounts_query = accounts_query.filter(group_name_id__in=allowed_group_ids)
     
     accounts_summary = accounts_query.annotate(
