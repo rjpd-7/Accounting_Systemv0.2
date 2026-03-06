@@ -697,6 +697,21 @@ def student_dashboard(request):
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
     sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
 
+    # Get student's section information
+    student_section = None
+    section_teachers = []
+    section_students = []
+    
+    if hasattr(request.user, 'profile') and request.user.profile.section:
+        student_section = request.user.profile.section
+        # Get teachers managing this section
+        section_teachers = student_section.teachers.all().order_by('first_name', 'last_name', 'username')
+        # Get fellow students in the same section (excluding current user)
+        section_students = User.objects.filter(
+            profile__section=student_section,
+            profile__role='student'
+        ).exclude(id=request.user.id).order_by('first_name', 'last_name', 'username')
+
     context = {
         'total_accounts': total_accounts,
         'total_journals': total_journals,
@@ -704,6 +719,9 @@ def student_dashboard(request):
         'users': users,
         'received_messages': received_messages,
         'sent_messages': sent_messages,
+        'student_section': student_section,
+        'section_teachers': section_teachers,
+        'section_students': section_students,
     }
     return render(request, "Front_End/student_dashboard.html", context)
 

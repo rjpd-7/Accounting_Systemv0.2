@@ -137,6 +137,72 @@
         <!-- Card Group End -->
 
         <br>
+        
+        <!-- Section Information -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-people-fill"></i> My Section Information</h5>
+            </div>
+            <div class="card-body">
+                {% if student_section %}
+                    <div class="row">
+                        <!-- Section Name -->
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted">Section</h6>
+                            <h4 class="text-primary">{{ student_section.name }}</h4>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Teachers -->
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted"><i class="bi bi-person-badge"></i> Teachers/Advisers</h6>
+                            {% if section_teachers %}
+                                <ul class="list-group">
+                                    {% for teacher in section_teachers %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <span>
+                                                <i class="bi bi-person-circle"></i>
+                                                {{ teacher.get_full_name|default:teacher.username }}
+                                            </span>
+                                            <span class="badge bg-success rounded-pill">{{ teacher.profile.role|capfirst }}</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted"><i>No teachers assigned to this section yet.</i></p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Fellow Students -->
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted"><i class="bi bi-people"></i> Classmates ({{ section_students.count }})</h6>
+                            {% if section_students %}
+                                <div style="max-height: 300px; overflow-y: auto;">
+                                    <ul class="list-group">
+                                        {% for student in section_students %}
+                                            <li class="list-group-item">
+                                                <i class="bi bi-person"></i>
+                                                {{ student.get_full_name|default:student.username }}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% else %}
+                                <p class="text-muted"><i>No other students in your section yet.</i></p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        You have not been assigned to a section yet. Please contact your administrator.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <!-- End Section Information -->
+
         <!-- Messages Section -->
         {% include "Front_End/messaging.html" %}
         <!-- End of Messages Section -->
