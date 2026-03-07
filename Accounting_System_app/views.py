@@ -872,9 +872,34 @@ def chart_of_accounts(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
 
-    account_groups = AccountGroups.objects.all()
-    results = ChartOfAccounts.objects.all()
-    results = ChartOfAccounts.objects.order_by('-date_created', '-id')
+    # Filter accounts based on user role and their assigned account groups
+    if hasattr(request.user, 'profile'):
+        user_profile = request.user.profile
+        
+        if user_profile.role == 'admin':
+            # Admins see all account groups and accounts
+            account_groups = AccountGroups.objects.all()
+            results = ChartOfAccounts.objects.all().order_by('-date_created', '-id')
+        elif user_profile.role == 'teacher':
+            # Teachers see only their assigned account groups
+            account_groups = user_profile.account_groups.all()
+            if account_groups.exists():
+                # Show only accounts in their assigned groups
+                results = ChartOfAccounts.objects.filter(
+                    group_name__in=account_groups
+                ).order_by('-date_created', '-id')
+            else:
+                # Teacher has no assigned groups - show no accounts
+                results = ChartOfAccounts.objects.none()
+        else:
+            # Fallback (shouldn't happen as students use different view)
+            account_groups = AccountGroups.objects.all()
+            results = ChartOfAccounts.objects.all().order_by('-date_created', '-id')
+    else:
+        # No profile - show all (fallback)
+        account_groups = AccountGroups.objects.all()
+        results = ChartOfAccounts.objects.all().order_by('-date_created', '-id')
+    
     return render(request, "Front_End/accounts.html", {
         "account_groups": account_groups,
         "accounts" : results
@@ -2121,14 +2146,18 @@ def general_ledger(request):
             else:
                 account_groups = AccountGroups.objects.none()
                 allowed_group_ids = []
+        elif user_profile.role == 'admin':
+            # Admins: see all account groups
+            account_groups = AccountGroups.objects.all()
+            allowed_group_ids = None  # None means no filtering
         else:
-            # Admins and teachers: get their assigned account groups
+            # Teachers: get their assigned account groups
             user_account_groups = user_profile.account_groups.all()
             account_groups = user_account_groups
             allowed_group_ids = list(user_account_groups.values_list('id', flat=True))
     else:
         account_groups = AccountGroups.objects.all()
-        allowed_group_ids = []
+        allowed_group_ids = None
 
     # build a Q filter for JournalEntry -> JournalHeader.entry_date
     date_q = Q()
@@ -2232,14 +2261,9 @@ def general_ledger_pdf(request):
         account_groups = request.user.profile.account_groups.all()
         allowed_group_ids = list(account_groups.values_list('id', flat=True))
     elif hasattr(request.user, 'profile') and request.user.profile.role == 'admin':
-        # Admins see only their assigned account groups (if any)
-        account_groups = request.user.profile.account_groups.all()
-        if account_groups.exists():
-            allowed_group_ids = list(account_groups.values_list('id', flat=True))
-        else:
-            # Admin with no specific groups sees all
-            account_groups = AccountGroups.objects.all()
-            allowed_group_ids = None
+        # Admins see all account groups
+        account_groups = AccountGroups.objects.all()
+        allowed_group_ids = None  # None means no filtering
     else:
         account_groups = AccountGroups.objects.all()
         allowed_group_ids = None  # None means no filtering

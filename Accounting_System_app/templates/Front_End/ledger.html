@@ -140,17 +140,18 @@
         </div>
         <br>
 
-        <!-- Group Filter (Hidden)
-
-        <label for="ledgerGroupFilter">Filter by Group:</label>
-        <select id="ledgerGroupFilter" class="form-select" style="max-width:300px;">
-        <option value="">All Groups</option>
-        {% for group in account_groups %}
-        <option value="{{ group.id }}">{{ group.group_name }}</option>
-        {% endfor %}
-        </select>
-        
-        -->
+        <!-- Account Group Filter -->
+        <label for="ledgerGroupFilter" class="form-label"><strong>Filter by Group:</strong></label>
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <select id="ledgerGroupFilter" class="form-select">
+                    <option value="">All Groups</option>
+                    {% for group in account_groups %}
+                    <option value="{{ group.id }}">{{ group.group_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
 
         <!-- General Ledger Display Table -->
         <div class="display_table">
@@ -158,7 +159,7 @@
             <h3 class="text-center mb-4"></h3>
 
             {% for group_id, group_data in grouped_ledger.items %}
-            <div class="mb-5">
+            <div class="mb-5 ledger-group-section" data-group-id="{{ group_id }}">
                 <h4 class="bg-light p-3 rounded">{{ group_data.group_name }}</h4>
                 <table class="table table-bordered table-striped table-hover align-middle shadow-sm">
                     <thead class="table-primary text-center">
@@ -204,7 +205,7 @@
             {% endfor %}
 
             <!-- Grand Total -->
-            <div class="mt-4">
+            <div class="mt-4" id="ledger-grand-total">
                 <table class="table table-bordered table-dark">
                     <tfoot class="fw-bold">
                         <tr>

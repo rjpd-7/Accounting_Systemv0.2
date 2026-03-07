@@ -1,23 +1,33 @@
 document.addEventListener('DOMContentLoaded', function () {
   const ledgerFilter = document.getElementById('ledgerGroupFilter');
-  const ledgerBody = document.querySelectorAll('.ledger-row'); // NodeList of rows
+  const ledgerGroupSections = document.querySelectorAll('.ledger-group-section');
+  const grandTotalSection = document.getElementById('ledger-grand-total');
 
   function filterLedger(groupId) {
-    ledgerBody.forEach(row => {
-      const rowGroup = row.dataset.groupId;
-      if (!groupId || rowGroup === groupId || rowGroup === 'null') {
-        row.style.display = '';
+    ledgerGroupSections.forEach(section => {
+      const sectionGroupId = section.dataset.groupId;
+      if (!groupId || sectionGroupId === groupId || sectionGroupId === 'null' || sectionGroupId === 'None') {
+        section.style.display = '';
       } else {
-        row.style.display = 'none';
+        section.style.display = 'none';
       }
     });
+
+    // Hide Grand Total when filtering by specific group, show when viewing all groups
+    if (grandTotalSection) {
+      if (groupId) {
+        grandTotalSection.style.display = 'none';
+      } else {
+        grandTotalSection.style.display = '';
+      }
+    }
   }
 
   if (ledgerFilter) {
     ledgerFilter.addEventListener('change', function () {
       filterLedger(this.value);
     });
-    // optional: apply initial filter
+    // Apply initial filter to show all groups
     filterLedger(ledgerFilter.value || '');
   }
 });

@@ -202,7 +202,15 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <p>No Accounts are created.</p>
+                        <td colspan="7" class="text-center">
+                            {% if request.user.profile.role == 'teacher' %}
+                                <div class="alert alert-info" role="alert">
+                                    <i class="bi bi-info-circle"></i> You have not been assigned any account groups yet. Please contact your administrator to view accounts.
+                                </div>
+                            {% else %}
+                                <p class="text-muted">No accounts have been created yet.</p>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
