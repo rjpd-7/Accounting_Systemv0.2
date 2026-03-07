@@ -38,4 +38,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Change Password Modal toggles
     new PasswordToggle("#toggleNewPassword", "#new_password");
     new PasswordToggle("#toggleConfirmNewPassword", "#confirm_new_password");
+
+    // Teacher own-password modal toggles
+    new PasswordToggle("#toggleCurrentPassword", "#current_password");
+    new PasswordToggle("#toggleNewPasswordOwn", "#new_password_own");
+    new PasswordToggle("#toggleConfirmNewPasswordOwn", "#confirm_new_password_own");
 });
