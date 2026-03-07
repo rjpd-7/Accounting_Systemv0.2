@@ -212,7 +212,7 @@
                                 <button type="button" class="btn btn-sm btn-info" onclick="openChangePasswordModal({{ user.id }}, '{{ user.username }}')">
                                     <i class="bi bi-key"></i> Change Password
                                 </button>
-                                <button type="button" class="btn btn-sm btn-warning" onclick="openEditUserModal({{ user.id }}, '{{ user.username }}', '{{ user.first_name }}', '{{ user.last_name }}', '{{ user.email }}', '{{ user.profile.role }}')">
+                                <button type="button" class="btn btn-sm btn-primary onclick="openEditUserModal({{ user.id }}, '{{ user.username }}', '{{ user.first_name }}', '{{ user.last_name }}', '{{ user.email }}', '{{ user.profile.role }}')">
                                     <i class="bi bi-pencil"></i> Edit
                                 </button>
                                 <button type="button" class="btn btn-sm {% if user.is_active %}btn-danger{% else %}btn-success{% endif %}" 

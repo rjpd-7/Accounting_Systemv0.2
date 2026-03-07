@@ -3409,6 +3409,31 @@ def get_messages(request):
     """Get messages for the current user (both sent and received)"""
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Not authenticated'}, status=401)
+
+    def _serialize_message(msg, message_type):
+        attachments = []
+        for att in msg.attachments.all():
+            attachments.append({
+                'id': att.id,
+                'filename': att.filename,
+                'file_size': att.file_size,
+                'url': att.file.url,
+                'download_url': reverse('AccountingSystem:download_attachment', kwargs={'attachment_id': att.id})
+            })
+
+        return {
+            'id': msg.id,
+            'sender': msg.sender.get_full_name() or msg.sender.username,
+            'sender_id': msg.sender.id,
+            'recipient': msg.recipient.get_full_name() or msg.recipient.username,
+            'recipient_id': msg.recipient.id,
+            'subject': msg.subject or 'No Subject',
+            'content': msg.content,
+            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M'),
+            'is_read': msg.is_read,
+            'attachments': attachments,
+            'type': message_type
+        }
     
     connected_user_ids = list(_get_connected_users_queryset(request.user).values_list('id', flat=True))
 
@@ -3422,50 +3447,17 @@ def get_messages(request):
         recipient_id__in=connected_user_ids,
     ).order_by('-created_at')
     
-    received_data = []
-    for msg in received:
-        attachments = []
-        for att in msg.attachments.all():
-            attachments.append({
-                'id': att.id,
-                'filename': att.filename,
-                'file_size': att.file_size,
-                'url': att.file.url,
-                'download_url': reverse('AccountingSystem:download_attachment', kwargs={'attachment_id': att.id})
-            })
-        received_data.append({
-            'id': msg.id,
-            'sender': msg.sender.get_full_name() or msg.sender.username,
-            'sender_id': msg.sender.id,
-            'subject': msg.subject or 'No Subject',
-            'content': msg.content,
-            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M'),
-            'is_read': msg.is_read,
-            'attachments': attachments,
-            'type': 'received'
-        })
-    
-    sent_data = []
-    for msg in sent:
-        attachments = []
-        for att in msg.attachments.all():
-            attachments.append({
-                'id': att.id,
-                'filename': att.filename,
-                'file_size': att.file_size,
-                'url': att.file.url,
-                'download_url': reverse('AccountingSystem:download_attachment', kwargs={'attachment_id': att.id})
-            })
-        sent_data.append({
-            'id': msg.id,
-            'recipient': msg.recipient.get_full_name() or msg.recipient.username,
-            'recipient_id': msg.recipient.id,
-            'subject': msg.subject or 'No Subject',
-            'content': msg.content,
-            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M'),
-            'attachments': attachments,
-            'type': 'sent'
-        })
+    received_data = [_serialize_message(msg, 'received') for msg in received]
+    sent_data = [_serialize_message(msg, 'sent') for msg in sent]
+
+    # Archive keeps all user-related messages (independent of section changes).
+    archive_qs = Message.objects.filter(
+        Q(sender=request.user) | Q(recipient=request.user)
+    ).order_by('-created_at')
+    archive_data = []
+    for msg in archive_qs:
+        archive_type = 'received' if msg.recipient_id == request.user.id else 'sent'
+        archive_data.append(_serialize_message(msg, archive_type))
     
     # Mark messages as read
     received.update(is_read=True)
@@ -3473,10 +3465,10 @@ def get_messages(request):
     return JsonResponse({
         'received': received_data,
         'sent': sent_data,
+        'archive': archive_data,
         'unread_count': Message.objects.filter(
             recipient=request.user,
             is_read=False,
-            sender_id__in=connected_user_ids,
         ).count()
     })
 
@@ -3486,11 +3478,9 @@ def get_unread_count(request):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Not authenticated'}, status=401)
     
-    connected_user_ids = list(_get_connected_users_queryset(request.user).values_list('id', flat=True))
     unread_count = Message.objects.filter(
         recipient=request.user,
         is_read=False,
-        sender_id__in=connected_user_ids,
     ).count()
     return JsonResponse({'unread_count': unread_count})
 

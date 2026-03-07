@@ -1,6 +1,8 @@
 // Messaging System JavaScript
 
 let allConnectedRecipients = [];
+let archiveMessagesCache = [];
+let archiveLoadedOnce = false;
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize messaging on page load
@@ -222,6 +224,69 @@ function displaySentMessages(messages) {
     `).join('');
 }
 
+// Display archived messages (all user-related messages regardless of section connectivity)
+function displayArchiveMessages(messages) {
+    const container = document.getElementById('archive-messages-list');
+    if (!container) return;
+
+    if (messages.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted p-4"><p>No archived messages</p></div>';
+        return;
+    }
+
+    container.innerHTML = messages.map(msg => {
+        const directionLabel = msg.type === 'received' ? `From: ${msg.sender}` : `To: ${msg.recipient}`;
+        return `
+            <div class="message-item ${msg.type === 'received' && !msg.is_read ? 'unread' : ''}" onclick="viewMessage('archive', ${msg.id})"
+                data-sender="${(msg.sender || '').toLowerCase()}"
+                data-recipient="${(msg.recipient || '').toLowerCase()}"
+                data-subject="${(msg.subject || '').toLowerCase()}"
+                data-content="${(msg.content || '').toLowerCase()}">
+                <div class="message-header">
+                    <strong>${directionLabel}</strong>
+                    <small class="text-muted">${msg.created_at}</small>
+                </div>
+                <div class="message-subject">${msg.subject}</div>
+                <div class="message-preview">${msg.content.substring(0, 80)}${msg.content.length > 80 ? '...' : ''}</div>
+                ${msg.attachments.length > 0 ? `<div class="message-attachments"><i class="bi bi-paperclip"></i> ${msg.attachments.length} file(s)</div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function loadArchiveMessagesOnce() {
+    if (archiveLoadedOnce) {
+        displayArchiveMessages(archiveMessagesCache);
+        return;
+    }
+
+    const container = document.getElementById('archive-messages-list');
+    if (container) {
+        container.innerHTML = '<div class="text-center text-muted p-4"><p>Loading archived messages...</p></div>';
+    }
+
+    fetch(window.messagingApiUrls.getMessages, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Failed to load archived messages');
+        return response.json();
+    })
+    .then(data => {
+        archiveMessagesCache = data.archive || [];
+        archiveLoadedOnce = true;
+        displayArchiveMessages(archiveMessagesCache);
+    })
+    .catch(error => {
+        console.error('Error loading archive:', error);
+        if (container) {
+            container.innerHTML = '<div class="text-center text-danger p-4"><p>Failed to load archived messages.</p></div>';
+        }
+    });
+}
+
 // Update unread count badge
 function updateUnreadCount(count) {
     const badge = document.getElementById('unread-badge');
@@ -247,12 +312,25 @@ function updateUnreadBadge() {
 
 // View message details
 function viewMessage(type, messageId) {
+    if (type === 'archive') {
+        const cachedMessage = (archiveMessagesCache || []).find(m => m.id === messageId);
+        if (cachedMessage) {
+            displayMessageDetail(cachedMessage);
+            const modal = new bootstrap.Modal(document.getElementById('messageDetailModal'));
+            modal.show();
+            document.getElementById('deleteMessageBtn').setAttribute('data-message-id', messageId);
+            return;
+        }
+    }
+
     fetch(window.messagingApiUrls.getMessages, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(response => response.json())
     .then(data => {
-        const messages = type === 'received' ? data.received : data.sent;
+        const messages = type === 'received'
+            ? data.received
+            : (type === 'sent' ? data.sent : data.archive || []);
         const message = messages.find(m => m.id === messageId);
         
         if (message) {
@@ -359,6 +437,13 @@ function setupEventListeners() {
             setAllRecipients(false);
         });
     }
+
+    const archiveModal = document.getElementById('archiveMessagesModal');
+    if (archiveModal) {
+        archiveModal.addEventListener('show.bs.modal', function() {
+            loadArchiveMessagesOnce();
+        });
+    }
     
     // Handle message deletion
     const deleteBtn = document.getElementById('deleteMessageBtn');
@@ -463,6 +548,8 @@ function handleMessageSubmit(event) {
             // Refresh messages and recipients
             loadMessages();
             loadRecipientsList();
+
+            // Keep archive data stable for this page session.
         } else {
             showAlert('Failed to send message: ' + (data.error || data.message || 'Unknown error'), 'danger');
         }
@@ -504,6 +591,12 @@ function handleDeleteMessage() {
             
             // Refresh messages
             loadMessages();
+
+            // If archive was previously loaded, reflect deletion in cache as well.
+            if (archiveLoadedOnce) {
+                archiveMessagesCache = archiveMessagesCache.filter(m => m.id !== Number(messageId));
+                displayArchiveMessages(archiveMessagesCache);
+            }
         } else {
             showAlert('Failed to delete message', 'danger');
         }

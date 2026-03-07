@@ -8,9 +8,14 @@
             <span class="badge bg-danger" id="unread-badge" style="display: none;"></span>
         </h5>
         <br>
-        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
-            <i class="bi bi-pencil-square"></i> New Message
-        </button>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
+                <i class="bi bi-pencil-square"></i> New Message
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#archiveMessagesModal" id="openArchiveModalBtn">
+                <i class="bi bi-archive"></i> Archive
+            </button>
+        </div>
     </div>
     <br>
     <div class="messaging-body">
@@ -160,6 +165,32 @@
     </div>
 </div>
 
+<!-- Archive Messages Modal -->
+<div class="modal fade" id="archiveMessagesModal" tabindex="-1" aria-labelledby="archiveMessagesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="archiveMessagesLabel"><i class="bi bi-archive"></i> Message Archive</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="searchArchiveMessages" placeholder="Search archived messages by sender, recipient, subject, or content...">
+                </div>
+                <div class="messages-list" id="archive-messages-list">
+                    <div class="text-center text-muted p-4">
+                        <p>Open archive to load all previous messages.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted me-auto">Archive includes all user-related messages and is loaded once per page session.</small>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Message Detail Modal -->
 <div class="modal fade" id="messageDetailModal" tabindex="-1" aria-labelledby="messageDetailLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -234,6 +265,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         const searchReceivedInput = document.getElementById('searchReceivedMessages');
         const searchSentInput = document.getElementById('searchSentMessages');
+        const searchArchiveInput = document.getElementById('searchArchiveMessages');
 
         if (searchReceivedInput) {
             searchReceivedInput.addEventListener('input', function() {
@@ -246,6 +278,13 @@
             searchSentInput.addEventListener('input', function() {
                 const sentContainer = document.getElementById('sent-messages-list');
                 window.filterMessages(searchSentInput, sentContainer);
+            });
+        }
+
+        if (searchArchiveInput) {
+            searchArchiveInput.addEventListener('input', function() {
+                const archiveContainer = document.getElementById('archive-messages-list');
+                window.filterMessages(searchArchiveInput, archiveContainer);
             });
         }
     });
