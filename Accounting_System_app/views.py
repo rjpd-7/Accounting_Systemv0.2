@@ -8,7 +8,7 @@ from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, Jour
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
-from django.db.models import Sum, RestrictedError, Q, Value, DecimalField, Max
+from django.db.models import Sum, RestrictedError, Q, Value, DecimalField, Max, Count
 from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.contrib import messages
@@ -366,7 +366,7 @@ def admin_dashboard(request):
     users = User.objects.all()
     students = User.objects.filter(profile__role='student').select_related('profile', 'profile__section').order_by('last_name', 'first_name', 'username')
     teachers = User.objects.filter(profile__role='teacher').select_related('profile').order_by('first_name', 'last_name', 'username')
-    sections = StudentSection.objects.all().prefetch_related('account_groups', 'teachers').order_by('name')
+    sections = StudentSection.objects.all().prefetch_related('account_groups', 'teachers').annotate(student_count=Count('students')).order_by('name')
     account_groups = AccountGroups.objects.all().order_by('group_name')
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
     sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
@@ -402,8 +402,8 @@ def teacher_dashboard(request):
     total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
     
-    # Get sections managed by this teacher
-    teacher_managed_sections = request.user.managed_sections.all()
+    # Get sections managed by this teacher (with student counts)
+    teacher_managed_sections = request.user.managed_sections.all().annotate(student_count=Count('students')).order_by('name')
     
     # Show only the teacher's managed sections plus unassigned students
     # Students can be: in one of teacher's managed sections, or unassigned

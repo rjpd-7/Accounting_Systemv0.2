@@ -118,6 +118,15 @@
 
     <!------ Main Page ------>
     <main class="main-content">
+        <!-- Hidden data container for API URLs -->
+        <div id="userManagementData" 
+             data-change-password-url="{% url 'AccountingSystem:change_user_password' %}"
+             data-toggle-active-url="{% url 'AccountingSystem:toggle_user_active' %}"
+             data-update-user-url="{% url 'AccountingSystem:update_user' %}"
+             data-delete-user-url="{% url 'AccountingSystem:delete_user' %}"
+             style="display: none;">
+        </div>
+        
         <h2>Accounting System</h2>
         <br>
         <h4>Welcome {{ request.user.first_name }}!</h4>
@@ -374,6 +383,46 @@
                 </div>
             </form>
         </div>
+
+        <br> <br>
+
+        <!-- Sections Overview -->
+        <div class="user-management-section">
+            <h3>Sections Overview</h3>
+            <p class="text-muted">All student sections with enrollment counts.</p>
+            
+            {% if sections %}
+                <div class="row g-3">
+                    {% for section in sections %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ section.name }}</h5>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <p class="card-text text-muted mb-0">Students</p>
+                                            <p class="fs-4 fw-bold mb-0">{{ section.student_count }}</p>
+                                        </div>
+                                        <div class="text-end">
+                                            {% if section.student_count > 0 %}
+                                                <span class="badge bg-success">Active</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Empty</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> No sections created yet. Create one using the form above.
+                </div>
+            {% endif %}
+        </div>
+        <!-- End Sections Overview -->
 
         <br> <br>
 
@@ -745,328 +794,8 @@
     <script src="scripts/scripts.js"></script>
     <script src="{% static 'scripts/create_user.js' %}"></script>
     <script src="{% static 'scripts/messaging.js' %}"></script>
-    <script>
-        // Password toggle for password field
-        const togglePassword = document.querySelector("#togglePassword");
-        const password = document.querySelector("#password");
-        const passwordIcon = togglePassword.querySelector("i");
-
-        togglePassword.addEventListener("click", function () {
-            const type = password.getAttribute("type") === "password" ? "text" : "password";
-            password.setAttribute("type", type);
-
-            passwordIcon.classList.toggle("bi-eye");
-            passwordIcon.classList.toggle("bi-eye-slash");
-        });
-
-        // Password toggle for confirm password field
-        const toggleConfirmPassword = document.querySelector("#toggleConfirmPassword");
-        const confirmPassword = document.querySelector("#confirm_password");
-        const confirmPasswordIcon = toggleConfirmPassword.querySelector("i");
-
-        toggleConfirmPassword.addEventListener("click", function () {
-            const type = confirmPassword.getAttribute("type") === "password" ? "text" : "password";
-            confirmPassword.setAttribute("type", type);
-
-            confirmPasswordIcon.classList.toggle("bi-eye");
-            confirmPasswordIcon.classList.toggle("bi-eye-slash");
-        });
-
-        // Password toggle for new password field
-        const toggleNewPassword = document.querySelector("#toggleNewPassword");
-        const newPassword = document.querySelector("#new_password");
-        const newPasswordIcon = toggleNewPassword.querySelector("i");
-
-        toggleNewPassword.addEventListener("click", function () {
-            const type = newPassword.getAttribute("type") === "password" ? "text" : "password";
-            newPassword.setAttribute("type", type);
-
-            newPasswordIcon.classList.toggle("bi-eye");
-            newPasswordIcon.classList.toggle("bi-eye-slash");
-        });
-
-        // Password toggle for confirm new password field
-        const toggleConfirmNewPassword = document.querySelector("#toggleConfirmNewPassword");
-        const confirmNewPassword = document.querySelector("#confirm_new_password");
-        const confirmNewPasswordIcon = toggleConfirmNewPassword.querySelector("i");
-
-        toggleConfirmNewPassword.addEventListener("click", function () {
-            const type = confirmNewPassword.getAttribute("type") === "password" ? "text" : "password";
-            confirmNewPassword.setAttribute("type", type);
-
-            confirmNewPasswordIcon.classList.toggle("bi-eye");
-            confirmNewPasswordIcon.classList.toggle("bi-eye-slash");
-        });
-
-        // Open change password modal
-        function openChangePasswordModal(userId, username) {
-            document.getElementById('change_password_user_id').value = userId;
-            document.getElementById('changePasswordUsername').textContent = username;
-            document.getElementById('new_password').value = '';
-            document.getElementById('confirm_new_password').value = '';
-            document.getElementById('changePasswordError').style.display = 'none';
-            
-            const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
-            modal.show();
-        }
-
-        // Handle change password form submission
-        document.getElementById('change_password_form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const newPassword = document.getElementById('new_password').value;
-            const confirmNewPassword = document.getElementById('confirm_new_password').value;
-            const userId = document.getElementById('change_password_user_id').value;
-            const errorDiv = document.getElementById('changePasswordError');
-            
-            if (newPassword !== confirmNewPassword) {
-                errorDiv.textContent = 'Passwords do not match!';
-                errorDiv.style.display = 'block';
-                return;
-            }
-            
-            if (newPassword.length < 8) {
-                errorDiv.textContent = 'Password must be at least 8 characters long!';
-                errorDiv.style.display = 'block';
-                return;
-            }
-            
-            // Submit password change via AJAX
-            fetch("{% url 'AccountingSystem:change_user_password' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    user_id: userId,
-                    new_password: newPassword
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
-                    alert('Password changed successfully!');
-                } else {
-                    errorDiv.textContent = data.error || 'Failed to change password';
-                    errorDiv.style.display = 'block';
-                }
-            })
-            .catch(error => {
-                errorDiv.textContent = 'An error occurred while changing the password';
-                errorDiv.style.display = 'block';
-                console.error('Error:', error);
-            });
-        });
-
-        // Toggle user active status
-        function toggleUserStatus(userId, isActive) {
-            const action = isActive ? 'deactivate' : 'activate';
-            if (!confirm(`Are you sure you want to ${action} this user?`)) {
-                return;
-            }
-            
-            fetch("{% url 'AccountingSystem:toggle_user_active' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    user_id: userId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload(); // Reload to reflect changes
-                } else {
-                    alert('Failed to update user status: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                alert('An error occurred while updating user status');
-                console.error('Error:', error);
-            });
-        }
-
-        function openEditUserModal(userId, username, firstName, lastName, email, role) {
-            document.getElementById('edit_user_id').value = userId;
-            document.getElementById('edit_first_name').value = firstName;
-            document.getElementById('edit_last_name').value = lastName;
-            document.getElementById('edit_email').value = email;
-            document.getElementById('edit_role').value = role;
-            document.getElementById('editUserError').style.display = 'none';
-            
-            const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
-            modal.show();
-        }
-
-        document.getElementById('edit_user_form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const userId = document.getElementById('edit_user_id').value;
-            const firstName = document.getElementById('edit_first_name').value.trim();
-            const lastName = document.getElementById('edit_last_name').value.trim();
-            const email = document.getElementById('edit_email').value.trim();
-            const role = document.getElementById('edit_role').value.trim();
-            
-            if (!firstName && !lastName && !email && !role) {
-                alert('Please update at least one field');
-                return;
-            }
-            
-            fetch("{% url 'AccountingSystem:update_user' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    user_id: userId,
-                    first_name: firstName,
-                    last_name: lastName,
-                    email: email,
-                    role: role
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message);
-                    location.reload();
-                } else {
-                    document.getElementById('editUserError').textContent = data.error || 'Unknown error';
-                    document.getElementById('editUserError').style.display = 'block';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('editUserError').textContent = 'An error occurred while updating the user';
-                document.getElementById('editUserError').style.display = 'block';
-            });
-        });
-
-        function deleteUser(userId, username) {
-            if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
-                return;
-            }
-            
-            fetch("{% url 'AccountingSystem:delete_user' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    user_id: userId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message);
-                    location.reload();
-                } else {
-                    alert('Failed to delete user: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                alert('An error occurred while deleting the user');
-                console.error('Error:', error);
-            });
-        }
-
-        // Real-time section filter (no page reload)
-        const sectionFilter = document.getElementById('section_filter');
-        const studentRows = document.querySelectorAll('tr[data-section-id]');
-        const noFilterMatchRow = document.getElementById('noFilterMatchRow');
-
-        function applySectionFilter() {
-            if (!sectionFilter || studentRows.length === 0) return;
-
-            const selectedValue = sectionFilter.value;
-            const searchTerm = (document.getElementById('student_search')?.value || '').toLowerCase().trim();
-            let visibleCount = 0;
-
-            studentRows.forEach(row => {
-                const rowSection = row.getAttribute('data-section-id');
-                const studentName = row.getAttribute('data-student-name') || '';
-                const username = row.getAttribute('data-username') || '';
-
-                // Check section filter
-                const sectionMatch = !selectedValue || rowSection === selectedValue;
-                
-                // Check search filter
-                const searchMatch = !searchTerm || 
-                                   studentName.includes(searchTerm) || 
-                                   username.includes(searchTerm);
-
-                // Show row only if both filters match
-                const isMatch = sectionMatch && searchMatch;
-                row.style.display = isMatch ? '' : 'none';
-                if (isMatch) visibleCount += 1;
-            });
-
-            if (noFilterMatchRow) {
-                noFilterMatchRow.style.display = visibleCount === 0 ? '' : 'none';
-            }
-        }
-
-        if (sectionFilter) {
-            sectionFilter.addEventListener('change', applySectionFilter);
-            applySectionFilter();
-        }
-
-        // Student search functionality
-        const studentSearchInput = document.getElementById('student_search');
-        if (studentSearchInput) {
-            studentSearchInput.addEventListener('input', applySectionFilter);
-        }
-
-        // User Search Functionality
-        const searchUsersInput = document.getElementById('searchUsers');
-        if (searchUsersInput) {
-            searchUsersInput.addEventListener('input', function() {
-                const searchTerm = searchUsersInput.value.toLowerCase().trim();
-                const userRows = document.querySelectorAll('.user-row');
-                let visibleCount = 0;
-
-                userRows.forEach(row => {
-                    const username = row.getAttribute('data-username') || '';
-                    const fullname = row.getAttribute('data-fullname') || '';
-                    const email = row.getAttribute('data-email') || '';
-                    const role = row.getAttribute('data-role') || '';
-
-                    const isMatch = username.includes(searchTerm) ||
-                                   fullname.includes(searchTerm) ||
-                                   email.includes(searchTerm) ||
-                                   role.includes(searchTerm);
-
-                    if (isMatch) {
-                        row.style.display = '';
-                        visibleCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-
-                // Show "No results" message if needed
-                const tableBody = document.getElementById('userTableBody');
-                let noResultsMsg = document.querySelector('.no-user-search-results');
-                if (visibleCount === 0 && searchTerm !== '') {
-                    if (!noResultsMsg) {
-                        const tr = document.createElement('tr');
-                        tr.className = 'no-user-search-results';
-                        tr.innerHTML = '<td colspan="6" class="text-center"><div class="alert alert-info mb-0">No users match your search.</div></td>';
-                        tableBody.appendChild(tr);
-                    }
-                } else if (noResultsMsg) {
-                    noResultsMsg.remove();
-                }
-            });
-        }
-    </script>
+    <script src="{% static 'scripts/password_toggle.js' %}"></script>
+    <script src="{% static 'scripts/admin_user_management.js' %}"></script>
+    <script src="{% static 'scripts/admin_dashboard.js' %}"></script>
 </body>
 </html>

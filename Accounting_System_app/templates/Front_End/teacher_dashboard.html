@@ -138,6 +138,47 @@
         </div>
         <!-- Card Group End -->
 
+        <br> <br>
+
+        <!-- Sections Overview -->
+        <div class="user-management-section">
+            <h3>My Sections</h3>
+            <p class="text-muted">Sections you manage.</p>
+            
+            {% if teacher_managed_sections %}
+                <div class="row g-3">
+                    {% for section in teacher_managed_sections %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ section.name }}</h5>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <p class="card-text text-muted mb-0">Students</p>
+                                            <p class="fs-4 fw-bold mb-0">{{ section.student_count }}</p>
+                                        </div>
+                                        <div class="text-end">
+                                            {% if section.student_count > 0 %}
+                                                <span class="badge bg-success">Active</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Empty</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> You don't manage any sections yet.
+                </div>
+            {% endif %}
+        </div>
+        <!-- End Sections Overview -->
+
+        <br>
         <!-- Create User Modal -->
         <!-- Create User Modal -->
         <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
