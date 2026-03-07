@@ -2498,17 +2498,21 @@ def income_statement(request):
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
     account_groups = AccountGroups.objects.all().order_by('group_name')
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
-        user_section = request.user.profile.section
-        if user_section:
-            # Get account groups from teachers managing this section
-            account_groups = get_account_groups_for_section(user_section).order_by('group_name')
-        else:
-            account_groups = AccountGroups.objects.none()
+    if hasattr(request.user, 'profile'):
+        if request.user.profile.role == 'student':
+            user_section = request.user.profile.section
+            if user_section:
+                # Get account groups from teachers managing this section
+                account_groups = get_account_groups_for_section(user_section).order_by('group_name')
+            else:
+                account_groups = AccountGroups.objects.none()
+        elif request.user.profile.role == 'teacher':
+            # Teachers can only access their assigned account groups
+            account_groups = request.user.profile.account_groups.all().order_by('group_name')
 
     # Optional filter by Account Group
     group_filter = Q()
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+    if hasattr(request.user, 'profile') and request.user.profile.role in ['student', 'teacher']:
         group_filter &= Q(group_name__in=account_groups)
 
     selected_group = None
@@ -2620,17 +2624,21 @@ def balance_sheet(request):
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
     account_groups = AccountGroups.objects.all().order_by('group_name')
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
-        user_section = request.user.profile.section
-        if user_section:
-            # Get account groups from teachers managing this section
-            account_groups = get_account_groups_for_section(user_section).order_by('group_name')
-        else:
-            account_groups = AccountGroups.objects.none()
+    if hasattr(request.user, 'profile'):
+        if request.user.profile.role == 'student':
+            user_section = request.user.profile.section
+            if user_section:
+                # Get account groups from teachers managing this section
+                account_groups = get_account_groups_for_section(user_section).order_by('group_name')
+            else:
+                account_groups = AccountGroups.objects.none()
+        elif request.user.profile.role == 'teacher':
+            # Teachers can only access their assigned account groups
+            account_groups = request.user.profile.account_groups.all().order_by('group_name')
 
     # Optional filter by Account Group
     group_filter = Q()
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+    if hasattr(request.user, 'profile') and request.user.profile.role in ['student', 'teacher']:
         group_filter &= Q(group_name__in=account_groups)
 
     selected_group = None
@@ -2956,17 +2964,21 @@ def income_statement_pdf(request):
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
     account_groups = AccountGroups.objects.all().order_by('group_name')
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
-        user_section = request.user.profile.section
-        if user_section:
-            # Get account groups from teachers managing this section
-            account_groups = get_account_groups_for_section(user_section).order_by('group_name')
-        else:
-            account_groups = AccountGroups.objects.none()
+    if hasattr(request.user, 'profile'):
+        if request.user.profile.role == 'student':
+            user_section = request.user.profile.section
+            if user_section:
+                # Get account groups from teachers managing this section
+                account_groups = get_account_groups_for_section(user_section).order_by('group_name')
+            else:
+                account_groups = AccountGroups.objects.none()
+        elif request.user.profile.role == 'teacher':
+            # Teachers can only access their assigned account groups
+            account_groups = request.user.profile.account_groups.all().order_by('group_name')
 
     # Optional filter by Account Group
     group_filter = Q()
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+    if hasattr(request.user, 'profile') and request.user.profile.role in ['student', 'teacher']:
         group_filter &= Q(group_name__in=account_groups)
 
     selected_group = None
@@ -3099,17 +3111,21 @@ def balance_sheet_pdf(request):
         date_filter &= Q(journalentry__journal_header__entry_date__lte=end_date)
 
     account_groups = AccountGroups.objects.all().order_by('group_name')
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
-        user_section = request.user.profile.section
-        if user_section:
-            # Get account groups from teachers managing this section
-            account_groups = get_account_groups_for_section(user_section).order_by('group_name')
-        else:
-            account_groups = AccountGroups.objects.none()
+    if hasattr(request.user, 'profile'):
+        if request.user.profile.role == 'student':
+            user_section = request.user.profile.section
+            if user_section:
+                # Get account groups from teachers managing this section
+                account_groups = get_account_groups_for_section(user_section).order_by('group_name')
+            else:
+                account_groups = AccountGroups.objects.none()
+        elif request.user.profile.role == 'teacher':
+            # Teachers can only access their assigned account groups
+            account_groups = request.user.profile.account_groups.all().order_by('group_name')
 
     # Optional filter by Account Group
     group_filter = Q()
-    if hasattr(request.user, 'profile') and request.user.profile.role == 'student':
+    if hasattr(request.user, 'profile') and request.user.profile.role in ['student', 'teacher']:
         group_filter &= Q(group_name__in=account_groups)
 
     selected_group = None
