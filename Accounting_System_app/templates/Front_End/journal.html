@@ -152,91 +152,94 @@
                 <input type="text" class="form-control" id="searchDraftJournals" placeholder="Search drafts by journal code, account, creator, or description...">
             </div>
             <div class="display_table">
-                <table class="table table-bordered">
                     {% for group in draft_groups %}
-                    <table class="table table-bordered mb-4 journal-entry-table" 
+                    <div class="table-responsive shadow-sm mb-4 rounded">
+                    <table class="table table-hover table-bordered mb-0 journal-entry-table" 
                         data-journal-code="{{ group.header.entry_no }}"
                         data-creator="{{ group.header.user.get_full_name|default:group.header.user.username }}"
                         data-description="{{ group.header.journal_description }}"
                         data-date="{{ group.header.entry_date }}"
                         data-accounts="{% for entry in group.entries %}{{ entry.account.account_name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
-                        <thead class="table-light">
+                        <thead class="table-light sticky-top">
                             <tr>
-                                <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
-                                <th><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
-                                <th colspan="2" class="text-end">
-                                    <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
-                                    &nbsp;
-                                    {% if request.user != group.header.user %}
-                                    <button
-                                        type="button"
-                                        class="btn btn-dark btn-sm collaborator-message-trigger"
-                                        data-collaborator-id="{{ group.header.user.id }}"
-                                        data-collaborator-name="{{ group.header.user.get_full_name|default:group.header.user.username }}"
-                                        data-journal-code="{{ group.header.entry_no }}"
-                                        title="Message the journal owner"
-                                    >
-                                        <i class="bi bi-envelope"></i> Message Owner
-                                    </button>
-                                    &nbsp;
-                                    {% endif %}
-                                    <button type="button" class="btn btn-info btn-sm" title="View Change History"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#historyModal"  
-                                        data-id="{{ group.header.id }}"
-                                        data-is-draft="true"
-                                        onclick="loadJournalHistory(this)">
-                                        <i class="bi bi-clock-history"></i> History
-                                    </button>
-                                    &nbsp;
-                                    <button type="button" class="btn btn-primary btn-sm" id="edit_button"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#EDITstaticBackdrop"  
-                                        data-id="{{ group.header.id }}"
-                                        data-date="{{ group.header.entry_date }}"
-                                        data-description="{{ group.header.journal_description }}"
-                                        data-totaldebit="{{ group.total_debit }}"
-                                        data-totalcredit="{{ group.total_credit }}"
-                                        data-entrycount="{{ group.entries.count }}"
-                                        data-group="{{ group.header.group_name.id }}"
-                                        data-group-name="{{ group.header.group_name.group_name }}"
-                                        data-is-draft="true"
+                                <th class="align-middle journal-code-cell"><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
+                                <th class="align-middle journal-date-cell"><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
+                                <th colspan="2" class="journal-actions-cell">
+                                    <div class="btn-toolbar justify-content-end gap-1 journal-actions" role="toolbar">
+                                        <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank" title="Download as PDF">
+                                            <i class="bi bi-file-earmark-pdf"></i> <span class="d-none d-xl-inline">PDF</span>
+                                        </a>
+                                        {% if request.user != group.header.user %}
+                                        <button
+                                            type="button"
+                                            class="btn btn-dark btn-sm collaborator-message-trigger"
+                                            data-collaborator-id="{{ group.header.user.id }}"
+                                            data-collaborator-name="{{ group.header.user.get_full_name|default:group.header.user.username }}"
+                                            data-journal-code="{{ group.header.entry_no }}"
+                                            title="Message the journal owner"
                                         >
-                                        Edit
-                                    </button>
-
-                                    <!-- Hidden table to store entry data -->
-                                    <table class="d-none" id="entries_{{ group.header.id }}">
-                                        {% for entry in group.entries %}
-                                            <tr data-account-id="{{ entry.account.id }}"
-                                                data-account-name="{{ entry.account.account_name }}"
-                                                data-account-type="{{ entry.account.account_type }}"
-                                                data-debit="{{ entry.debit }}"
-                                                data-credit="{{ entry.credit }}">
-                                            </tr>
-                                        {% endfor %}
-                                    </table>
-                                    &nbsp;
-                                    {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
-                                    <a href="{% url 'AccountingSystem:approve_journal_draft' group.header.id %}" class="btn btn-success btn-sm" onclick="return confirm('Are you sure you want to approve this journal?');"><i class="bi bi-check-circle"></i> Approve</a>
-                                    &nbsp;
-                                    {% endif %}
-                                    {% if request.user == group.header.user %}
-                                    <button type="button" class="btn btn-info btn-sm" id="share_button" data-bs-toggle="modal" data-bs-target="#ShareDraftModal" data-id="{{ group.header.id }}" data-is-draft="true"><i class="bi bi-share"></i> Share</button>
-                                    &nbsp;
-                                    {% endif %}
-                                    <form action="{% url 'AccountingSystem:delete_journal_draft' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
-                                        {% csrf_token %}
-                                        <button name="delete" class="btn btn-danger btn-sm">
-                                            Delete
+                                            <i class="bi bi-envelope"></i> <span class="d-none d-xl-inline">Message</span>
                                         </button>
-                                    </form>   
+                                        {% endif %}
+                                        <button type="button" class="btn btn-info btn-sm" title="View Change History"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#historyModal"  
+                                            data-id="{{ group.header.id }}"
+                                            data-is-draft="true"
+                                            onclick="loadJournalHistory(this)">
+                                            <i class="bi bi-clock-history"></i> <span class="d-none d-xl-inline">History</span>
+                                        </button>
+                                        <button type="button" class="btn btn-primary btn-sm" id="edit_button"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#EDITstaticBackdrop"  
+                                            data-id="{{ group.header.id }}"
+                                            data-date="{{ group.header.entry_date }}"
+                                            data-description="{{ group.header.journal_description }}"
+                                            data-totaldebit="{{ group.total_debit }}"
+                                            data-totalcredit="{{ group.total_credit }}"
+                                            data-entrycount="{{ group.entries.count }}"
+                                            data-group="{{ group.header.group_name.id }}"
+                                            data-group-name="{{ group.header.group_name.group_name }}"
+                                            data-is-draft="true"
+                                            title="Edit Journal Entry">
+                                            <i class="bi bi-pencil"></i> <span class="d-none d-xl-inline">Edit</span>
+                                        </button>
+
+                                        <!-- Hidden table to store entry data -->
+                                        <table class="d-none" id="entries_{{ group.header.id }}">
+                                            {% for entry in group.entries %}
+                                                <tr data-account-id="{{ entry.account.id }}"
+                                                    data-account-name="{{ entry.account.account_name }}"
+                                                    data-account-type="{{ entry.account.account_type }}"
+                                                    data-debit="{{ entry.debit }}"
+                                                    data-credit="{{ entry.credit }}">
+                                                </tr>
+                                            {% endfor %}
+                                        </table>
+                                        {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
+                                        <a href="{% url 'AccountingSystem:approve_journal_draft' group.header.id %}" class="btn btn-success btn-sm" onclick="return confirm('Are you sure you want to approve this journal?');" title="Approve Journal">
+                                            <i class="bi bi-check-circle"></i> <span class="d-none d-xl-inline">Approve</span>
+                                        </a>
+                                        {% endif %}
+                                        {% if request.user == group.header.user %}
+                                        <button type="button" class="btn btn-info btn-sm" id="share_button" data-bs-toggle="modal" data-bs-target="#ShareDraftModal" data-id="{{ group.header.id }}" data-is-draft="true" title="Share Journal">
+                                            <i class="bi bi-share"></i> <span class="d-none d-xl-inline">Share</span>
+                                        </button>
+                                        {% endif %}
+                                        <form action="{% url 'AccountingSystem:delete_journal_draft' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
+                                            {% csrf_token %}
+                                            <button name="delete" class="btn btn-danger btn-sm" title="Delete Journal">
+                                                <i class="bi bi-trash"></i> <span class="d-none d-xl-inline">Delete</span>
+                                            </button>
+                                        </form>
+                                    </div>   
                                 </th>
                             </tr>
                             <tr class="table-light">
-                                <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
+                                <th class="align-middle"><small class="text-muted">Date:</small> {{ group.header.entry_date }} <span class="text-muted">|</span> <small class="text-muted">Created by:</small> {{ group.header.user.first_name }}</th>
                                 {% if group.header.collaborators.all %}
-                                <th colspan="4"><strong>Collaborators:</strong> 
+                                <th colspan="3" class="align-middle"><strong>Collaborators:</strong>
+                                    <div class="journal-collaborators">
                                     {% for collab in group.header.collaborators.all %}
                                         <span class="badge bg-info">
                                             {% if collab.collaborator == request.user %}
@@ -257,14 +260,15 @@
                                             {% endif %}
                                         </span>
                                     {% endfor %}
+                                    </div>
                                 </th>
                                 {% endif %}
                             </tr>
-                            <tr>
-                                <th></th>
-                                <th>Account Name</th>
-                                <th>Debit</th>
-                                <th>Credit</th>
+                            <tr class="table-primary">
+                                <th style="width: 5%;"></th>
+                                <th style="width: 50%;">Account Name</th>
+                                <th class="text-end" style="width: 22.5%;">Debit</th>
+                                <th class="text-end" style="width: 22.5%;">Credit</th>
                             </tr>
                         </thead>
 
@@ -273,22 +277,25 @@
                             <tr>
                                 <td></td>
                                 <td>{{ journal_entry.account.account_name }}</td>
-                                <td>{{ journal_entry.debit|floatformat:2 }}</td>
-                                <td>{{ journal_entry.credit|floatformat:2 }}</td>
+                                <td class="text-end">{{ journal_entry.debit|floatformat:2 }}</td>
+                                <td class="text-end">{{ journal_entry.credit|floatformat:2 }}</td>
                             </tr>
                             {% endfor %}
-                            <tr class="{% if group.total_debit == group.total_credit %}table-success{% else %}table-danger{% endif %}">
-                                <td colspan="1"><strong>Description:</strong> {{ group.header.journal_description }}</td>                            
-                                <td colspan="1" class="text-end">Totals = </td>
-                                <td><strong>{{ group.total_debit|floatformat:2 }}</strong></td>
-                                <td><strong>{{ group.total_credit|floatformat:2 }}</strong></td>
-                            </tr>
                         </tbody>
+                        <tfoot>
+                            <tr class="{% if group.total_debit == group.total_credit %}table-success{% else %}table-danger{% endif %} fw-bold">
+                                <td colspan="2"><strong>Description:</strong> <span class="fw-normal">{{ group.header.journal_description }}</span></td>
+                                <td class="text-end">{{ group.total_debit|floatformat:2 }}</td>
+                                <td class="text-end">{{ group.total_credit|floatformat:2 }}</td>
+                            </tr>
+                        </tfoot>
                     </table>
+                    </div>
                     {% empty %}
-                    <p>No Journal Entries Drafts are created.</p>
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-info-circle"></i> No Journal Entry Drafts are created.
+                    </div>
                     {% endfor %}
-                </table>
             </div>
           </div>
           <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab">
@@ -296,97 +303,97 @@
                 <input type="text" class="form-control" id="searchApprovedJournals" placeholder="Search approved journals by journal code, account, creator, or description...">
             </div>
             <div class="display_table">
-                <table class="table table-bordered">
                     {% for group in approved_groups %}
-                    <table class="table table-bordered mb-4 journal-entry-table" 
+                    <div class="table-responsive shadow-sm mb-4 rounded">
+                    <table class="table table-hover table-bordered mb-0 journal-entry-table" 
                         data-journal-code="{{ group.header.entry_no }}"
                         data-creator="{{ group.header.user.get_full_name|default:group.header.user.username }}"
                         data-description="{{ group.header.journal_description }}"
                         data-date="{{ group.header.entry_date }}"
                         data-accounts="{% for entry in group.entries %}{{ entry.account.account_name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
-                        <thead class="table-light">
+                        <thead class="table-light sticky-top">
                             <tr>
-                                <th><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
-                                <th><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
-                                <th colspan="2" class="text-end">
-                                    <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download as PDF</a>
-                                    &nbsp;
-                                    {% if request.user != group.header.user %}
-                                    <button
-                                        type="button"
-                                        class="btn btn-dark btn-sm collaborator-message-trigger"
-                                        data-collaborator-id="{{ group.header.user.id }}"
-                                        data-collaborator-name="{{ group.header.user.get_full_name|default:group.header.user.username }}"
-                                        data-journal-code="{{ group.header.entry_no }}"
-                                        title="Message the journal owner"
-                                    >
-                                        <i class="bi bi-envelope"></i> Message Owner
-                                    </button>
-                                    &nbsp;
-                                    {% endif %}
-                                    <button type="button" class="btn btn-info btn-sm" title="View Change History"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#historyModal"  
-                                        data-id="{{ group.header.id }}"
-                                        data-is-draft="false"
-                                        onclick="loadJournalHistory(this)">
-                                        <i class="bi bi-clock-history"></i> History
-                                    </button>
-                                    &nbsp;
-                                    {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
-                                    <button type="button" class="btn btn-primary btn-sm" id="edit_button"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#EDITstaticBackdrop"  
-                                        data-id="{{ group.header.id }}"
-                                        data-date="{{ group.header.entry_date }}"
-                                        data-description="{{ group.header.journal_description }}"
-                                        data-totaldebit="{{ group.total_debit }}"
-                                        data-totalcredit="{{ group.total_credit }}"
-                                        data-entrycount="{{ group.entries.count }}"
-                                        data-group="{{ group.header.group_name.id }}"
-                                        data-group-name="{{ group.header.group_name.group_name }}"
+                                <th class="align-middle journal-code-cell"><strong>Journal Code:</strong> {{ group.header.entry_no }}</th>
+                                <th class="align-middle journal-date-cell"><strong>Date Created:</strong> {{ group.header.journal_date_created }}</th>
+                                <th colspan="2" class="journal-actions-cell">
+                                    <div class="btn-toolbar justify-content-end gap-1 journal-actions" role="toolbar">
+                                        <a href="{% url 'AccountingSystem:journal_pdf' group.header.id %}" class="btn btn-success btn-sm" target="_blank" title="Download as PDF">
+                                            <i class="bi bi-file-earmark-pdf"></i> <span class="d-none d-xl-inline">PDF</span>
+                                        </a>
+                                        {% if request.user != group.header.user %}
+                                        <button
+                                            type="button"
+                                            class="btn btn-dark btn-sm collaborator-message-trigger"
+                                            data-collaborator-id="{{ group.header.user.id }}"
+                                            data-collaborator-name="{{ group.header.user.get_full_name|default:group.header.user.username }}"
+                                            data-journal-code="{{ group.header.entry_no }}"
+                                            title="Message the journal owner"
                                         >
-                                        Edit
-                                    </button>
-                                    {% endif %}
-
-                                    <!-- Hidden table to store entry data -->
-                                    <table class="d-none" id="entries_{{ group.header.id }}">
-                                        {% for entry in group.entries %}
-                                            <tr data-account-id="{{ entry.account.id }}"
-                                                data-account-name="{{ entry.account.account_name }}"
-                                                data-account-type="{{ entry.account.account_type }}"
-                                                data-debit="{{ entry.debit }}"
-                                                data-credit="{{ entry.credit }}">
-                                            </tr>
-                                        {% endfor %}
-                                    </table>
-                                    &nbsp;
-                                    {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
-                                    <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
-                                        {% csrf_token %}
-                                        <button name="delete" class="btn btn-danger btn-sm">
-                                            Delete
+                                            <i class="bi bi-envelope"></i> <span class="d-none d-xl-inline">Message</span>
                                         </button>
-                                    </form>
-                                    {% endif %}
-                                    &nbsp;
-                                    {% if request.user == group.header.user %}
-                                    <!--
-                                    <button type="button" class="btn btn-info btn-sm" id="share_button" 
-                                        data-bs-toggle="modal" data-bs-target="#ShareModal" 
-                                        data-id="{{ group.header.id }}" data-is-draft="false">
-                                        <i class="bi bi-share"></i> Share
-                                    </button>
-                                    -->
-                                    {% endif %}
+                                        {% endif %}
+                                        <button type="button" class="btn btn-info btn-sm" title="View Change History"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#historyModal"  
+                                            data-id="{{ group.header.id }}"
+                                            data-is-draft="false"
+                                            onclick="loadJournalHistory(this)">
+                                            <i class="bi bi-clock-history"></i> <span class="d-none d-xl-inline">History</span>
+                                        </button>
+                                        {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
+                                        <button type="button" class="btn btn-primary btn-sm" id="edit_button"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#EDITstaticBackdrop"  
+                                            data-id="{{ group.header.id }}"
+                                            data-date="{{ group.header.entry_date }}"
+                                            data-description="{{ group.header.journal_description }}"
+                                            data-totaldebit="{{ group.total_debit }}"
+                                            data-totalcredit="{{ group.total_credit }}"
+                                            data-entrycount="{{ group.entries.count }}"
+                                            data-group="{{ group.header.group_name.id }}"
+                                            data-group-name="{{ group.header.group_name.group_name }}"
+                                            title="Edit Journal Entry">
+                                            <i class="bi bi-pencil"></i> <span class="d-none d-xl-inline">Edit</span>
+                                        </button>
+                                        {% endif %}
+
+                                        <!-- Hidden table to store entry data -->
+                                        <table class="d-none" id="entries_{{ group.header.id }}">
+                                            {% for entry in group.entries %}
+                                                <tr data-account-id="{{ entry.account.id }}"
+                                                    data-account-name="{{ entry.account.account_name }}"
+                                                    data-account-type="{{ entry.account.account_type }}"
+                                                    data-debit="{{ entry.debit }}"
+                                                    data-credit="{{ entry.credit }}">
+                                                </tr>
+                                            {% endfor %}
+                                        </table>
+                                        {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
+                                        <form action="{% url 'AccountingSystem:delete_journal' group.header.id %}" method="post" class="d-inline" onsubmit="return confirmDeleteJournal();">
+                                            {% csrf_token %}
+                                            <button name="delete" class="btn btn-danger btn-sm" title="Delete Journal">
+                                                <i class="bi bi-trash"></i> <span class="d-none d-xl-inline">Delete</span>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                        {% if request.user == group.header.user %}
+                                        <!--
+                                        <button type="button" class="btn btn-info btn-sm" id="share_button" 
+                                            data-bs-toggle="modal" data-bs-target="#ShareModal" 
+                                            data-id="{{ group.header.id }}" data-is-draft="false">
+                                            <i class="bi bi-share"></i> Share
+                                        </button>
+                                        -->
+                                        {% endif %}
+                                    </div>
                                 </th>
                             </tr>
-                            <tr>
-                                <th>Date: {{ group.header.entry_date }} | Created by: {{ group.header.user.first_name }}</th>
+                            <tr class="table-light">
+                                <th class="align-middle"><small class="text-muted">Date:</small> {{ group.header.entry_date }} <span class="text-muted">|</span> <small class="text-muted">Created by:</small> {{ group.header.user.first_name }}</th>
                                 {% if group.header.collaborators.all %}
-                                <th colspan="3">
+                                <th colspan="3" class="align-middle">
                                     <strong>Collaborators:</strong>
+                                    <div class="journal-collaborators">
                                     {% for collab in group.header.collaborators.all %}
                                     <span class="badge bg-info">
                                         {% if collab.collaborator == request.user %}
@@ -407,14 +414,15 @@
                                         {% endif %}
                                     </span>
                                     {% endfor %}
+                                    </div>
                                 </th>
                                 {% endif %}
                             </tr>
-                            <tr>
-                                <th></th>
-                                <th>Account Name</th>
-                                <th>Debit</th>
-                                <th>Credit</th>
+                            <tr class="table-primary">
+                                <th style="width: 5%;"></th>
+                                <th style="width: 50%;">Account Name</th>
+                                <th class="text-end" style="width: 22.5%;">Debit</th>
+                                <th class="text-end" style="width: 22.5%;">Credit</th>
                             </tr>
                         </thead>
 
@@ -423,22 +431,25 @@
                             <tr>
                                 <td></td>
                                 <td>{{ journal_entry.account.account_name }}</td>
-                                <td>{{ journal_entry.debit|floatformat:2 }}</td>
-                                <td>{{ journal_entry.credit|floatformat:2 }}</td>
+                                <td class="text-end">{{ journal_entry.debit|floatformat:2 }}</td>
+                                <td class="text-end">{{ journal_entry.credit|floatformat:2 }}</td>
                             </tr>
                             {% endfor %}
-                            <tr class="{% if group.total_debit == group.total_credit %}table-success{% else %}table-danger{% endif %}">
-                                <td colspan="1"><strong>Description:</strong> {{ group.header.journal_description }}</td>                            
-                                <td colspan="1" class="text-end">Totals = </td>
-                                <td><strong>{{ group.total_debit|floatformat:2 }}</strong></td>
-                                <td><strong>{{ group.total_credit|floatformat:2 }}</strong></td>
-                            </tr>
                         </tbody>
+                        <tfoot>
+                            <tr class="{% if group.total_debit == group.total_credit %}table-success{% else %}table-danger{% endif %} fw-bold">
+                                <td colspan="2"><strong>Description:</strong> <span class="fw-normal">{{ group.header.journal_description }}</span></td>
+                                <td class="text-end">{{ group.total_debit|floatformat:2 }}</td>
+                                <td class="text-end">{{ group.total_credit|floatformat:2 }}</td>
+                            </tr>
+                        </tfoot>
                     </table>
+                    </div>
                     {% empty %}
-                    <p>No Journal Entries are approved yet.</p>
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-info-circle"></i> No Journal Entries are approved yet.
+                    </div>
                     {% endfor %}
-                </table>
             </div>
           </div>
         </div>

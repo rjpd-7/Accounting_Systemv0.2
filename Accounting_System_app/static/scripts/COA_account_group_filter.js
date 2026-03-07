@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const name = row.dataset.name || '';
             const type = row.dataset.type || '';
             const description = row.dataset.description || '';
+            const groupName = row.dataset.groupName || '';
             
             // Check group filter
             const groupMatch = !groupId || rowGroupId === groupId || rowGroupId === 'null';
@@ -47,7 +48,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                code.includes(searchTerm) || 
                                name.includes(searchTerm) || 
                                type.includes(searchTerm) ||
-                               description.includes(searchTerm);
+                               description.includes(searchTerm) ||
+                               groupName.includes(searchTerm);
             
             // Show row only if both filters match
             if (groupMatch && searchMatch) {

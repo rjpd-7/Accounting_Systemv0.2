@@ -176,3 +176,144 @@ body {
     background-color: rgba(0,0,0,0.03);
 }
 
+/* Enhanced Journal Table Styles */
+.journal-entry-table {
+    background-color: white;
+    table-layout: fixed;
+}
+
+.journal-code-cell {
+    width: 32%;
+    min-width: 220px;
+    white-space: nowrap;
+}
+
+.journal-date-cell {
+    width: 24%;
+    min-width: 190px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+}
+
+.journal-actions-cell {
+    width: 44%;
+}
+
+.journal-entry-table thead.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.journal-entry-table .table-light {
+    background-color: #f8f9fa !important;
+}
+
+.journal-entry-table .table-primary {
+    background-color: #cfe2ff !important;
+    color: #000;
+}
+
+.journal-entry-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.journal-entry-table tfoot {
+    font-weight: bold;
+}
+
+/* Responsive table wrapper enhancements */
+.table-responsive {
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+}
+
+.table-responsive.shadow-sm {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+/* Button toolbar improvements */
+.btn-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.btn-toolbar .btn {
+    white-space: nowrap;
+}
+
+.journal-actions {
+    gap: 0.35rem !important;
+}
+
+.journal-actions .btn,
+.journal-actions form {
+    margin-bottom: 0.2rem;
+}
+
+.journal-actions .btn {
+    padding: 0.24rem 0.48rem;
+}
+
+.journal-collaborators {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.2rem;
+}
+
+/* Align middle utility for table cells */
+.align-middle {
+    vertical-align: middle !important;
+}
+
+/* Badge spacing in collaborators */
+.badge {
+    margin-right: 0;
+    margin-bottom: 0;
+    padding: 0.3rem 0.45rem;
+    font-size: 0.78rem;
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 768px) {
+    .journal-entry-table {
+        table-layout: auto;
+    }
+
+    .journal-code-cell,
+    .journal-date-cell,
+    .journal-actions-cell {
+        width: auto;
+        min-width: 0;
+        white-space: normal;
+    }
+
+    .journal-entry-table thead th {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.25rem;
+    }
+    
+    .journal-entry-table tbody td {
+        font-size: 0.9rem;
+        padding: 0.5rem 0.25rem;
+    }
+    
+    .btn-toolbar .btn {
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .journal-actions {
+        justify-content: flex-start !important;
+    }
+}
+
+/* Alert styling enhancements */
+.alert-info {
+    background-color: #cff4fc;
+    border-color: #b6effb;
+    color: #055160;
+}
+

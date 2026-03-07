@@ -1602,9 +1602,16 @@ def get_journal_history(request, id):
     
     history = []
     for trail in audit_trails:
+        # Display first and last name, fallback to username if names not available
+        if trail.changed_by:
+            full_name = f"{trail.changed_by.first_name} {trail.changed_by.last_name}".strip()
+            changed_by_display = full_name if full_name else trail.changed_by.username
+        else:
+            changed_by_display = 'System'
+            
         history.append({
             'id': trail.id,
-            'changed_by': trail.changed_by.username if trail.changed_by else 'System',
+            'changed_by': changed_by_display,
             'change_type': trail.get_change_type_display(),
             'changed_at': trail.changed_at.strftime('%Y-%m-%d %H:%M:%S'),
             'field_name': trail.field_name,
@@ -1634,9 +1641,16 @@ def get_journal_draft_history(request, id):
     
     history = []
     for trail in audit_trails:
+        # Display first and last name, fallback to username if names not available
+        if trail.changed_by:
+            full_name = f"{trail.changed_by.first_name} {trail.changed_by.last_name}".strip()
+            changed_by_display = full_name if full_name else trail.changed_by.username
+        else:
+            changed_by_display = 'System'
+            
         history.append({
             'id': trail.id,
-            'changed_by': trail.changed_by.username if trail.changed_by else 'System',
+            'changed_by': changed_by_display,
             'change_type': trail.get_change_type_display(),
             'changed_at': trail.changed_at.strftime('%Y-%m-%d %H:%M:%S'),
             'field_name': trail.field_name,
@@ -3252,16 +3266,20 @@ def _get_connected_users_queryset(user):
     role = user.profile.role if hasattr(user, 'profile') else None
     base_queryset = User.objects.none()
 
-    if role in ('teacher', 'admin'):
-        # Teachers/Admins can always message other teachers/admins
-        # Plus students in their managed sections (if any)
+    if role == 'admin':
+        # Admins can message all users in the system (except themselves).
+        base_queryset = User.objects.exclude(id=user.id).distinct()
+
+    elif role == 'teacher':
+        # Teachers can always message other teachers/admins,
+        # plus students in their managed sections (if any).
         if section_ids:
             base_queryset = User.objects.exclude(id=user.id).filter(
                 Q(profile__role='student', profile__section_id__in=section_ids) |
                 Q(profile__role__in=['teacher', 'admin'])
             ).distinct()
         else:
-            # Teacher/Admin with no sections can still message other teachers/admins
+            # Teacher with no sections can still message other teachers/admins.
             base_queryset = User.objects.exclude(id=user.id).filter(
                 profile__role__in=['teacher', 'admin']
             ).distinct()

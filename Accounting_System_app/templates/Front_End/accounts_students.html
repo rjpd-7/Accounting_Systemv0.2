@@ -151,6 +151,16 @@
         </select>
 
         <br>
+        <label for="accountSearch" class="form-label"><strong>Search Accounts:</strong></label>
+        <input
+            type="text"
+            id="accountSearch"
+            class="form-control"
+            style="max-width: 500px;"
+            placeholder="Search by code, account name, type, description, or group..."
+        >
+
+        <br>
         <br>
         <!-- Display Table -->
         <div class="display_table">
@@ -167,7 +177,15 @@
                 </thead>
                 <tbody id="accountsTableBody">
                     {% for account in accounts %}
-                    <tr data-group-id="{% if account.group_name %}{{ account.group_name.id }}{% else %}null{% endif %}">
+                    <tr
+                        class="account-row"
+                        data-group-id="{% if account.group_name %}{{ account.group_name.id }}{% else %}null{% endif %}"
+                        data-code="{{ account.account_code|default:''|lower }}"
+                        data-name="{{ account.account_name|default:''|lower }}"
+                        data-type="{{ account.account_type|default:''|lower }}"
+                        data-description="{{ account.account_description|default:''|lower }}"
+                        data-group-name="{{ account.group_name.group_name|default:''|lower }}"
+                    >
                         <td>{{ account.date_created }}</td>
                         <td>{{ account.group_name.group_name }}</td>
                         <td>{{ account.account_code }}</td>

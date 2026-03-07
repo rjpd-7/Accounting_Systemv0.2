@@ -13,6 +13,32 @@
         .dash-card p { margin:0; font-size:28px; font-weight:700; }
         .dash-card:hover { transform:translateY(-4px); background:#311413; box-shadow:0 6px 18px rgba(0,0,0,.12); cursor:pointer; }
         .user-management-section .table-responsive { max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; }
+        
+        /* Teacher Section Assignment Table - Sticky First Column */
+        .teacher-assignment-scroll { 
+            max-height: 500px; 
+            max-width: 100%;
+            overflow: auto; 
+            border: 1px solid #dee2e6; 
+            border-radius: 4px;
+            position: relative;
+        }
+        .teacher-assignment-table { margin-bottom: 0; }
+        .teacher-assignment-table thead th:first-child,
+        .teacher-assignment-table tbody td:first-child { 
+            position: sticky; 
+            left: 0; 
+            background-color: #fff;
+            z-index: 10;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+        .teacher-assignment-table thead th:first-child {
+            background-color: #f8f9fa;
+            z-index: 11;
+        }
+        .teacher-assignment-table tbody tr:nth-of-type(odd) td:first-child {
+            background-color: rgba(0,0,0,0.05);
+        }
     </style>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
@@ -419,8 +445,8 @@
 
             <form method="post" action="{% url 'AccountingSystem:admin_assign_teachers_to_sections' %}">
                 {% csrf_token %}
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
+                <div class="teacher-assignment-scroll">
+                    <table class="table table-striped table-hover align-middle teacher-assignment-table">
                         <thead class="table-light">
                             <tr>
                                 <th style="width: 20%;">Teacher</th>
