@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection, JournalAuditTrail
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection, UserProfile, JournalAuditTrail
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
 from itertools import zip_longest
@@ -265,7 +265,6 @@ def login_view(request):
             login(request, user)
 
             # Ensure every user has a profile (defaults to student)
-            from .models import UserProfile
             if not hasattr(user, "profile"):
                 UserProfile.objects.create(user=user, role='student')
 
@@ -366,7 +365,8 @@ def admin_dashboard(request):
     total_entries = JournalEntry.objects.count()
     users = User.objects.all()
     students = User.objects.filter(profile__role='student').select_related('profile', 'profile__section').order_by('last_name', 'first_name', 'username')
-    sections = StudentSection.objects.all().prefetch_related('account_groups').order_by('name')
+    teachers = User.objects.filter(profile__role='teacher').select_related('profile').order_by('first_name', 'last_name', 'username')
+    sections = StudentSection.objects.all().prefetch_related('account_groups', 'teachers').order_by('name')
     account_groups = AccountGroups.objects.all().order_by('group_name')
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
     sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
@@ -382,6 +382,7 @@ def admin_dashboard(request):
         'total_entries': total_entries,
         'users': users,
         'students': students,
+        'teachers': teachers,
         'sections': sections,
         'account_groups': account_groups,
         'admin_managed_sections': admin_managed_sections,
@@ -400,15 +401,26 @@ def teacher_dashboard(request):
     total_accounts = ChartOfAccounts.objects.count()
     total_journals = JournalHeader.objects.filter(user=request.user).count() if not request.user.is_superuser else JournalHeader.objects.count()
     total_entries = JournalEntry.objects.count()
-    users = User.objects.all()
-    students = User.objects.filter(profile__role='student').select_related('profile', 'profile__section').order_by('last_name', 'first_name', 'username')
-    sections = StudentSection.objects.all().prefetch_related('account_groups').order_by('name')
+    
+    # Get sections managed by this teacher
+    teacher_managed_sections = request.user.managed_sections.all()
+    
+    # Show only the teacher's managed sections plus unassigned students
+    # Students can be: in one of teacher's managed sections, or unassigned
+    students = User.objects.filter(
+        Q(profile__role='student') & (
+            Q(profile__section__in=teacher_managed_sections) | 
+            Q(profile__section__isnull=True)
+        )
+    ).select_related('profile', 'profile__section').order_by('last_name', 'first_name', 'username')
+    
+    # Show all sections created (as context for filtering)
+    all_sections = StudentSection.objects.all().prefetch_related('account_groups').order_by('name')
+    
     account_groups = AccountGroups.objects.all().order_by('group_name')
     received_messages = Message.objects.filter(recipient=request.user).order_by('-created_at')
     sent_messages = Message.objects.filter(sender=request.user).order_by('-created_at')
     
-    # Get sections managed by this teacher
-    teacher_managed_sections = request.user.managed_sections.all()
     # Get account groups assigned to this teacher
     teacher_account_groups = request.user.profile.account_groups.all()
 
@@ -416,9 +428,8 @@ def teacher_dashboard(request):
         'total_accounts': total_accounts,
         'total_journals': total_journals,
         'total_entries': total_entries,
-        'users': users,
         'students': students,
-        'sections': sections,
+        'sections': all_sections,
         'account_groups': account_groups,
         'teacher_managed_sections': teacher_managed_sections,
         'teacher_account_groups': teacher_account_groups,
@@ -462,6 +473,64 @@ def admin_create_student_section(request):
 
     StudentSection.objects.create(name=section_name)
     messages.success(request, f'Section "{section_name}" created successfully.')
+    return redirect('AccountingSystem:admin_dashboard')
+
+@role_required(['admin'])
+@require_http_methods(["POST"])
+def admin_rename_student_section(request):
+    section_id = request.POST.get('section_id')
+    new_section_name = (request.POST.get('new_section_name') or '').strip()
+
+    if not section_id:
+        messages.error(request, 'Please select a section to rename.')
+        return redirect('AccountingSystem:admin_dashboard')
+
+    if not new_section_name:
+        messages.error(request, 'New section name is required.')
+        return redirect('AccountingSystem:admin_dashboard')
+
+    section = get_object_or_404(StudentSection, id=section_id)
+
+    if StudentSection.objects.filter(name__iexact=new_section_name).exclude(id=section.id).exists():
+        messages.error(request, f'Section "{new_section_name}" already exists.')
+        return redirect('AccountingSystem:admin_dashboard')
+
+    old_name = section.name
+    section.name = new_section_name
+    section.save(update_fields=['name'])
+
+    # Student assignments remain intact because only the section name is changed.
+    messages.success(request, f'Section renamed from "{old_name}" to "{new_section_name}".')
+    return redirect('AccountingSystem:admin_dashboard')
+
+@role_required(['admin'])
+@require_http_methods(["POST"])
+def admin_advance_section_students(request):
+    from_section_id = request.POST.get('from_section_id')
+    to_section_id = request.POST.get('to_section_id')
+
+    if not from_section_id or not to_section_id:
+        messages.error(request, 'Please select both current section and next section.')
+        return redirect('AccountingSystem:admin_dashboard')
+
+    if str(from_section_id) == str(to_section_id):
+        messages.error(request, 'Current section and next section must be different.')
+        return redirect('AccountingSystem:admin_dashboard')
+
+    from_section = get_object_or_404(StudentSection, id=from_section_id)
+    to_section = get_object_or_404(StudentSection, id=to_section_id)
+
+    # Move all students in one bulk update while keeping each student profile intact.
+    moved_count = UserProfile.objects.filter(role='student', section=from_section).update(section=to_section)
+
+    if moved_count == 0:
+        messages.info(request, f'No students were found in "{from_section.name}" to advance.')
+    else:
+        messages.success(
+            request,
+            f'Changed {moved_count} student(s) from "{from_section.name}" to "{to_section.name}" successfully.'
+        )
+
     return redirect('AccountingSystem:admin_dashboard')
 
 @role_required(['admin'])
@@ -525,12 +594,21 @@ def admin_assign_account_groups_to_section(request):
 @role_required(['teacher'])
 @require_http_methods(["POST"])
 def assign_student_sections_bulk(request):
+    """
+    Assign students to sections. Teachers can only assign students to their managed sections.
+    """
+    teacher = request.user
+    teacher_managed_sections = teacher.managed_sections.all()
+    teacher_managed_section_ids = set(teacher_managed_sections.values_list('id', flat=True))
+    
     assignments = request.POST
     section_ids = {v for k, v in assignments.items() if k.startswith('section_for_') and v}
 
+    # Only allow sections that the teacher manages (intersection of both sets)
+    valid_section_ids = section_ids & teacher_managed_section_ids
     valid_sections = {
         str(section.id): section
-        for section in StudentSection.objects.filter(id__in=section_ids)
+        for section in StudentSection.objects.filter(id__in=valid_section_ids)
     }
 
     updated_count = 0
@@ -544,7 +622,15 @@ def assign_student_sections_bulk(request):
         except User.DoesNotExist:
             continue
 
-        target_section = valid_sections.get(section_id) if section_id else None
+        # Allow unassigning (empty section_id) or assigning to teacher's managed sections
+        if section_id:
+            if section_id not in valid_sections:
+                # Teacher trying to assign to a section they don't manage
+                continue
+            target_section = valid_sections[section_id]
+        else:
+            # Allow unassigning students
+            target_section = None
 
         if student.profile.section_id != (target_section.id if target_section else None):
             student.profile.section = target_section
@@ -635,6 +721,59 @@ def assign_admin_to_sections(request):
         messages.success(request, f'You have been assigned to {len(selected_section_ids)} section(s).')
     else:
         messages.success(request, 'You have been removed from all sections.')
+    
+    return redirect('AccountingSystem:admin_dashboard')
+
+@role_required(['admin'])
+@require_http_methods(["POST"])
+def admin_assign_teachers_to_sections(request):
+    """
+    Allow admins to assign teachers to manage multiple sections.
+    Teachers can be assigned to multiple sections, and students will see
+    only their assigned section and unassigned students.
+    """
+    # Read checked boxes. Expected key format: teacher_<teacher_id>_section_<section_id>
+    teacher_sections = {}
+    for key in request.POST.keys():
+        if not key.startswith('teacher_'):
+            continue
+
+        parts = key.split('_')
+        if len(parts) != 4 or parts[0] != 'teacher' or parts[2] != 'section':
+            continue
+
+        try:
+            teacher_id = int(parts[1])
+            section_id = int(parts[3])
+        except ValueError:
+            continue
+
+        teacher_sections.setdefault(teacher_id, set()).add(section_id)
+
+    all_sections = StudentSection.objects.all()
+    all_teachers = User.objects.filter(profile__role='teacher')
+
+    # Remove only teacher-role assignments; keep admin assignments intact.
+    for section in all_sections:
+        existing_teachers = section.teachers.filter(profile__role='teacher')
+        if existing_teachers.exists():
+            section.teachers.remove(*existing_teachers)
+
+    assignments_count = 0
+    for teacher_id, section_ids in teacher_sections.items():
+        teacher = all_teachers.filter(id=teacher_id).first()
+        if not teacher:
+            continue
+
+        sections = StudentSection.objects.filter(id__in=section_ids)
+        for section in sections:
+            section.teachers.add(teacher)
+            assignments_count += 1
+    
+    if assignments_count > 0:
+        messages.success(request, f'{assignments_count} teacher-section assignment(s) saved successfully.')
+    else:
+        messages.info(request, 'No teachers were assigned to sections.')
     
     return redirect('AccountingSystem:admin_dashboard')
 

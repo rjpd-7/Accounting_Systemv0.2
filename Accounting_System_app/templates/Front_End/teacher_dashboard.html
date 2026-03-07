@@ -144,7 +144,7 @@
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="createUserModalLabel">Create New User</h5>
+                        <h5 class="modal-title" id="createUserModalLabel">Create New Student</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <form id="user_form" method="post" action="{% url 'AccountingSystem:teacher_create_user' %}">
@@ -208,7 +208,8 @@
         <br> <br>
         <div class="user-management-section">
             <h3>Student Section Assignment</h3>
-
+            
+            <!--
             <form method="post" action="{% url 'AccountingSystem:create_student_section' %}" class="row g-2 align-items-end mb-3">
                 {% csrf_token %}
                 <div class="col-md-6">
@@ -221,6 +222,7 @@
                     </button>
                 </div>
             </form>
+            -->
 
             <div class="row g-2 align-items-end mb-3">
                 <div class="col-md-6">
@@ -228,7 +230,7 @@
                     <select class="form-select" id="section_filter" name="section">
                         <option value="" selected>All Students</option>
                         <option value="unassigned">Unassigned</option>
-                        {% for section in sections %}
+                        {% for section in teacher_managed_sections %}
                             <option value="{{ section.id }}">{{ section.name }}</option>
                         {% endfor %}
                     </select>
@@ -237,6 +239,10 @@
                     <label for="student_search" class="form-label">Search Students</label>
                     <input type="text" class="form-control" id="student_search" placeholder="Search by student name or username...">
                 </div>
+            </div>
+
+            <div class="alert alert-info py-2" role="alert">
+                <small><i class="bi bi-info-circle"></i> You can only assign students to sections you manage. Unassigned students are always visible.</small>
             </div>
 
             <form method="post" action="{% url 'AccountingSystem:assign_student_sections_bulk' %}">
@@ -269,7 +275,7 @@
                                 <td>
                                     <select class="form-select" name="section_for_{{ student.id }}">
                                         <option value="">Unassigned</option>
-                                        {% for section in sections %}
+                                        {% for section in teacher_managed_sections %}
                                             <option value="{{ section.id }}" {% if student.profile.section and student.profile.section.id == section.id %}selected{% endif %}>{{ section.name }}</option>
                                         {% endfor %}
                                     </select>
@@ -286,7 +292,7 @@
                         </tbody>
                     </table>
                 </div>
-                <br>
+                
                 <div class="d-flex justify-content-end">
                     <button type="submit" class="btn btn-primary">Save All</button>
                 </div>
@@ -294,6 +300,8 @@
         </div>
 
         <br> <br>
+
+        <!--
         <div class="user-management-section">
             <h3>Teacher Section Assignment</h3>
             <p class="text-muted">Assign yourself to manage student sections. Sections you manage will inherit your account groups.</p>
@@ -351,6 +359,7 @@
                 </div>
             </form>
         </div>
+        -->
 
         <br> <br>
         <div class="user-management-section">

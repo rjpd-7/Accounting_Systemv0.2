@@ -95,7 +95,7 @@
         <br>
         <h4>Welcome {{ request.user.first_name }}!</h4>
         
-        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#changeOwnPasswordModal">
+        <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#changeOwnPasswordModal">
             <i class="bi bi-key"></i> Change Password
         </button>
 
@@ -156,7 +156,7 @@
                     <div class="row">
                         <!-- Teachers -->
                         <div class="col-md-6 mb-3">
-                            <h6 class="text-muted"><i class="bi bi-person-badge"></i> Teachers/Advisers</h6>
+                            <h6 class="text-muted"><i class="bi bi-person-badge"></i> Teachers</h6>
                             {% if section_teachers %}
                                 <ul class="list-group">
                                     {% for teacher in section_teachers %}
