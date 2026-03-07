@@ -192,8 +192,14 @@
                 </table>
             </div>
             {% empty %}
-            <div>
-                <p class="text-center text-muted">No entries found.</p>
+            <div class="alert alert-info text-center" role="alert">
+                {% if request.user.profile.role == 'teacher' %}
+                    <i class="bi bi-info-circle"></i> You have not assigned any account groups yet.
+                {% elif request.user.profile.role == 'student' %}
+                    <i class="bi bi-info-circle"></i> No account groups have been assigned to your section yet.
+                {% else %}
+                    <i class="bi bi-info-circle"></i> No entries found. Please assign account groups or create accounts.
+                {% endif %}
             </div>
             {% endfor %}
 

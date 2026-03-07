@@ -2148,7 +2148,7 @@ def general_ledger(request):
     accounts_query = ChartOfAccounts.objects
     
     # Filter by account groups (applies to students, admins, and teachers)
-    if allowed_group_ids:
+    if allowed_group_ids is not None:
         accounts_query = accounts_query.filter(group_name_id__in=allowed_group_ids)
     
     accounts_summary = accounts_query.annotate(
@@ -3286,7 +3286,10 @@ def _get_connected_users_queryset(user):
 
     elif role == 'student':
         if not section_ids:
-            base_queryset = User.objects.none()
+            # Students without a section can still message admins for help
+            base_queryset = User.objects.exclude(id=user.id).filter(
+                profile__role='admin'
+            ).distinct()
         else:
             # Students can only message teachers/admins who manage their section,
             # plus journal collaborators handled below.
