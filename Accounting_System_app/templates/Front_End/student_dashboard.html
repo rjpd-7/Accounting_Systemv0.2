@@ -91,6 +91,10 @@
 
     <!------ Main Page ------>
     <main class="main-content">
+        <div id="studentDashboardData"
+             data-change-own-password-url="{% url 'AccountingSystem:change_own_password' %}"
+             style="display: none;"></div>
+
         <h2>Accounting System</h2>
         <br>
         <h4>Welcome {{ request.user.first_name }}!</h4>
@@ -263,96 +267,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
     <script src="scripts/scripts.js"></script>
     <script src="{% static 'scripts/messaging.js' %}"></script>
-    <script>
-        // Password toggle for current password field
-        const toggleCurrentPassword = document.querySelector("#toggleCurrentPassword");
-        const currentPassword = document.querySelector("#current_password");
-        const currentPasswordIcon = toggleCurrentPassword.querySelector("i");
-
-        toggleCurrentPassword.addEventListener("click", function () {
-            const type = currentPassword.getAttribute("type") === "password" ? "text" : "password";
-            currentPassword.setAttribute("type", type);
-
-            currentPasswordIcon.classList.toggle("bi-eye");
-            currentPasswordIcon.classList.toggle("bi-eye-slash");
-        });
-
-        // Password toggle for new password field
-        const toggleNewPasswordOwn = document.querySelector("#toggleNewPasswordOwn");
-        const newPasswordOwn = document.querySelector("#new_password_own");
-        const newPasswordOwnIcon = toggleNewPasswordOwn.querySelector("i");
-
-        toggleNewPasswordOwn.addEventListener("click", function () {
-            const type = newPasswordOwn.getAttribute("type") === "password" ? "text" : "password";
-            newPasswordOwn.setAttribute("type", type);
-
-            newPasswordOwnIcon.classList.toggle("bi-eye");
-            newPasswordOwnIcon.classList.toggle("bi-eye-slash");
-        });
-
-        // Password toggle for confirm new password field
-        const toggleConfirmNewPasswordOwn = document.querySelector("#toggleConfirmNewPasswordOwn");
-        const confirmNewPasswordOwn = document.querySelector("#confirm_new_password_own");
-        const confirmNewPasswordOwnIcon = toggleConfirmNewPasswordOwn.querySelector("i");
-
-        toggleConfirmNewPasswordOwn.addEventListener("click", function () {
-            const type = confirmNewPasswordOwn.getAttribute("type") === "password" ? "text" : "password";
-            confirmNewPasswordOwn.setAttribute("type", type);
-
-            confirmNewPasswordOwnIcon.classList.toggle("bi-eye");
-            confirmNewPasswordOwnIcon.classList.toggle("bi-eye-slash");
-        });
-
-        // Handle change own password form submission
-        document.getElementById('change_own_password_form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const currentPassword = document.getElementById('current_password').value;
-            const newPassword = document.getElementById('new_password_own').value;
-            const confirmNewPassword = document.getElementById('confirm_new_password_own').value;
-            const errorDiv = document.getElementById('changeOwnPasswordError');
-            
-            if (newPassword !== confirmNewPassword) {
-                errorDiv.textContent = 'New passwords do not match!';
-                errorDiv.style.display = 'block';
-                return;
-            }
-            
-            if (newPassword.length < 8) {
-                errorDiv.textContent = 'Password must be at least 8 characters long!';
-                errorDiv.style.display = 'block';
-                return;
-            }
-            
-            // Submit password change via AJAX
-            fetch("{% url 'AccountingSystem:change_own_password' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    current_password: currentPassword,
-                    new_password: newPassword
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    bootstrap.Modal.getInstance(document.getElementById('changeOwnPasswordModal')).hide();
-                    alert('Password changed successfully!');
-                    document.getElementById('change_own_password_form').reset();
-                } else {
-                    errorDiv.textContent = data.error || 'Failed to change password';
-                    errorDiv.style.display = 'block';
-                }
-            })
-            .catch(error => {
-                errorDiv.textContent = 'An error occurred while changing the password';
-                errorDiv.style.display = 'block';
-                console.error('Error:', error);
-            });
-        });
-    </script>
+    <script src="{% static 'scripts/password_toggle.js' %}"></script>
+    <script src="{% static 'scripts/student_dashboard.js' %}"></script>
 </body>
 </html>
