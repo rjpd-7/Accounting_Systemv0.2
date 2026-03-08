@@ -158,17 +158,17 @@
 
         <br>
         <br>
-        <!-- Display Table -->
-        <div class="display_table">
+        <!-- Desktop Table View (hidden on mobile) -->
+        <div class="display_table d-none d-md-block">
             <table class="table table-bordered">
                 <thead>
                     <tr>
-                        <th>Date Created</th>
+                        <th class="d-none d-lg-table-cell">Date Created</th>
                         <th>Account Group</th>
                         <th>Account Code</th>
                         <th>Account Name</th>
-                        <th>Account Type</th>
-                        <th>Account Description</th>
+                        <th class="d-none d-xl-table-cell">Account Type</th>
+                        <th class="d-none d-lg-table-cell">Account Description</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -180,28 +180,30 @@
                         data-name="{{ account.account_name|lower }}"
                         data-type="{{ account.account_type|lower }}"
                         data-description="{{ account.account_description|lower }}">
-                        <td>{{ account.date_created }}</td>
+                        <td class="d-none d-lg-table-cell">{{ account.date_created }}</td>
                         <td>{{ account.group_name.group_name }}</td>
                         <td>{{ account.account_code }}</td>
                         <td>{{ account.account_name }}</td>
-                        <td>{{ account.account_type }}</td>
-                        <td>{{ account.account_description }}</td>
+                        <td class="d-none d-xl-table-cell">{{ account.account_type }}</td>
+                        <td class="d-none d-lg-table-cell">{{ account.account_description }}</td>
                         <td>
-                            <!-- Edit Button trigger modal -->
-                            <button type="button" class="btn btn-primary" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#EDITstaticBackdrop"  
-                                data-id="{{ account.id }}" 
-                                data-name="{{ account.account_name }}" 
-                                data-description="{{ account.account_description|default_if_none:'' }}">
-                                Edit
-                            </button>
-                            <form action="{% url 'AccountingSystem:delete_account' account.id%}" method="post" class="d-inline" onsubmit="return confirmDeleteAccount('{{ account.account_name }}');">
-                                {% csrf_token %}
-                                <button name="delete" class="btn btn-danger">
-                                    Delete
+                            <div class="d-flex gap-1">
+                                <!-- Edit Button trigger modal -->
+                                <button type="button" class="btn btn-primary btn-sm" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#EDITstaticBackdrop"  
+                                    data-id="{{ account.id }}" 
+                                    data-name="{{ account.account_name }}" 
+                                    data-description="{{ account.account_description|default_if_none:'' }}">
+                                    Edit
                                 </button>
-                            </form>
+                                <form action="{% url 'AccountingSystem:delete_account' account.id%}" method="post" class="d-inline" onsubmit="return confirmDeleteAccount('{{ account.account_name }}');">
+                                    {% csrf_token %}
+                                    <button name="delete" class="btn btn-danger btn-sm">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
@@ -219,6 +221,55 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Card View (visible on mobile only) -->
+        <div id="accountCardsContainer" class="d-md-none">
+            {% if accounts %}
+                {% for account in accounts %}
+                <div class="card mb-3 account-card" 
+                    data-group-id="{% if account.group_name %}{{ account.group_name.id }}{% else %}null{% endif %}"
+                    data-code="{{ account.account_code|lower }}"
+                    data-name="{{ account.account_name|lower }}"
+                    data-type="{{ account.account_type|lower }}"
+                    data-description="{{ account.account_description|lower }}">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">{{ account.account_name }}</h6>
+                        <div class="mb-2">
+                            <strong>Code:</strong> {{ account.account_code }}<br>
+                            <strong>Group:</strong> {{ account.group_name.group_name }}<br>
+                            <strong>Type:</strong> {{ account.account_type }}<br>
+                            <strong>Description:</strong> {{ account.account_description }}<br>
+                            <strong>Created:</strong> {{ account.date_created }}
+                        </div>
+                        <div class="d-flex gap-1">
+                            <button type="button" class="btn btn-primary btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#EDITstaticBackdrop"  
+                                data-id="{{ account.id }}" 
+                                data-name="{{ account.account_name }}" 
+                                data-description="{{ account.account_description|default_if_none:'' }}">
+                                Edit
+                            </button>
+                            <form action="{% url 'AccountingSystem:delete_account' account.id%}" method="post" class="d-inline" onsubmit="return confirmDeleteAccount('{{ account.account_name }}');">
+                                {% csrf_token %}
+                                <button name="delete" class="btn btn-danger btn-sm">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    {% if request.user.profile.role == 'teacher' %}
+                        <i class="bi bi-info-circle"></i> You have not been assigned any account groups yet. Please contact your administrator to view accounts.
+                    {% else %}
+                        No accounts have been created yet.
+                    {% endif %}
+                </div>
+            {% endif %}
         </div>
 
     <!-- Create Account Group Modal -->

@@ -24,41 +24,77 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Filter accounts table based on selected group and search term
     function filterAccountsTable() {
-        if (!accountsTableBody) return;
-        
         const groupId = groupFilterSelect ? groupFilterSelect.value : '';
         const searchTerm = accountSearchInput ? accountSearchInput.value.toLowerCase().trim() : '';
         
-        const rows = accountsTableBody.querySelectorAll('tr.account-row');
-        let visibleCount = 0;
+        // Filter table rows
+        if (accountsTableBody) {
+            const rows = accountsTableBody.querySelectorAll('tr.account-row');
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const rowGroupId = row.dataset.groupId;
+                const code = row.dataset.code || '';
+                const name = row.dataset.name || '';
+                const type = row.dataset.type || '';
+                const description = row.dataset.description || '';
+                const groupName = row.dataset.groupName || '';
+                
+                // Check group filter
+                const groupMatch = !groupId || rowGroupId === groupId || rowGroupId === 'null';
+                
+                // Check search filter
+                const searchMatch = !searchTerm || 
+                                   code.includes(searchTerm) || 
+                                   name.includes(searchTerm) || 
+                                   type.includes(searchTerm) ||
+                                   description.includes(searchTerm) ||
+                                   groupName.includes(searchTerm);
+                
+                // Show row only if both filters match
+                if (groupMatch && searchMatch) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
         
-        rows.forEach(row => {
-            const rowGroupId = row.dataset.groupId;
-            const code = row.dataset.code || '';
-            const name = row.dataset.name || '';
-            const type = row.dataset.type || '';
-            const description = row.dataset.description || '';
-            const groupName = row.dataset.groupName || '';
+        // Filter mobile cards
+        const accountCardsContainer = document.getElementById('accountCardsContainer');
+        if (accountCardsContainer) {
+            const cards = accountCardsContainer.querySelectorAll('.account-card');
+            let visibleCardCount = 0;
             
-            // Check group filter
-            const groupMatch = !groupId || rowGroupId === groupId || rowGroupId === 'null';
-            
-            // Check search filter
-            const searchMatch = !searchTerm || 
-                               code.includes(searchTerm) || 
-                               name.includes(searchTerm) || 
-                               type.includes(searchTerm) ||
-                               description.includes(searchTerm) ||
-                               groupName.includes(searchTerm);
-            
-            // Show row only if both filters match
-            if (groupMatch && searchMatch) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
+            cards.forEach(card => {
+                const cardGroupId = card.dataset.groupId;
+                const code = card.dataset.code || '';
+                const name = card.dataset.name || '';
+                const type = card.dataset.type || '';
+                const description = card.dataset.description || '';
+                const groupName = card.dataset.groupName || '';
+                
+                // Check group filter
+                const groupMatch = !groupId || cardGroupId === groupId || cardGroupId === 'null';
+                
+                // Check search filter
+                const searchMatch = !searchTerm || 
+                                   code.includes(searchTerm) || 
+                                   name.includes(searchTerm) || 
+                                   type.includes(searchTerm) ||
+                                   description.includes(searchTerm) ||
+                                   groupName.includes(searchTerm);
+                
+                // Show card only if both filters match
+                if (groupMatch && searchMatch) {
+                    card.style.display = '';
+                    visibleCardCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
     }
 
     if (groupFilterSelect) {

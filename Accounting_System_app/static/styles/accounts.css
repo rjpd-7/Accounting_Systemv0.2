@@ -176,3 +176,31 @@ body {
     background-color: rgba(0,0,0,0.03);
 }
 
+/* Mobile Account Cards */
+.account-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.3s ease;
+}
+
+.account-card:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.15);
+}
+
+.account-card .card-title {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.account-card strong {
+    color: #5D2321;
+}
+
+/* Responsive table adjustments */
+@media (max-width: 767px) {
+    .display_table {
+        overflow-x: auto;
+    }
+}
+
