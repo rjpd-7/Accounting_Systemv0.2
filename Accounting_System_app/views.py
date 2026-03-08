@@ -1031,17 +1031,19 @@ def create_account(request):
         messages.error(request, "Account name is required.")
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
-    # Check uniqueness (case-insensitive)
-    if ChartOfAccounts.objects.filter(account_name__iexact=account_name_submit).exists():
-        messages.error(request, f'Account "{account_name_submit}" already exists.')
+    # convert posted group id to FK id (use _id to assign directly) and handle empty selection
+    group_id = int(account_group_id) if account_group_id not in (None, '') else None
+
+    # Check uniqueness within the same account group (case-insensitive)
+    # Account names must be unique only within the same group
+    if ChartOfAccounts.objects.filter(account_name__iexact=account_name_submit, group_name_id=group_id).exists():
+        group_name = AccountGroups.objects.get(id=group_id).group_name if group_id else "Unassigned"
+        messages.error(request, f'Account "{account_name_submit}" already exists in group "{group_name}".')
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
     # If no code provided or empty, generate it automatically
     if not account_code_submit:
         account_code_submit = get_next_account_code(account_type_submit)
-
-    # convert posted group id to FK id (use _id to assign directly) and handle empty selection
-    group_id = int(account_group_id) if account_group_id not in (None, '') else None
 
     account = ChartOfAccounts(
         account_code = account_code_submit,
@@ -1058,9 +1060,25 @@ def create_account(request):
 def update_account(request, id):
     selected_account = ChartOfAccounts.objects.get(pk=id)
     if request.method == "POST":
-        selected_account.account_name = request.POST.get("account_name", selected_account.account_name)
+        new_account_name = request.POST.get("account_name", selected_account.account_name).strip()
+        
+        # Check uniqueness within the same account group (case-insensitive)
+        # Exclude the current account from the check
+        if new_account_name and new_account_name.lower() != selected_account.account_name.lower():
+            duplicate_exists = ChartOfAccounts.objects.filter(
+                account_name__iexact=new_account_name,
+                group_name_id=selected_account.group_name_id
+            ).exclude(id=id).exists()
+            
+            if duplicate_exists:
+                group_name = selected_account.group_name.group_name if selected_account.group_name else "Unassigned"
+                messages.error(request, f'Account "{new_account_name}" already exists in group "{group_name}".')
+                return redirect("AccountingSystem:accounts")
+        
+        selected_account.account_name = new_account_name
         selected_account.account_description = request.POST.get("account_description", selected_account.account_description)
         selected_account.save()
+        messages.success(request, f'Account "{selected_account.account_name}" updated successfully.')
         return redirect("AccountingSystem:accounts")
     
 # Delete Account Function to Backend
