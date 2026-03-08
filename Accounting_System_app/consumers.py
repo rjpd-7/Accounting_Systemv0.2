@@ -2,6 +2,7 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
+from django.utils.timezone import localtime
 from .models import Message, MessageAttachment
 from asgiref.sync import sync_to_async
 
@@ -73,7 +74,7 @@ class MessagingConsumer(AsyncWebsocketConsumer):
                     'sender_id': self.user.id,
                     'subject': subject or 'No Subject',
                     'content': content,
-                    'created_at': message.created_at.strftime('%Y-%m-%d %H:%M'),
+                    'created_at': localtime(message.created_at).strftime('%Y-%m-%d %H:%M'),
                     'is_read': False,
                     'attachments': []
                 }

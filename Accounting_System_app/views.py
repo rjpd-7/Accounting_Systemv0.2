@@ -1381,13 +1381,33 @@ def journals(request):
     approved_groups = []
 
     headers = JournalHeader.objects.all()
-    # restrict to current user unless administrator/teacher should see all
-    if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
-        # students see their own journals + journals they collaborate on
+    
+    # Filter based on user role
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
+    if user_role == 'student':
+        # Students see their own journals + journals they collaborate on
         from .models import JournalCollaborator
         headers = headers.filter(
             Q(user=request.user) | Q(collaborators__collaborator=request.user)
         ).distinct()
+    elif user_role == 'teacher':
+        # Teachers see journals from students in sections they manage + their own journals + collaborations
+        from .models import JournalCollaborator
+        managed_sections = request.user.managed_sections.all()
+        if managed_sections.exists():
+            headers = headers.filter(
+                Q(user=request.user) |  # Own journals
+                Q(collaborators__collaborator=request.user) |  # Collaborations
+                Q(user__profile__role='student', user__profile__section__in=managed_sections)  # Students in managed sections
+            ).distinct()
+        else:
+            # Teacher with no sections sees only own journals + collaborations
+            headers = headers.filter(
+                Q(user=request.user) | Q(collaborators__collaborator=request.user)
+            ).distinct()
+    # Admin sees all journals (no filtering)
+    
     headers = headers.order_by('-journal_date_created', '-id')
 
     for header in headers:
@@ -1409,13 +1429,31 @@ def journals(request):
     draft_groups = []
 
     draft_headers = JournalHeaderDrafts.objects.all()
-    # restrict to current user unless administrator/teacher should see all
-    if not request.user.is_superuser and getattr(request.user, 'profile', None) and request.user.profile.role == 'student':
-        # students see their own draft journals + draft journals they collaborate on
+    
+    # Filter based on user role (same logic as approved journals)
+    if user_role == 'student':
+        # Students see their own draft journals + draft journals they collaborate on
         from .models import JournalDraftCollaborator
         draft_headers = draft_headers.filter(
             Q(user=request.user) | Q(collaborators__collaborator=request.user)
         ).distinct()
+    elif user_role == 'teacher':
+        # Teachers see draft journals from students in sections they manage + their own + collaborations
+        from .models import JournalDraftCollaborator
+        managed_sections = request.user.managed_sections.all()
+        if managed_sections.exists():
+            draft_headers = draft_headers.filter(
+                Q(user=request.user) |  # Own draft journals
+                Q(collaborators__collaborator=request.user) |  # Draft collaborations
+                Q(user__profile__role='student', user__profile__section__in=managed_sections)  # Students in managed sections
+            ).distinct()
+        else:
+            # Teacher with no sections sees only own draft journals + collaborations
+            draft_headers = draft_headers.filter(
+                Q(user=request.user) | Q(collaborators__collaborator=request.user)
+            ).distinct()
+    # Admin sees all draft journals (no filtering)
+    
     draft_headers = draft_headers.order_by('-journal_date_created', '-id')
 
     for header in draft_headers:
@@ -1552,8 +1590,10 @@ def insert_journals(request):
 
 # Update Journal Entry
 def update_journal(request, id):
-    # retrieve header only if user owns it, is superuser, or is a collaborator
-    if request.user.is_superuser:
+    # retrieve header only if user owns it, is admin/teacher, or is a collaborator
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
+    if user_role == 'admin':
         header = get_object_or_404(JournalHeader, pk=id)
     else:
         # Check if user is the owner or a collaborator
@@ -1561,7 +1601,19 @@ def update_journal(request, id):
             header = JournalHeader.objects.get(pk=id, user=request.user)
         except JournalHeader.DoesNotExist:
             # Check if user is a collaborator
-            header = get_object_or_404(JournalHeader, pk=id, collaborators__collaborator=request.user)
+            try:
+                header = get_object_or_404(JournalHeader, pk=id, collaborators__collaborator=request.user)
+            except:
+                # Check if teacher can access this student's journal
+                if user_role == 'teacher':
+                    header = JournalHeader.objects.get(pk=id)
+                    student_section = header.user.profile.section if hasattr(header.user, 'profile') else None
+                    managed_sections = request.user.managed_sections.all()
+                    if not (student_section and student_section in managed_sections):
+                        messages.error(request, "You can only edit journals from students in your managed sections.")
+                        return redirect(reverse("AccountingSystem:journals"))
+                else:
+                    raise
 
     if request.method != "POST":
         return redirect(reverse("AccountingSystem:journals"))  # adjust name
@@ -1681,28 +1733,56 @@ def update_journal(request, id):
 
 # Delete Journal Entry
 def delete_journal(request, id):
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
     try:
-        if request.user.is_superuser:
+        if user_role == 'admin':
             journal_header = JournalHeader.objects.get(pk=id)
+        elif user_role == 'teacher':
+            # Teacher can delete their own journals or students' journals from managed sections
+            try:
+                journal_header = JournalHeader.objects.get(pk=id, user=request.user)
+            except JournalHeader.DoesNotExist:
+                # Check if it's a student's journal in a managed section
+                journal_header = JournalHeader.objects.get(pk=id)
+                student_section = journal_header.user.profile.section if hasattr(journal_header.user, 'profile') else None
+                managed_sections = request.user.managed_sections.all()
+                if not (student_section and student_section in managed_sections):
+                    messages.error(request, "You can only delete journals from students in your managed sections.")
+                    return redirect("AccountingSystem:journals")
         else:
             journal_header = JournalHeader.objects.get(pk=id, user=request.user)
         journal_header.delete()
+        messages.success(request, "Journal deleted successfully.")
     except JournalHeader.DoesNotExist:
-        pass
+        messages.error(request, "Journal not found.")
     return redirect("AccountingSystem:journals")
 
 # Get Journal Audit Trail History
 def get_journal_history(request, id):
     """API endpoint to get audit trail history for a journal"""
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
     try:
-        if request.user.is_superuser:
+        if user_role == 'admin':
             header = JournalHeader.objects.get(pk=id)
         else:
             # Check if user is the owner or a collaborator
             try:
                 header = JournalHeader.objects.get(pk=id, user=request.user)
             except JournalHeader.DoesNotExist:
-                header = get_object_or_404(JournalHeader, pk=id, collaborators__collaborator=request.user)
+                try:
+                    header = get_object_or_404(JournalHeader, pk=id, collaborators__collaborator=request.user)
+                except:
+                    # Check if teacher can access this student's journal
+                    if user_role == 'teacher':
+                        header = JournalHeader.objects.get(pk=id)
+                        student_section = header.user.profile.section if hasattr(header.user, 'profile') else None
+                        managed_sections = request.user.managed_sections.all()
+                        if not (student_section and student_section in managed_sections):
+                            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+                    else:
+                        raise
     except JournalHeader.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Journal not found'}, status=404)
     
@@ -1722,7 +1802,7 @@ def get_journal_history(request, id):
             'id': trail.id,
             'changed_by': changed_by_display,
             'change_type': trail.get_change_type_display(),
-            'changed_at': trail.changed_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'changed_at': localtime(trail.changed_at).strftime('%Y-%m-%d %H:%M:%S'),
             'field_name': trail.field_name,
             'old_value': trail.old_value,
             'new_value': trail.new_value,
@@ -1733,15 +1813,28 @@ def get_journal_history(request, id):
 # Get Journal Draft Audit Trail History
 def get_journal_draft_history(request, id):
     """API endpoint to get audit trail history for a draft journal"""
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
     try:
-        if request.user.is_superuser:
+        if user_role == 'admin':
             header = JournalHeaderDrafts.objects.get(pk=id)
         else:
             # Check if user is the owner or a collaborator
             try:
                 header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
             except JournalHeaderDrafts.DoesNotExist:
-                header = get_object_or_404(JournalHeaderDrafts, pk=id, collaborators__collaborator=request.user)
+                try:
+                    header = get_object_or_404(JournalHeaderDrafts, pk=id, collaborators__collaborator=request.user)
+                except:
+                    # Check if teacher can access this student's draft journal
+                    if user_role == 'teacher':
+                        header = JournalHeaderDrafts.objects.get(pk=id)
+                        student_section = header.user.profile.section if hasattr(header.user, 'profile') else None
+                        managed_sections = request.user.managed_sections.all()
+                        if not (student_section and student_section in managed_sections):
+                            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+                    else:
+                        raise
     except JournalHeaderDrafts.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Journal not found'}, status=404)
     
@@ -1761,7 +1854,7 @@ def get_journal_draft_history(request, id):
             'id': trail.id,
             'changed_by': changed_by_display,
             'change_type': trail.get_change_type_display(),
-            'changed_at': trail.changed_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'changed_at': localtime(trail.changed_at).strftime('%Y-%m-%d %H:%M:%S'),
             'field_name': trail.field_name,
             'old_value': trail.old_value,
             'new_value': trail.new_value,
@@ -1773,12 +1866,21 @@ def get_journal_draft_history(request, id):
 def approve_journal_draft(request, id):
     # only admins and teachers can approve
     user_role = getattr(request.user, 'profile', None).role if getattr(request.user, 'profile', None) else None
-    if not request.user.is_superuser and user_role not in ['admin', 'teacher']:
+    if user_role not in ['admin', 'teacher']:
+        messages.error(request, "You do not have permission to approve journals.")
         return redirect("AccountingSystem:journals")
     
     try:
         # get the draft header
         draft_header = JournalHeaderDrafts.objects.get(pk=id)
+        
+        # If teacher, verify they manage the student's section
+        if user_role == 'teacher':
+            student_section = draft_header.user.profile.section if hasattr(draft_header.user, 'profile') else None
+            managed_sections = request.user.managed_sections.all()
+            if not (student_section and student_section in managed_sections):
+                messages.error(request, "You can only approve journals from students in your managed sections.")
+                return redirect("AccountingSystem:journals")
         
         # create an approved header with same data
         approved_header = JournalHeader.objects.create(
@@ -1855,8 +1957,10 @@ Accounting System
 
 # Update Journal Draft Function
 def update_journal_draft(request, id):
-    # retrieve header only if user owns it, is superuser, or is a collaborator
-    if request.user.is_superuser:
+    # retrieve header only if user owns it, is admin/teacher, or is a collaborator
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
+    if user_role == 'admin':
         header = get_object_or_404(JournalHeaderDrafts, pk=id)
     else:
         # Check if user is the owner or a collaborator
@@ -1864,8 +1968,20 @@ def update_journal_draft(request, id):
             header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
         except JournalHeaderDrafts.DoesNotExist:
             # Check if user is a collaborator
-            from django.db.models import Q
-            header = get_object_or_404(JournalHeaderDrafts, pk=id, collaborators__collaborator=request.user)
+            try:
+                from django.db.models import Q
+                header = get_object_or_404(JournalHeaderDrafts, pk=id, collaborators__collaborator=request.user)
+            except:
+                # Check if teacher can access this student's draft journal
+                if user_role == 'teacher':
+                    header = JournalHeaderDrafts.objects.get(pk=id)
+                    student_section = header.user.profile.section if hasattr(header.user, 'profile') else None
+                    managed_sections = request.user.managed_sections.all()
+                    if not (student_section and student_section in managed_sections):
+                        messages.error(request, "You can only edit draft journals from students in your managed sections.")
+                        return redirect(reverse("AccountingSystem:journals"))
+                else:
+                    raise
 
     if request.method != "POST":
         return redirect(reverse("AccountingSystem:journals"))
@@ -1984,14 +2100,29 @@ def update_journal_draft(request, id):
 
 # Delete Journal Draft Function
 def delete_journal_draft(request, id):
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
     try:
-        if request.user.is_superuser:
+        if user_role == 'admin':
             journal_header = JournalHeaderDrafts.objects.get(pk=id)
+        elif user_role == 'teacher':
+            # Teacher can delete their own draft journals or students' draft journals from managed sections
+            try:
+                journal_header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+            except JournalHeaderDrafts.DoesNotExist:
+                # Check if it's a student's draft journal in a managed section
+                journal_header = JournalHeaderDrafts.objects.get(pk=id)
+                student_section = journal_header.user.profile.section if hasattr(journal_header.user, 'profile') else None
+                managed_sections = request.user.managed_sections.all()
+                if not (student_section and student_section in managed_sections):
+                    messages.error(request, "You can only delete draft journals from students in your managed sections.")
+                    return redirect("AccountingSystem:journals")
         else:
             journal_header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
         journal_header.delete()
+        messages.success(request, "Draft journal deleted successfully.")
     except JournalHeaderDrafts.DoesNotExist:
-        pass
+        messages.error(request, "Draft journal not found.")
     return redirect("AccountingSystem:journals")
 
 # Add Collaborator to Draft Journal
@@ -2818,7 +2949,35 @@ def ledger_account_transactions(request, account_id):
 
     start_str = request.GET.get('start_date')
     end_str = request.GET.get('end_date')
-    entries = JournalEntry.objects.select_related('journal_header').filter(account=account).order_by('journal_header__entry_date', 'journal_header__id')
+    entries = JournalEntry.objects.select_related('journal_header', 'journal_header__user', 'journal_header__user__profile').filter(account=account)
+    
+    # Filter based on user role
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
+    if user_role == 'student':
+        # Students see only their own journal entries + collaborations
+        entries = entries.filter(
+            Q(journal_header__user=request.user) | 
+            Q(journal_header__collaborators__collaborator=request.user)
+        ).distinct()
+    elif user_role == 'teacher':
+        # Teachers see entries from students in their managed sections + their own + collaborations
+        managed_sections = request.user.managed_sections.all()
+        if managed_sections.exists():
+            entries = entries.filter(
+                Q(journal_header__user=request.user) |
+                Q(journal_header__collaborators__collaborator=request.user) |
+                Q(journal_header__user__profile__role='student', journal_header__user__profile__section__in=managed_sections)
+            ).distinct()
+        else:
+            # Teacher with no sections sees only own entries + collaborations
+            entries = entries.filter(
+                Q(journal_header__user=request.user) |
+                Q(journal_header__collaborators__collaborator=request.user)
+            ).distinct()
+    # Admin sees all entries (no filtering)
+    
+    entries = entries.order_by('journal_header__entry_date', 'journal_header__id')
 
     try:
         if start_str:
@@ -2945,13 +3104,27 @@ def journal_pdf(request, id):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
 
-    # Check both draft and approved journals, allowing owner, collaborators, or superuser
+    # Check both draft and approved journals, allowing owner, collaborators, admin, or teachers for their students
     header = None
     entries = None
     is_draft = False
     
-    if request.user.is_superuser:
-        # Superuser can view any journal
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    
+    # Helper function to check if teacher can access student's journal
+    def teacher_can_access(journal_user):
+        if user_role != 'teacher':
+            return False
+        if not hasattr(journal_user, 'profile') or journal_user.profile.role != 'student':
+            return False
+        student_section = journal_user.profile.section
+        if not student_section:
+            return False
+        managed_sections = request.user.managed_sections.all()
+        return student_section in managed_sections
+    
+    if user_role == 'admin':
+        # Admin can view any journal
         try:
             header = JournalHeader.objects.get(pk=id)
             entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
@@ -2973,19 +3146,43 @@ def journal_pdf(request, id):
                 header = JournalHeader.objects.get(pk=id, collaborators__collaborator=request.user)
                 entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
             except JournalHeader.DoesNotExist:
-                # Check if user is owner of draft journal
-                try:
-                    header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
-                    entries = JournalEntryDrafts.objects.filter(journal_header=header).select_related('account').order_by('id')
-                    is_draft = True
-                except JournalHeaderDrafts.DoesNotExist:
-                    # Check if user is collaborator on draft journal
+                # Check if teacher can access this student's approved journal
+                teacher_accessible = False
+                if user_role == 'teacher':
                     try:
-                        header = JournalHeaderDrafts.objects.get(pk=id, collaborators__collaborator=request.user)
+                        header = JournalHeader.objects.get(pk=id)
+                        if teacher_can_access(header.user):
+                            entries = JournalEntry.objects.filter(journal_header=header).select_related('account').order_by('id')
+                            teacher_accessible = True
+                    except JournalHeader.DoesNotExist:
+                        pass
+                
+                if not teacher_accessible:
+                    # Check if user is owner of draft journal
+                    try:
+                        header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
                         entries = JournalEntryDrafts.objects.filter(journal_header=header).select_related('account').order_by('id')
                         is_draft = True
                     except JournalHeaderDrafts.DoesNotExist:
-                        return HttpResponse('Journal not found or you do not have permission to view it', status=404)
+                        # Check if user is collaborator on draft journal
+                        try:
+                            header = JournalHeaderDrafts.objects.get(pk=id, collaborators__collaborator=request.user)
+                            entries = JournalEntryDrafts.objects.filter(journal_header=header).select_related('account').order_by('id')
+                            is_draft = True
+                        except JournalHeaderDrafts.DoesNotExist:
+                            # Check if teacher can access this student's draft journal
+                            if user_role == 'teacher':
+                                try:
+                                    header = JournalHeaderDrafts.objects.get(pk=id)
+                                    if teacher_can_access(header.user):
+                                        entries = JournalEntryDrafts.objects.filter(journal_header=header).select_related('account').order_by('id')
+                                        is_draft = True
+                                    else:
+                                        return HttpResponse('Journal not found or you do not have permission to view it', status=404)
+                                except JournalHeaderDrafts.DoesNotExist:
+                                    return HttpResponse('Journal not found or you do not have permission to view it', status=404)
+                            else:
+                                return HttpResponse('Journal not found or you do not have permission to view it', status=404)
     
     total_debit = sum((e.debit or 0) for e in entries)
     total_credit = sum((e.credit or 0) for e in entries)
@@ -3557,7 +3754,7 @@ def get_messages(request):
             'recipient_id': msg.recipient.id,
             'subject': msg.subject or 'No Subject',
             'content': msg.content,
-            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M'),
+            'created_at': localtime(msg.created_at).strftime('%Y-%m-%d %H:%M'),
             'is_read': msg.is_read,
             'attachments': attachments,
             'type': message_type

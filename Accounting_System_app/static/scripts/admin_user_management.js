@@ -265,10 +265,10 @@ function initUserSearch() {
             }
         });
 
-        // Show "No results" message if needed
+        // Show "No results" message for desktop table view
         const tableBody = document.getElementById('userTableBody');
         let noResultsMsg = document.querySelector('.no-user-search-results');
-        if (visibleCount === 0 && searchTerm !== '') {
+        if (visibleCount === 0 && searchTerm !== '' && tableBody) {
             if (!noResultsMsg) {
                 const tr = document.createElement('tr');
                 tr.className = 'no-user-search-results';
@@ -277,6 +277,20 @@ function initUserSearch() {
             }
         } else if (noResultsMsg) {
             noResultsMsg.remove();
+        }
+        
+        // Show "No results" message for mobile card view
+        const cardsContainer = document.getElementById('userCardsContainer');
+        let noResultsMsgMobile = document.querySelector('.no-user-search-results-mobile');
+        if (visibleCount === 0 && searchTerm !== '' && cardsContainer) {
+            if (!noResultsMsgMobile) {
+                const div = document.createElement('div');
+                div.className = 'no-user-search-results-mobile alert alert-info';
+                div.textContent = 'No users match your search.';
+                cardsContainer.appendChild(div);
+            }
+        } else if (noResultsMsgMobile) {
+            noResultsMsgMobile.remove();
         }
     });
 }
