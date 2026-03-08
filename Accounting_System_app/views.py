@@ -931,6 +931,72 @@ def chart_of_accounts_students(request):
         "user_section": user_section,
     })
 
+
+def _render_accounts_pdf(filename, accounts, title):
+    """Render a Chart of Accounts PDF response from the provided queryset."""
+    context = {
+        "report_title": title,
+        "accounts": accounts,
+        "date_now": localtime().strftime('%B %d, %Y at %I:%M %p'),
+    }
+
+    html = render_to_string('Front_End/accounts_pdf.html', context)
+
+    if pisa is None:
+        return HttpResponse('PDF generation library not installed. Install xhtml2pdf.', status=500)
+
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    response = HttpResponse(result.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def chart_of_accounts_pdf(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    if hasattr(request.user, 'profile'):
+        user_profile = request.user.profile
+
+        if user_profile.role == 'admin':
+            accounts = ChartOfAccounts.objects.all().order_by('-date_created', '-id')
+        elif user_profile.role == 'teacher':
+            account_groups = user_profile.account_groups.all()
+            if account_groups.exists():
+                accounts = ChartOfAccounts.objects.filter(
+                    group_name__in=account_groups
+                ).order_by('-date_created', '-id')
+            else:
+                accounts = ChartOfAccounts.objects.none()
+        else:
+            accounts = ChartOfAccounts.objects.all().order_by('-date_created', '-id')
+    else:
+        accounts = ChartOfAccounts.objects.all().order_by('-date_created', '-id')
+
+    return _render_accounts_pdf('chart_of_accounts.pdf', accounts, 'Chart of Accounts')
+
+
+def chart_of_accounts_students_pdf(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("AccountingSystem:login_view"))
+
+    user_section = None
+    if hasattr(request.user, 'profile') and request.user.profile.section:
+        user_section = request.user.profile.section
+        account_groups = get_account_groups_for_section(user_section)
+        accounts = ChartOfAccounts.objects.filter(
+            group_name__in=account_groups
+        ).order_by('-date_created', '-id')
+    else:
+        accounts = ChartOfAccounts.objects.none()
+
+    return _render_accounts_pdf('student_chart_of_accounts.pdf', accounts, 'Student Chart of Accounts')
+
 # Create Account Group Function to Backend
 def create_group(request):
     if request.method == "POST":
