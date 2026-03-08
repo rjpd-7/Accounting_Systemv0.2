@@ -3392,16 +3392,17 @@ def _get_connected_users_queryset(user):
 
     elif role == 'student':
         if not section_ids:
-            # Students without a section can still message admins for help
+            # Students without a section can message all admins for help
             base_queryset = User.objects.exclude(id=user.id).filter(
                 profile__role='admin'
             ).distinct()
         else:
-            # Students can only message teachers/admins who manage their section,
+            # Students can message all admins (for administrative help),
+            # plus teachers who manage their section,
             # plus journal collaborators handled below.
             base_queryset = User.objects.exclude(id=user.id).filter(
-                profile__role__in=['teacher', 'admin'],
-                managed_sections__id__in=section_ids,
+                Q(profile__role='admin') |
+                Q(profile__role='teacher', managed_sections__id__in=section_ids)
             ).distinct()
 
     collaboration_ids = _get_journal_collaboration_user_ids(user)
