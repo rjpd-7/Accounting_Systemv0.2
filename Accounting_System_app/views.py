@@ -134,37 +134,40 @@ def get_account_groups_for_section(section):
     # Return distinct account groups
     return AccountGroups.objects.filter(id__in=account_group_ids)
 
-# Helper function to generate next journal code
+# Helper function to generate next journal code (thread-safe with atomic locking)
 def get_next_journal_code():
     """Generate next journal code in format JE-XXXXXXXXXX"""
-    # Get the latest journal code from both draft and approved journals
-    latest_draft = JournalHeaderDrafts.objects.values_list('entry_no', flat=True).order_by('-id').first()
-    latest_approved = JournalHeader.objects.values_list('entry_no', flat=True).order_by('-id').first()
+    from django.db import transaction
     
-    max_number = 0
-    
-    # Extract number from draft journals
-    if latest_draft:
-        try:
-            num_str = latest_draft.replace('JE-', '').lstrip('0') or '0'
-            num = int(num_str)
-            if num > max_number:
-                max_number = num
-        except (ValueError, TypeError):
-            pass
-    
-    # Extract number from approved journals
-    if latest_approved:
-        try:
-            num_str = latest_approved.replace('JE-', '').lstrip('0') or '0'
-            num = int(num_str)
-            if num > max_number:
-                max_number = num
-        except (ValueError, TypeError):
-            pass
-    
-    next_number = str(max_number + 1).zfill(10)
-    return f'JE-{next_number}'
+    with transaction.atomic():
+        # Lock the latest journals to prevent race conditions
+        latest_draft = JournalHeaderDrafts.objects.select_for_update().order_by('-id').first()
+        latest_approved = JournalHeader.objects.select_for_update().order_by('-id').first()
+        
+        max_number = 0
+        
+        # Extract number from draft journals
+        if latest_draft:
+            try:
+                num_str = latest_draft.entry_no.replace('JE-', '').lstrip('0') or '0'
+                num = int(num_str)
+                if num > max_number:
+                    max_number = num
+            except (ValueError, TypeError, AttributeError):
+                pass
+        
+        # Extract number from approved journals
+        if latest_approved:
+            try:
+                num_str = latest_approved.entry_no.replace('JE-', '').lstrip('0') or '0'
+                num = int(num_str)
+                if num > max_number:
+                    max_number = num
+            except (ValueError, TypeError, AttributeError):
+                pass
+        
+        next_number = str(max_number + 1).zfill(10)
+        return f'JE-{next_number}'
 
 # API endpoint to get next account code
 @require_http_methods(["GET"])
@@ -1629,6 +1632,27 @@ def insert_journals(request):
                 new_value=f'{account.account_name} (D:{debit}, C:{credit})',
                 entry_id=journal_entry.id
             )
+        
+        # Broadcast journal creation to all connected WebSocket clients
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            channel_layer = get_channel_layer()
+            next_code = get_next_journal_code()
+            async_to_sync(channel_layer.group_send)(
+                'journal_code_updates',
+                {
+                    'type': 'journal_created',
+                    'journal_code': journal_code,
+                    'next_code': next_code,
+                    'created_by': request.user.get_full_name() or request.user.username,
+                }
+            )
+        except Exception as e:
+            # WebSocket broadcast failed, but journal was created successfully
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to broadcast journal creation: {e}")
             
         return redirect('AccountingSystem:journals')  # or render success message
 

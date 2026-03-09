@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'styles/journal.css' %}">
+    <link rel="stylesheet" href="{% static 'styles/journal_code_hybrid.css' %}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
@@ -468,7 +469,13 @@
                     {% csrf_token %}
                     <!-- Journal Code -->
                      <label for="journal_code">Journal Code:</label>
-                    <input id="journal_code" type="text" name="journal_code" class="form-control" readonly required> <br>
+                    <div class="journal-code-group">
+                        <input id="journal_code" type="text" name="journal_code" class="form-control" readonly required>
+                        <small class="text-muted">
+                            AJAX + WebSocket preview
+                            <span id="journal-socket-status" class="socket-status disconnected">🟡 AJAX Only</span>
+                        </small>
+                    </div><br>
                     <!-- Entry Date -->
                     <label for="entry-date">Date:</label>
                     <input type="date" id="entry-date" name="entry-date" class="form-control" required> <br>
@@ -863,6 +870,7 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script src="{% static 'scripts/journal_code_hybrid.js' %}"></script>
     <script src="{% static 'scripts/JE_account_group_filter.js' %}"></script>
     <script src="{% static 'scripts/insert_journal.js' %}"></script>
     <script src="{% static 'scripts/update_journal.js' %}"></script>

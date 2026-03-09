@@ -1,0 +1,72 @@
+/**
+ * Hybrid Journal Code Manager Styles
+ */
+
+/* Connection status indicator */
+.socket-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+    transition: all 0.3s ease;
+    cursor: help;
+}
+
+.socket-status.connected {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.socket-status.disconnected {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+/* Journal code input field */
+#journal_code {
+    transition: all 0.3s ease;
+}
+
+#journal_code:disabled,
+#journal_code:read-only {
+    background-color: #f8f9fa;
+    cursor: default;
+}
+
+/* Real-time update animation */
+#journal_code.code-updated {
+    animation: codeUpdated 1.5s ease;
+}
+
+@keyframes codeUpdated {
+    0% {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+        transform: scale(1);
+    }
+    50% {
+        background-color: #e2d63f;
+        border-color: #ff9800;
+        transform: scale(1.02);
+    }
+    100% {
+        background-color: #f8f9fa;
+        border-color: #ced4da;
+        transform: scale(1);
+    }
+}
+
+/* Journal code group container */
+.journal-code-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.journal-code-group small {
+    font-size: 12px;
+}

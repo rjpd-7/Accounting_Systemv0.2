@@ -228,3 +228,49 @@ class AccountCodeConsumer(AsyncWebsocketConsumer):
             'account_code': event['account_code'],
             'next_code': event['next_code']
         }))
+
+
+class JournalCodeConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer for real-time journal code updates"""
+    
+    async def connect(self):
+        """Handle WebSocket connection for journal code updates"""
+        self.user = self.scope['user']
+        self.room_group_name = 'journal_code_updates'
+        
+        # Join the journal code updates group
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+        
+        await self.accept()
+        print(f"User {self.user.username} connected to journal code updates")
+
+    async def disconnect(self, close_code):
+        """Handle WebSocket disconnection"""
+        if hasattr(self, 'room_group_name'):
+            await self.channel_layer.group_discard(
+                self.room_group_name,
+                self.channel_name
+            )
+        print(f"User {self.user.username} disconnected from journal code updates")
+
+    async def receive(self, text_data):
+        """Handle incoming messages (ping/pong for keepalive)"""
+        try:
+            data = json.loads(text_data)
+            if data.get('type') == 'ping':
+                await self.send(text_data=json.dumps({'type': 'pong'}))
+        except json.JSONDecodeError:
+            pass
+
+    # Receive broadcast from group when journal is created
+    async def journal_created(self, event):
+        """Send journal creation notification to WebSocket client"""
+        await self.send(text_data=json.dumps({
+            'type': 'journal_created',
+            'journal_code': event['journal_code'],
+            'next_code': event['next_code'],
+            'created_by': event.get('created_by', 'Unknown User')
+        }))
