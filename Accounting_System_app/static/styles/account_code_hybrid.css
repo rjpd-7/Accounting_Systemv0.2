@@ -1,0 +1,95 @@
+/**
+ * Hybrid Account Code Manager Styles
+ */
+
+/* Connection status indicator */
+.socket-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+    transition: all 0.3s ease;
+    cursor: help;
+}
+
+.socket-status.connected {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.socket-status.disconnected {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+/* Account code input field */
+#account_code {
+    transition: all 0.3s ease;
+}
+
+#account_code:disabled,
+#account_code:read-only {
+    background-color: #f8f9fa;
+    cursor: default;
+}
+
+/* Real-time update animation */
+#account_code.code-updated {
+    animation: codeUpdated 1.5s ease;
+}
+
+@keyframes codeUpdated {
+    0% {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+        transform: scale(1);
+    }
+    50% {
+        background-color: #d4edda;
+        border-color: #28a745;
+        transform: scale(1.02);
+    }
+    100% {
+        background-color: #f8f9fa;
+        border-color: #ced4da;
+        transform: scale(1);
+    }
+}
+
+/* Account code group container */
+.account-code-group {
+    position: relative;
+}
+
+.account-code-group small {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+}
+
+/* Info badge */
+.realtime-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .socket-status {
+        display: block;
+        margin-left: 0;
+        margin-top: 6px;
+        width: fit-content;
+    }
+}

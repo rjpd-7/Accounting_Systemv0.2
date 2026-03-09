@@ -1073,6 +1073,28 @@ def create_account(request):
                     group_name_id=group_id,
                 )
 
+                # Broadcast to WebSocket clients that an account was created
+                # so they can update their preview codes in real-time
+                try:
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
+                    
+                    channel_layer = get_channel_layer()
+                    next_code = get_next_account_code(account_type_submit)
+                    
+                    async_to_sync(channel_layer.group_send)(
+                        'account_code_updates',
+                        {
+                            'type': 'account_created',
+                            'account_type': account_type_submit,
+                            'account_code': final_account_code,
+                            'next_code': next_code
+                        }
+                    )
+                except Exception as e:
+                    # Don't fail account creation if broadcast fails
+                    print(f"Failed to broadcast account creation: {e}")
+
                 messages.success(request, f'Account "{account_name_submit}" created successfully.')
                 return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
         except IntegrityError:

@@ -174,3 +174,57 @@ class MessagingConsumer(AsyncWebsocketConsumer):
             'type': 'new_message',
             'data': data
         }))
+
+
+class AccountCodeConsumer(AsyncWebsocketConsumer):
+    """
+    WebSocket consumer for real-time account code update notifications.
+    Broadcasts when accounts are created so all users see updated previews.
+    """
+    
+    async def connect(self):
+        """Handle WebSocket connection"""
+        self.user = self.scope['user']
+        
+        if not self.user.is_authenticated:
+            await self.close()
+            return
+        
+        # Join a global account updates channel
+        self.room_group_name = 'account_code_updates'
+        
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+        
+        await self.accept()
+        print(f"User {self.user.username} connected to account code updates")
+
+    async def disconnect(self, close_code):
+        """Handle WebSocket disconnection"""
+        if hasattr(self, 'room_group_name'):
+            await self.channel_layer.group_discard(
+                self.room_group_name,
+                self.channel_name
+            )
+        print(f"User {self.user.username} disconnected from account code updates")
+
+    async def receive(self, text_data):
+        """Handle incoming messages (ping/pong for keepalive)"""
+        try:
+            data = json.loads(text_data)
+            if data.get('type') == 'ping':
+                await self.send(text_data=json.dumps({'type': 'pong'}))
+        except json.JSONDecodeError:
+            pass
+
+    # Receive broadcast from group when account is created
+    async def account_created(self, event):
+        """Send account creation notification to WebSocket client"""
+        await self.send(text_data=json.dumps({
+            'type': 'account_created',
+            'account_type': event['account_type'],
+            'account_code': event['account_code'],
+            'next_code': event['next_code']
+        }))
