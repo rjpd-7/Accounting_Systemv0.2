@@ -1991,7 +1991,10 @@ def approve_journal_draft(request, id):
     # only admins and teachers can approve
     user_role = getattr(request.user, 'profile', None).role if getattr(request.user, 'profile', None) else None
     if user_role not in ['admin', 'teacher']:
-        messages.error(request, "You do not have permission to approve journals.")
+        error_msg = "You do not have permission to approve journals."
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=403)
+        messages.error(request, error_msg)
         return redirect("AccountingSystem:journals")
     
     try:
@@ -2003,7 +2006,10 @@ def approve_journal_draft(request, id):
             student_section = draft_header.user.profile.section if hasattr(draft_header.user, 'profile') else None
             managed_sections = request.user.managed_sections.all()
             if not (student_section and student_section in managed_sections):
-                messages.error(request, "You can only approve journals from students in your managed sections.")
+                error_msg = "You can only approve journals from students in your managed sections."
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg}, status=403)
+                messages.error(request, error_msg)
                 return redirect("AccountingSystem:journals")
         
         # create an approved header with same data
@@ -2079,9 +2085,15 @@ Accounting System
                 # Log the error but don't interrupt the approval process
                 print(f"Error sending approval email to {creator.email}: {str(e)}")
         
-        messages.success(request, f'Journal {draft_header.entry_no} has been approved successfully.')
+        success_msg = f'Journal {draft_header.entry_no} has been approved successfully.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': success_msg})
+        messages.success(request, success_msg)
     except JournalHeaderDrafts.DoesNotExist:
-        messages.error(request, 'Draft journal not found.')
+        error_msg = 'Draft journal not found.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=404)
+        messages.error(request, error_msg)
     
     return redirect("AccountingSystem:journals")
 
