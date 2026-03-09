@@ -31,7 +31,9 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',  # Must be first for WebSocket support
     'Accounting_System_app',
+    'channels',  # Django Channels for WebSocket
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -68,6 +70,21 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'Accounting_System.wsgi.application'
+
+# ASGI application (required for WebSocket support)
+ASGI_APPLICATION = 'Accounting_System.asgi.application'
+
+# Django Channels configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # For development
+        # For production, use Redis:
+        # 'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        # 'CONFIG': {
+        #     "hosts": [('127.0.0.1', 6379)],
+        # },
+    },
+}
 
 
 # Database
