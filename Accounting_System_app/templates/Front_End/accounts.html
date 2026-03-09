@@ -327,10 +327,16 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td><input id="account_code" type="text" name="account_code" readonly required></td>
-                                <td><input id="account_name" type="text" name="account_name" required></td>
                                 <td>
-                                    <select name="account_type" id="account_type" required>
+                                    <div class="account-code-group">
+                                        <input id="account_code" type="text" name="account_code" required class="form-control" readonly>
+                                        <small class="text-muted">AJAX preview. Final code is assigned on save.</small>
+                                    </div>
+                                </td>
+                                <td><input id="account_name" type="text" name="account_name" required class="form-control"></td>
+                                <td>
+                                    <select name="account_type" id="account_type" required class="form-select">
+                                        <option value="">-- Select Type --</option>
                                         <option value="Assets">Assets</option>
                                         <option value="Liabilities">Liabilities</option>
                                         <option value="Equity">Equity</option>
@@ -339,7 +345,7 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <select name="account_group" id="account_group" required>
+                                    <select name="account_group" id="account_group" required class="form-select">
                                         {% for account_group in account_groups %}
                                         <option value="{{ account_group.id }}" data-type="{{ account_group.group_name }}">
                                             {{ account_group.group_name }}
@@ -352,8 +358,8 @@
                             </tr>
                         </tbody>
                     </table>
-                    <label for="account_description">Description:</label>
-                    <input id="account_description1" name="account_description" type="text">
+                    <label for="account_description" class="form-label">Description:</label>
+                    <input id="account_description1" name="account_description" type="text" class="form-control">
                     
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

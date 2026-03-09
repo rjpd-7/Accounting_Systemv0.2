@@ -10,7 +10,7 @@ from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, Use
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError, Q, Value, DecimalField, Max, Count
 from django.db.models.functions import Coalesce
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.contrib import messages
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.csrf import csrf_exempt
@@ -72,9 +72,12 @@ ACLC Accounting System
         print(f"Error sending email to {user.email}: {str(e)}")
         return False, str(e)
 
-# Helper function to generate next account code
+# Helper function to generate next account code (thread-safe)
 def get_next_account_code(account_type):
-    """Generate next account code based on type"""
+    """
+    Generate next account code based on type with database-level locking
+    to prevent duplicate codes in concurrent scenarios.
+    """
     type_prefixes = {
         "Assets": 100000,
         "Liabilities": 200000,
@@ -85,19 +88,26 @@ def get_next_account_code(account_type):
     
     prefix = type_prefixes.get(account_type, 100000)
     
-    # Get the highest existing code for this type
-    accounts = ChartOfAccounts.objects.filter(account_type=account_type).values_list('account_code', flat=True)
+    # Use transaction and select_for_update() to ensure atomicity
+    # This prevents race conditions when multiple users request codes simultaneously
+    with transaction.atomic():
+        # Lock all accounts of this type to prevent concurrent reads of the same max value
+        accounts = ChartOfAccounts.objects.filter(
+            account_type=account_type
+        ).select_for_update().values_list('account_code', flat=True)
+        
+        max_number = 0
+        for code in accounts:
+            try:
+                num = int(code) - prefix
+                if num > max_number:
+                    max_number = num
+            except (ValueError, TypeError):
+                pass
+        
+        next_code = str(prefix + max_number + 1)
     
-    max_number = 0
-    for code in accounts:
-        try:
-            num = int(code) - prefix
-            if num > max_number:
-                max_number = num
-        except (ValueError, TypeError):
-            pass
-    
-    return str(prefix + max_number + 1)
+    return next_code
 
 def get_account_groups_for_section(section):
     """
@@ -1020,40 +1030,56 @@ def create_group(request):
 
 # Create Account Function to Backend
 def create_account(request):
-    account_code_submit = request.POST.get('account_code', '').strip()
-    account_name_submit = request.POST['account_name']
-    account_type_submit = request.POST['account_type']
-    account_description_submit = request.POST['account_description']
-    account_group_id = request.POST.get('account_group')  # may be '' when "All Groups" selected
+    account_name_submit = request.POST.get('account_name', '').strip()
+    account_type_submit = request.POST.get('account_type', '').strip()
+    account_description_submit = request.POST.get('account_description', '').strip()
+    account_group_id = request.POST.get('account_group')
 
-    # Validate required fields
     if not account_name_submit:
         messages.error(request, "Account name is required.")
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
-    # convert posted group id to FK id (use _id to assign directly) and handle empty selection
-    group_id = int(account_group_id) if account_group_id not in (None, '') else None
-
-    # Check uniqueness within the same account group (case-insensitive)
-    # Account names must be unique only within the same group
-    if ChartOfAccounts.objects.filter(account_name__iexact=account_name_submit, group_name_id=group_id).exists():
-        group_name = AccountGroups.objects.get(id=group_id).group_name if group_id else "Unassigned"
-        messages.error(request, f'Account "{account_name_submit}" already exists in group "{group_name}".')
+    valid_types = ["Assets", "Liabilities", "Equity", "Revenue", "Expenses"]
+    if account_type_submit not in valid_types:
+        messages.error(request, "Invalid account type.")
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
-    # If no code provided or empty, generate it automatically
-    if not account_code_submit:
-        account_code_submit = get_next_account_code(account_type_submit)
+    # Convert posted group id to FK id and handle empty selection.
+    group_id = int(account_group_id) if account_group_id not in (None, '') else None
 
-    account = ChartOfAccounts(
-        account_code = account_code_submit,
-        account_name = account_name_submit,
-        account_type = account_type_submit,
-        account_description = account_description_submit,
-        group_name_id = group_id,
-    )
-    account.save()
+    # Generate account code on submit in a transaction.
+    # We intentionally do not trust the client-preview code from AJAX.
+    max_attempts = 3
+    for _ in range(max_attempts):
+        try:
+            with transaction.atomic():
+                duplicate_name_exists = ChartOfAccounts.objects.filter(
+                    account_name__iexact=account_name_submit,
+                    group_name_id=group_id
+                ).exists()
 
+                if duplicate_name_exists:
+                    group_name = AccountGroups.objects.get(id=group_id).group_name if group_id else "Unassigned"
+                    messages.error(request, f'Account "{account_name_submit}" already exists in group "{group_name}".')
+                    return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
+
+                final_account_code = get_next_account_code(account_type_submit)
+
+                ChartOfAccounts.objects.create(
+                    account_code=final_account_code,
+                    account_name=account_name_submit,
+                    account_type=account_type_submit,
+                    account_description=account_description_submit,
+                    group_name_id=group_id,
+                )
+
+                messages.success(request, f'Account "{account_name_submit}" created successfully.')
+                return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
+        except IntegrityError:
+            # Retry if a concurrent insert took the same generated code.
+            continue
+
+    messages.error(request, "Could not create account due to concurrent updates. Please try again.")
     return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
 
 # Update Account Function to Backend
