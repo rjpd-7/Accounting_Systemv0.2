@@ -2097,6 +2097,150 @@ Accounting System
     
     return redirect("AccountingSystem:journals")
 
+# Approve All Journal Drafts for a Specific User
+def approve_all_user_drafts(request, user_id):
+    # only admins and teachers can approve
+    user_role = getattr(request.user, 'profile', None).role if getattr(request.user, 'profile', None) else None
+    if user_role not in ['admin', 'teacher']:
+        error_msg = "You do not have permission to approve journals."
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=403)
+        messages.error(request, error_msg)
+        return redirect("AccountingSystem:journals")
+    
+    try:
+        # Get the user whose drafts we're approving
+        target_user = User.objects.get(pk=user_id)
+        
+        # Get all draft headers for this user
+        draft_headers = JournalHeaderDrafts.objects.filter(user=target_user)
+        
+        # If teacher, verify they manage the student's section
+        if user_role == 'teacher':
+            student_section = target_user.profile.section if hasattr(target_user, 'profile') else None
+            managed_sections = request.user.managed_sections.all()
+            if not (student_section and student_section in managed_sections):
+                error_msg = "You can only approve journals from students in your managed sections."
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg}, status=403)
+                messages.error(request, error_msg)
+                return redirect("AccountingSystem:journals")
+        
+        if not draft_headers.exists():
+            error_msg = f'No draft journals found for {target_user.get_full_name() or target_user.username}.'
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg}, status=404)
+            messages.warning(request, error_msg)
+            return redirect("AccountingSystem:journals")
+        
+        approved_count = 0
+        approved_codes = []
+        
+        # Approve each draft
+        for draft_header in draft_headers:
+            try:
+                # create an approved header with same data
+                approved_header = JournalHeader.objects.create(
+                    entry_no=draft_header.entry_no,
+                    entry_date=draft_header.entry_date,
+                    journal_description=draft_header.journal_description,
+                    group_name=draft_header.group_name,
+                    user=draft_header.user
+                )
+                
+                # Log the approval
+                log_audit_trail(
+                    journal_header=approved_header,
+                    changed_by=request.user,
+                    change_type='updated',
+                    field_name='journal_approved',
+                    new_value=f'Journal approved from draft {draft_header.entry_no} (bulk approval)'
+                )
+                
+                # copy all draft entries to approved entries
+                draft_entries = JournalEntryDrafts.objects.filter(journal_header=draft_header)
+                for draft_entry in draft_entries:
+                    JournalEntry.objects.create(
+                        journal_header=approved_header,
+                        account=draft_entry.account,
+                        debit=draft_entry.debit,
+                        credit=draft_entry.credit,
+                        description=draft_entry.description
+                    )
+                
+                # delete draft entries and header
+                draft_entries.delete()
+                draft_header.delete()
+                
+                approved_count += 1
+                approved_codes.append(approved_header.entry_no)
+                
+            except Exception as e:
+                print(f"Error approving journal {draft_header.entry_no}: {str(e)}")
+                continue
+        
+        # Broadcast realtime update after all approvals
+        if approved_count > 0:
+            broadcast_journal_realtime_update(
+                action='approved',
+                journal_code=f'{approved_count} journals',
+                created_by=request.user.get_full_name() or request.user.username,
+            )
+            
+            # Send email notification to journal creator
+            if target_user and target_user.email:
+                try:
+                    approver_name = request.user.get_full_name() or request.user.username
+                    subject = f'{approved_count} Journal Entries Approved'
+                    message = f"""
+Dear {target_user.first_name or target_user.username},
+
+{approved_count} of your journal entries have been approved!
+
+Approved Journal Codes:
+{', '.join(approved_codes)}
+
+Approved By: {approver_name}
+Approval Date: {localdate().strftime('%B %d, %Y')}
+
+You can now view the approved journals in the Accounting System.
+
+Best regards,
+Accounting System
+                    """
+                    send_mail(
+                        subject,
+                        message,
+                        settings.DEFAULT_FROM_EMAIL,
+                        [target_user.email],
+                        fail_silently=True
+                    )
+                except Exception as e:
+                    print(f"Error sending bulk approval email to {target_user.email}: {str(e)}")
+        
+        success_msg = f'{approved_count} journal(s) approved successfully for {target_user.get_full_name() or target_user.username}.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True, 
+                'message': success_msg,
+                'approved_count': approved_count,
+                'approved_codes': approved_codes
+            })
+        messages.success(request, success_msg)
+        
+    except User.DoesNotExist:
+        error_msg = 'User not found.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=404)
+        messages.error(request, error_msg)
+    except Exception as e:
+        error_msg = f'Error approving journals: {str(e)}'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=500)
+        messages.error(request, error_msg)
+    
+    return redirect("AccountingSystem:journals")
+
 # Update Journal Draft Function
 def update_journal_draft(request, id):
     # retrieve header only if user owns it, is admin/teacher, or is a collaborator
