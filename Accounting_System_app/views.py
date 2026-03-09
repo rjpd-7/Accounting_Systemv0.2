@@ -143,30 +143,14 @@ def get_next_journal_code():
         # Lock the latest journals to prevent race conditions
         latest_draft = JournalHeaderDrafts.objects.select_for_update().order_by('-id').first()
         latest_approved = JournalHeader.objects.select_for_update().order_by('-id').first()
-        
-        max_number = 0
-        
-        # Extract number from draft journals
-        if latest_draft:
-            try:
-                num_str = latest_draft.entry_no.replace('JE-', '').lstrip('0') or '0'
-                num = int(num_str)
-                if num > max_number:
-                    max_number = num
-            except (ValueError, TypeError, AttributeError):
-                pass
-        
-        # Extract number from approved journals
-        if latest_approved:
-            try:
-                num_str = latest_approved.entry_no.replace('JE-', '').lstrip('0') or '0'
-                num = int(num_str)
-                if num > max_number:
-                    max_number = num
-            except (ValueError, TypeError, AttributeError):
-                pass
-        
-        next_number = str(max_number + 1).zfill(10)
+
+        # Use PK reference (max id across draft/approved) + 1 for next journal code.
+        max_id = max(
+            latest_draft.id if latest_draft else 0,
+            latest_approved.id if latest_approved else 0,
+        )
+
+        next_number = str(max_id + 1).zfill(10)
         return f'JE-{next_number}'
 
 # API endpoint to get next account code

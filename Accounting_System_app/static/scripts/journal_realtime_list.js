@@ -24,10 +24,16 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
 
+                const newBulkApprovalSection = doc.querySelector('#draft #bulk-approval-section');
                 const newDraftTable = doc.querySelector('#draft .display_table');
                 const newApprovedTable = doc.querySelector('#approved .display_table');
+                const currentBulkApprovalSection = document.querySelector('#draft #bulk-approval-section');
                 const currentDraftTable = document.querySelector('#draft .display_table');
                 const currentApprovedTable = document.querySelector('#approved .display_table');
+
+                if (newBulkApprovalSection && currentBulkApprovalSection) {
+                    currentBulkApprovalSection.outerHTML = newBulkApprovalSection.outerHTML;
+                }
 
                 if (newDraftTable && currentDraftTable) {
                     currentDraftTable.innerHTML = newDraftTable.innerHTML;
