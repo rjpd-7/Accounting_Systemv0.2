@@ -274,3 +274,13 @@ class JournalCodeConsumer(AsyncWebsocketConsumer):
             'next_code': event['next_code'],
             'created_by': event.get('created_by', 'Unknown User')
         }))
+
+    async def journal_feed_updated(self, event):
+        """Send generic journal feed update notification to WebSocket client"""
+        await self.send(text_data=json.dumps({
+            'type': 'journal_feed_updated',
+            'action': event.get('action', ''),
+            'journal_code': event.get('journal_code', ''),
+            'next_code': event.get('next_code', ''),
+            'created_by': event.get('created_by', 'Unknown User')
+        }))

@@ -113,6 +113,10 @@ class HybridJournalCodeManager {
             
             if (data.type === 'journal_created') {
                 this.handleJournalCreated(data);
+                this.emitRealtimeUpdate(data);
+            } else if (data.type === 'journal_feed_updated') {
+                this.handleJournalFeedUpdate(data);
+                this.emitRealtimeUpdate(data);
             }
         } catch (error) {
             console.error('❌ Failed to parse WebSocket message:', error);
@@ -131,6 +135,18 @@ class HybridJournalCodeManager {
         setTimeout(() => {
             this.journalCodeInput.classList.remove('code-updated');
         }, 1500);
+    }
+
+    handleJournalFeedUpdate(data) {
+        if (data.next_code && this.journalCodeInput) {
+            this.journalCodeInput.value = data.next_code;
+        }
+    }
+
+    emitRealtimeUpdate(data) {
+        window.dispatchEvent(new CustomEvent('journal:realtime-update', {
+            detail: data
+        }));
     }
 
     onWebSocketClose(event) {

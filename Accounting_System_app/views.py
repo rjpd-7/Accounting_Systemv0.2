@@ -187,6 +187,43 @@ def get_next_journal_code_api(request):
     next_code = get_next_journal_code()
     return JsonResponse({'success': True, 'code': next_code})
 
+
+def broadcast_journal_realtime_update(action, journal_code='', created_by=''):
+    """Broadcast journal list/code updates to connected WebSocket clients."""
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+
+        channel_layer = get_channel_layer()
+        next_code = get_next_journal_code()
+
+        async_to_sync(channel_layer.group_send)(
+            'journal_code_updates',
+            {
+                'type': 'journal_feed_updated',
+                'action': action,
+                'journal_code': journal_code,
+                'next_code': next_code,
+                'created_by': created_by,
+            }
+        )
+
+        # Keep existing journal-code preview behavior for create events.
+        if action == 'created':
+            async_to_sync(channel_layer.group_send)(
+                'journal_code_updates',
+                {
+                    'type': 'journal_created',
+                    'journal_code': journal_code,
+                    'next_code': next_code,
+                    'created_by': created_by,
+                }
+            )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to broadcast journal realtime update: {e}")
+
 # pyright: ignore[reportMissingImports]
 try:
     from xhtml2pdf import pisa
@@ -550,10 +587,11 @@ def admin_advance_section_students(request):
 @require_http_methods(["POST"])
 def admin_assign_student_sections_bulk(request):
     assignments = request.POST
-    section_ids = {v for k, v in assignments.items() if k.startswith('section_for_') and v}
+    # Convert section IDs from POST (strings) to integers
+    section_ids = {int(v) for k, v in assignments.items() if k.startswith('section_for_') and v}
 
     valid_sections = {
-        str(section.id): section
+        section.id: section
         for section in StudentSection.objects.filter(id__in=section_ids)
     }
 
@@ -568,7 +606,14 @@ def admin_assign_student_sections_bulk(request):
         except User.DoesNotExist:
             continue
 
-        target_section = valid_sections.get(section_id) if section_id else None
+        if section_id:
+            try:
+                section_id_int = int(section_id)
+            except ValueError:
+                continue
+            target_section = valid_sections.get(section_id_int)
+        else:
+            target_section = None
 
         if student.profile.section_id != (target_section.id if target_section else None):
             student.profile.section = target_section
@@ -615,12 +660,13 @@ def assign_student_sections_bulk(request):
     teacher_managed_section_ids = set(teacher_managed_sections.values_list('id', flat=True))
     
     assignments = request.POST
-    section_ids = {v for k, v in assignments.items() if k.startswith('section_for_') and v}
+    # Convert section IDs from POST (strings) to integers
+    section_ids = {int(v) for k, v in assignments.items() if k.startswith('section_for_') and v}
 
     # Only allow sections that the teacher manages (intersection of both sets)
     valid_section_ids = section_ids & teacher_managed_section_ids
     valid_sections = {
-        str(section.id): section
+        section.id: section
         for section in StudentSection.objects.filter(id__in=valid_section_ids)
     }
 
@@ -637,10 +683,15 @@ def assign_student_sections_bulk(request):
 
         # Allow unassigning (empty section_id) or assigning to teacher's managed sections
         if section_id:
-            if section_id not in valid_sections:
+            try:
+                section_id_int = int(section_id)
+            except ValueError:
+                continue
+            
+            if section_id_int not in valid_sections:
                 # Teacher trying to assign to a section they don't manage
                 continue
-            target_section = valid_sections[section_id]
+            target_section = valid_sections[section_id_int]
         else:
             # Allow unassigning students
             target_section = None
@@ -1633,26 +1684,11 @@ def insert_journals(request):
                 entry_id=journal_entry.id
             )
         
-        # Broadcast journal creation to all connected WebSocket clients
-        try:
-            from channels.layers import get_channel_layer
-            from asgiref.sync import async_to_sync
-            channel_layer = get_channel_layer()
-            next_code = get_next_journal_code()
-            async_to_sync(channel_layer.group_send)(
-                'journal_code_updates',
-                {
-                    'type': 'journal_created',
-                    'journal_code': journal_code,
-                    'next_code': next_code,
-                    'created_by': request.user.get_full_name() or request.user.username,
-                }
-            )
-        except Exception as e:
-            # WebSocket broadcast failed, but journal was created successfully
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Failed to broadcast journal creation: {e}")
+        broadcast_journal_realtime_update(
+            action='created',
+            journal_code=journal_code,
+            created_by=request.user.get_full_name() or request.user.username,
+        )
             
         return redirect('AccountingSystem:journals')  # or render success message
 
@@ -1800,7 +1836,17 @@ def update_journal(request, id):
 
     # respond
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        broadcast_journal_realtime_update(
+            action='updated',
+            journal_code=header.entry_no,
+            created_by=request.user.get_full_name() or request.user.username,
+        )
         return JsonResponse({'success': True})
+    broadcast_journal_realtime_update(
+        action='updated',
+        journal_code=header.entry_no,
+        created_by=request.user.get_full_name() or request.user.username,
+    )
     return redirect(reverse("AccountingSystem:journals"))
 
 # Delete Journal Entry
@@ -1824,7 +1870,13 @@ def delete_journal(request, id):
                     return redirect("AccountingSystem:journals")
         else:
             journal_header = JournalHeader.objects.get(pk=id, user=request.user)
+        deleted_code = journal_header.entry_no
         journal_header.delete()
+        broadcast_journal_realtime_update(
+            action='deleted',
+            journal_code=deleted_code,
+            created_by=request.user.get_full_name() or request.user.username,
+        )
         messages.success(request, "Journal deleted successfully.")
     except JournalHeader.DoesNotExist:
         messages.error(request, "Journal not found.")
@@ -1986,6 +2038,12 @@ def approve_journal_draft(request, id):
         # delete draft entries and header
         draft_entries.delete()
         draft_header.delete()
+
+        broadcast_journal_realtime_update(
+            action='approved',
+            journal_code=approved_header.entry_no,
+            created_by=request.user.get_full_name() or request.user.username,
+        )
         
         # Send email notification to journal creator
         creator = draft_header.user
@@ -2167,7 +2225,17 @@ def update_journal_draft(request, id):
 
     # respond
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        broadcast_journal_realtime_update(
+            action='updated_draft',
+            journal_code=header.entry_no,
+            created_by=request.user.get_full_name() or request.user.username,
+        )
         return JsonResponse({'success': True})
+    broadcast_journal_realtime_update(
+        action='updated_draft',
+        journal_code=header.entry_no,
+        created_by=request.user.get_full_name() or request.user.username,
+    )
     return redirect(reverse("AccountingSystem:journals"))
 
 # Delete Journal Draft Function
@@ -2191,7 +2259,13 @@ def delete_journal_draft(request, id):
                     return redirect("AccountingSystem:journals")
         else:
             journal_header = JournalHeaderDrafts.objects.get(pk=id, user=request.user)
+        deleted_code = journal_header.entry_no
         journal_header.delete()
+        broadcast_journal_realtime_update(
+            action='deleted_draft',
+            journal_code=deleted_code,
+            created_by=request.user.get_full_name() or request.user.username,
+        )
         messages.success(request, "Draft journal deleted successfully.")
     except JournalHeaderDrafts.DoesNotExist:
         messages.error(request, "Draft journal not found.")
