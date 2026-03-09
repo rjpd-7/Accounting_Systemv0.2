@@ -93,7 +93,7 @@
                 </li>
                 -->
                 <li>
-                    <a class="nav-link" id="outlog" href="{% url 'AccountingSystem:logout' %}">
+                    <a class="nav-link" id="outlog" href="{% url 'AccountingSystem:logout' %}" onclick="return confirm('Are you sure you want to log out?');">
                         <span class="icon">
                             <i class="bi bi-box-arrow-in-left"></i>
                         </span>
