@@ -4,3 +4,4 @@ pytz==2024.1
 xhtml2pdf==0.2.17
 channels
 daphne
+channels-redis

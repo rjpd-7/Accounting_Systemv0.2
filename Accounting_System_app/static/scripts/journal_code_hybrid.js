@@ -14,6 +14,8 @@ class HybridJournalCodeManager {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000;
+        this.pollingInterval = null;
+        this.pollingDelay = 3000;
         this.isSubmitting = false;
         
         this.initializeElements();
@@ -117,6 +119,7 @@ class HybridJournalCodeManager {
     onWebSocketOpen() {
         this.isConnected = true;
         this.reconnectAttempts = 0;
+        this.stopPolling();
         console.log('✅ Journal code WebSocket connected');
         this.updateConnectionStatus(true);
     }
@@ -178,6 +181,12 @@ class HybridJournalCodeManager {
     }
 
     scheduleReconnect() {
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.error('❌ Max WebSocket reconnection attempts reached');
+            this.startPolling();
+            return;
+        }
+
         this.reconnectAttempts++;
         const delay = this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1);
         console.log(`🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
@@ -187,22 +196,68 @@ class HybridJournalCodeManager {
         }, delay);
     }
 
-    updateConnectionStatus(isConnected) {
+    startPolling() {
+        if (this.pollingInterval) {
+            return;
+        }
+
+        console.log(`🔄 Starting fallback polling every ${this.pollingDelay}ms`);
+        this.updateConnectionStatus(true, 'polling');
+
+        this.pollingInterval = setInterval(() => {
+            if (!this.modal || !this.modal.classList.contains('show')) {
+                return;
+            }
+            this.fetchPreviewCode();
+        }, this.pollingDelay);
+    }
+
+    stopPolling() {
+        if (!this.pollingInterval) {
+            return;
+        }
+
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+    }
+
+    updateConnectionStatus(isConnected, mode = 'websocket') {
         if (!this.statusIndicator) return;
         
         if (isConnected) {
-            this.statusIndicator.textContent = '🟢 Live';
+            if (mode === 'polling') {
+                this.statusIndicator.textContent = '🔄 Polling';
+                this.statusIndicator.title = `Fallback polling active (${this.pollingDelay / 1000}s interval)`;
+            } else {
+                this.statusIndicator.textContent = '🟢 Live';
+                this.statusIndicator.title = 'Real-time updates active';
+            }
             this.statusIndicator.classList.remove('disconnected');
             this.statusIndicator.classList.add('connected');
         } else {
             this.statusIndicator.textContent = '🟡 AJAX Only';
+            this.statusIndicator.title = 'Using AJAX preview (WebSocket offline)';
             this.statusIndicator.classList.remove('connected');
             this.statusIndicator.classList.add('disconnected');
         }
+    }
+
+    disconnect() {
+        if (this.socket) {
+            this.socket.close(1000);
+        }
+        this.stopPolling();
     }
 }
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     window.journalCodeManager = new HybridJournalCodeManager();
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (window.journalCodeManager) {
+        window.journalCodeManager.disconnect();
+    }
 });

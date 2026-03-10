@@ -14,6 +14,8 @@ class HybridAccountCodeManager {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000;
+        this.pollingInterval = null;
+        this.pollingDelay = 500;
         this.currentAccountType = null;
         
         this.initializeElements();
@@ -136,6 +138,7 @@ class HybridAccountCodeManager {
     onWebSocketOpen() {
         this.isConnected = true;
         this.reconnectAttempts = 0;
+        this.stopPolling();
         console.log('✅ Account code WebSocket connected');
         this.updateConnectionStatus(true);
         
@@ -197,6 +200,7 @@ class HybridAccountCodeManager {
     scheduleReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             console.error('❌ Max WebSocket reconnection attempts reached');
+            this.startPolling();
             return;
         }
         
@@ -208,12 +212,45 @@ class HybridAccountCodeManager {
         setTimeout(() => this.connectWebSocket(), delay);
     }
 
-    updateConnectionStatus(isConnected) {
+    startPolling() {
+        if (this.pollingInterval) {
+            return;
+        }
+
+        console.log(`🔄 Starting fallback polling every ${this.pollingDelay}ms`);
+        this.updateConnectionStatus(true, 'polling');
+
+        this.pollingInterval = setInterval(() => {
+            if (!this.modal || !this.modal.classList.contains('show')) {
+                return;
+            }
+            if (!this.currentAccountType) {
+                return;
+            }
+            this.fetchPreviewCode(this.currentAccountType);
+        }, this.pollingDelay);
+    }
+
+    stopPolling() {
+        if (!this.pollingInterval) {
+            return;
+        }
+
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+    }
+
+    updateConnectionStatus(isConnected, mode = 'websocket') {
         if (this.statusIndicator) {
             if (isConnected) {
                 this.statusIndicator.className = 'socket-status connected';
-                this.statusIndicator.innerHTML = '🟢 Live';
-                this.statusIndicator.title = 'Real-time updates active';
+                if (mode === 'polling') {
+                    this.statusIndicator.innerHTML = '🔄 Polling';
+                    this.statusIndicator.title = `Fallback polling active (${this.pollingDelay / 1000}s interval)`;
+                } else {
+                    this.statusIndicator.innerHTML = '🟢 Live';
+                    this.statusIndicator.title = 'Real-time updates active';
+                }
             } else {
                 this.statusIndicator.className = 'socket-status disconnected';
                 this.statusIndicator.innerHTML = '🟡 AJAX Only';
@@ -229,6 +266,7 @@ class HybridAccountCodeManager {
         if (this.keepaliveInterval) {
             clearInterval(this.keepaliveInterval);
         }
+        this.stopPolling();
     }
 }
 

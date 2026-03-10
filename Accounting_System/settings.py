@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-%t%@rf947&b%rl$2oso9%4=fgt0#!y+7yk1dfu7hmpa2650tl9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['rjpd7.pythonanywhere.com', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -85,6 +85,18 @@ CHANNEL_LAYERS = {
         # },
     },
 }
+
+# Production ASGI settings for PythonAnywhere
+import os
+if 'PYTHONANYWHERE_DOMAIN' in os.environ or 'pythonanywhere.com' in os.environ.get('SERVER_NAME', ''):
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [('redis-server.redis.pythonanywhere-services.com', 6379)],
+            },
+        },
+    }
 
 
 # Database
