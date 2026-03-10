@@ -159,9 +159,12 @@
                 <div class="card-body">
                     {% regroup draft_groups_by_user by header.user as users_with_drafts %}
                     {% if users_with_drafts %}
-                    <div class="d-flex flex-column gap-2 overflow-auto" style="max-height: 220px;">
+                    <div class="mb-2">
+                        <input type="text" class="form-control form-control-sm" id="bulkApprovalUserSearch" placeholder="Search users in bulk approval...">
+                    </div>
+                    <div id="bulkApprovalUserList" class="d-flex flex-column gap-2 overflow-auto" style="max-height: 220px;">
                         {% for user_group in users_with_drafts %}
-                        <div>
+                        <div class="bulk-approval-user-item" data-search-text="{{ user_group.grouper.get_full_name|default:user_group.grouper.username }} {{ user_group.grouper.username }} {{ user_group.list|length }}">
                             <div class="d-flex align-items-center justify-content-between border rounded p-2">
                                 <div>
                                     <strong>{{ user_group.grouper.get_full_name|default:user_group.grouper.username }}</strong>
@@ -976,6 +979,8 @@
     document.addEventListener('DOMContentLoaded', function() {
         const searchDraftInput = document.getElementById('searchDraftJournals');
         const searchApprovedInput = document.getElementById('searchApprovedJournals');
+        const bulkApprovalSearchInput = document.getElementById('bulkApprovalUserSearch');
+        const bulkApprovalUserList = document.getElementById('bulkApprovalUserList');
 
         function filterJournals(searchInput, tabPane) {
             const searchTerm = searchInput.value.toLowerCase().trim();
@@ -1028,6 +1033,39 @@
             searchApprovedInput.addEventListener('input', function() {
                 const approvedTabPane = document.getElementById('approved');
                 filterJournals(searchApprovedInput, approvedTabPane);
+            });
+        }
+
+        if (bulkApprovalSearchInput && bulkApprovalUserList) {
+            bulkApprovalSearchInput.addEventListener('input', function() {
+                const searchTerm = bulkApprovalSearchInput.value.toLowerCase().trim();
+                const userItems = bulkApprovalUserList.querySelectorAll('.bulk-approval-user-item');
+                let visibleCount = 0;
+
+                userItems.forEach(item => {
+                    const searchableText = (item.getAttribute('data-search-text') || '').toLowerCase();
+                    const isMatch = searchableText.includes(searchTerm);
+
+                    if (isMatch) {
+                        item.style.display = '';
+                        visibleCount++;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                let noResultsMsg = document.getElementById('noBulkApprovalSearchResults');
+                if (visibleCount === 0 && searchTerm !== '') {
+                    if (!noResultsMsg) {
+                        noResultsMsg = document.createElement('p');
+                        noResultsMsg.id = 'noBulkApprovalSearchResults';
+                        noResultsMsg.className = 'alert alert-info mt-2 mb-0';
+                        noResultsMsg.textContent = 'No users match your bulk approval search.';
+                        bulkApprovalUserList.insertAdjacentElement('afterend', noResultsMsg);
+                    }
+                } else if (noResultsMsg) {
+                    noResultsMsg.remove();
+                }
             });
         }
     });
