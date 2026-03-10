@@ -12,6 +12,11 @@
         .dash-card h3 { margin:0 0 8px; font-size:20px; }
         .dash-card p { margin:0; font-size:28px; font-weight:700; }
         .dash-card:hover { transform:translateY(-4px); background:#311413; box-shadow:0 6px 18px rgba(0,0,0,.12); cursor:pointer; }
+        .sections-scrollable { max-height: 400px; overflow-y: auto; padding-right: 10px; }
+        .sections-scrollable::-webkit-scrollbar { width: 8px; }
+        .sections-scrollable::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .sections-scrollable::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        .sections-scrollable::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
@@ -150,29 +155,31 @@
             <p class="text-muted">Sections you manage.</p>
             
             {% if teacher_managed_sections %}
-                <div class="row g-3">
-                    {% for section in teacher_managed_sections %}
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ section.name }}</h5>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="card-text text-muted mb-0">Students</p>
-                                            <p class="fs-4 fw-bold mb-0">{{ section.student_count }}</p>
-                                        </div>
-                                        <div class="text-end">
-                                            {% if section.student_count > 0 %}
-                                                <span class="badge bg-success">Active</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">Empty</span>
-                                            {% endif %}
+                <div class="sections-scrollable">
+                    <div class="row g-3">
+                        {% for section in teacher_managed_sections %}
+                            <div class="col-md-6 col-lg-4">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ section.name }}</h5>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <p class="card-text text-muted mb-0">Students</p>
+                                                <p class="fs-4 fw-bold mb-0">{{ section.student_count }}</p>
+                                            </div>
+                                            <div class="text-end">
+                                                {% if section.student_count > 0 %}
+                                                    <span class="badge bg-success">Active</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Empty</span>
+                                                {% endif %}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    {% endfor %}
+                        {% endfor %}
+                    </div>
                 </div>
             {% else %}
                 <div class="alert alert-info">
