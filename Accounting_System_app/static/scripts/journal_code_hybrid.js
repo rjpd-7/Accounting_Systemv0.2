@@ -15,7 +15,7 @@ class HybridJournalCodeManager {
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000;
         this.pollingInterval = null;
-        this.pollingDelay = 3000;
+        this.pollingDelay = 500;
         this.isSubmitting = false;
         
         this.initializeElements();
