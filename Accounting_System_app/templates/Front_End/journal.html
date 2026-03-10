@@ -976,98 +976,139 @@
 
     <script>
     // Journal Search Functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchDraftInput = document.getElementById('searchDraftJournals');
-        const searchApprovedInput = document.getElementById('searchApprovedJournals');
+    function filterJournals(searchInput, tabPane) {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const journalTables = tabPane.querySelectorAll('.journal-entry-table');
+        let visibleCount = 0;
+
+        journalTables.forEach(table => {
+            const journalCode = (table.getAttribute('data-journal-code') || '').toLowerCase();
+            const creator = (table.getAttribute('data-creator') || '').toLowerCase();
+            const description = (table.getAttribute('data-description') || '').toLowerCase();
+            const date = (table.getAttribute('data-date') || '').toLowerCase();
+            const accounts = (table.getAttribute('data-accounts') || '').toLowerCase();
+
+            const isMatch = journalCode.includes(searchTerm) ||
+                           creator.includes(searchTerm) ||
+                           description.includes(searchTerm) ||
+                           date.includes(searchTerm) ||
+                           accounts.includes(searchTerm);
+
+            if (isMatch) {
+                table.style.display = '';
+                visibleCount++;
+            } else {
+                table.style.display = 'none';
+            }
+        });
+
+        // Show "No results" message if needed
+        let noResultsMsg = tabPane.querySelector('.no-search-results');
+        if (visibleCount === 0 && searchTerm !== '') {
+            if (!noResultsMsg) {
+                noResultsMsg = document.createElement('p');
+                noResultsMsg.className = 'alert alert-info no-search-results';
+                noResultsMsg.textContent = 'No journal entries match your search.';
+                tabPane.querySelector('.display_table').insertBefore(noResultsMsg, tabPane.querySelector('.display_table').firstChild);
+            }
+        } else if (noResultsMsg) {
+            noResultsMsg.remove();
+        }
+    }
+
+    function filterBulkApprovalUsers() {
         const bulkApprovalSearchInput = document.getElementById('bulkApprovalUserSearch');
         const bulkApprovalUserList = document.getElementById('bulkApprovalUserList');
 
-        function filterJournals(searchInput, tabPane) {
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            const journalTables = tabPane.querySelectorAll('.journal-entry-table');
-            let visibleCount = 0;
-
-            journalTables.forEach(table => {
-                const journalCode = (table.getAttribute('data-journal-code') || '').toLowerCase();
-                const creator = (table.getAttribute('data-creator') || '').toLowerCase();
-                const description = (table.getAttribute('data-description') || '').toLowerCase();
-                const date = (table.getAttribute('data-date') || '').toLowerCase();
-                const accounts = (table.getAttribute('data-accounts') || '').toLowerCase();
-
-                const isMatch = journalCode.includes(searchTerm) ||
-                               creator.includes(searchTerm) ||
-                               description.includes(searchTerm) ||
-                               date.includes(searchTerm) ||
-                               accounts.includes(searchTerm);
-
-                if (isMatch) {
-                    table.style.display = '';
-                    visibleCount++;
-                } else {
-                    table.style.display = 'none';
-                }
-            });
-
-            // Show "No results" message if needed
-            let noResultsMsg = tabPane.querySelector('.no-search-results');
-            if (visibleCount === 0 && searchTerm !== '') {
-                if (!noResultsMsg) {
-                    noResultsMsg = document.createElement('p');
-                    noResultsMsg.className = 'alert alert-info no-search-results';
-                    noResultsMsg.textContent = 'No journal entries match your search.';
-                    tabPane.querySelector('.display_table').insertBefore(noResultsMsg, tabPane.querySelector('.display_table').firstChild);
-                }
-            } else if (noResultsMsg) {
-                noResultsMsg.remove();
+        if (!bulkApprovalSearchInput || !bulkApprovalUserList) {
+            const oldNoResults = document.getElementById('noBulkApprovalSearchResults');
+            if (oldNoResults) {
+                oldNoResults.remove();
             }
+            return;
         }
 
+        const searchTerm = bulkApprovalSearchInput.value.toLowerCase().trim();
+        const userItems = bulkApprovalUserList.querySelectorAll('.bulk-approval-user-item');
+        let visibleCount = 0;
+
+        userItems.forEach(item => {
+            const searchableText = (item.getAttribute('data-search-text') || '').toLowerCase();
+            const isMatch = searchableText.includes(searchTerm);
+
+            if (isMatch) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        let noResultsMsg = document.getElementById('noBulkApprovalSearchResults');
+        if (visibleCount === 0 && searchTerm !== '') {
+            if (!noResultsMsg) {
+                noResultsMsg = document.createElement('p');
+                noResultsMsg.id = 'noBulkApprovalSearchResults';
+                noResultsMsg.className = 'alert alert-info mt-2 mb-0';
+                noResultsMsg.textContent = 'No users match your bulk approval search.';
+                bulkApprovalUserList.insertAdjacentElement('afterend', noResultsMsg);
+            }
+        } else if (noResultsMsg) {
+            noResultsMsg.remove();
+        }
+    }
+
+    function applyJournalSearchFilters() {
+        const searchDraftInput = document.getElementById('searchDraftJournals');
+        const searchApprovedInput = document.getElementById('searchApprovedJournals');
+
         if (searchDraftInput) {
+            const draftTabPane = document.getElementById('draft');
+            filterJournals(searchDraftInput, draftTabPane);
+        }
+
+        if (searchApprovedInput) {
+            const approvedTabPane = document.getElementById('approved');
+            filterJournals(searchApprovedInput, approvedTabPane);
+        }
+
+        filterBulkApprovalUsers();
+    }
+
+    function initJournalSearch() {
+        const searchDraftInput = document.getElementById('searchDraftJournals');
+        const searchApprovedInput = document.getElementById('searchApprovedJournals');
+        const bulkApprovalSearchInput = document.getElementById('bulkApprovalUserSearch');
+
+        if (searchDraftInput && searchDraftInput.dataset.searchBound !== 'true') {
             searchDraftInput.addEventListener('input', function() {
                 const draftTabPane = document.getElementById('draft');
                 filterJournals(searchDraftInput, draftTabPane);
             });
+            searchDraftInput.dataset.searchBound = 'true';
         }
 
-        if (searchApprovedInput) {
+        if (searchApprovedInput && searchApprovedInput.dataset.searchBound !== 'true') {
             searchApprovedInput.addEventListener('input', function() {
                 const approvedTabPane = document.getElementById('approved');
                 filterJournals(searchApprovedInput, approvedTabPane);
             });
+            searchApprovedInput.dataset.searchBound = 'true';
         }
 
-        if (bulkApprovalSearchInput && bulkApprovalUserList) {
-            bulkApprovalSearchInput.addEventListener('input', function() {
-                const searchTerm = bulkApprovalSearchInput.value.toLowerCase().trim();
-                const userItems = bulkApprovalUserList.querySelectorAll('.bulk-approval-user-item');
-                let visibleCount = 0;
-
-                userItems.forEach(item => {
-                    const searchableText = (item.getAttribute('data-search-text') || '').toLowerCase();
-                    const isMatch = searchableText.includes(searchTerm);
-
-                    if (isMatch) {
-                        item.style.display = '';
-                        visibleCount++;
-                    } else {
-                        item.style.display = 'none';
-                    }
-                });
-
-                let noResultsMsg = document.getElementById('noBulkApprovalSearchResults');
-                if (visibleCount === 0 && searchTerm !== '') {
-                    if (!noResultsMsg) {
-                        noResultsMsg = document.createElement('p');
-                        noResultsMsg.id = 'noBulkApprovalSearchResults';
-                        noResultsMsg.className = 'alert alert-info mt-2 mb-0';
-                        noResultsMsg.textContent = 'No users match your bulk approval search.';
-                        bulkApprovalUserList.insertAdjacentElement('afterend', noResultsMsg);
-                    }
-                } else if (noResultsMsg) {
-                    noResultsMsg.remove();
-                }
-            });
+        if (bulkApprovalSearchInput && bulkApprovalSearchInput.dataset.searchBound !== 'true') {
+            bulkApprovalSearchInput.addEventListener('input', filterBulkApprovalUsers);
+            bulkApprovalSearchInput.dataset.searchBound = 'true';
         }
+
+        applyJournalSearchFilters();
+    }
+
+    window.applyJournalSearchFilters = applyJournalSearchFilters;
+    window.initJournalSearch = initJournalSearch;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initJournalSearch();
     });
     </script>
 

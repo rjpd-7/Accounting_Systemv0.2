@@ -18,6 +18,10 @@
         if (!hasJournalTables()) return;
         isRefreshing = true;
 
+        const draftSearchValue = document.getElementById('searchDraftJournals')?.value || '';
+        const approvedSearchValue = document.getElementById('searchApprovedJournals')?.value || '';
+        const bulkApprovalSearchValue = document.getElementById('bulkApprovalUserSearch')?.value || '';
+
         const url = `${window.location.pathname}?_rt=${Date.now()}`;
         fetch(url, {
             method: 'GET',
@@ -47,6 +51,26 @@
                 }
                 if (newApprovedTable && currentApprovedTable) {
                     currentApprovedTable.innerHTML = newApprovedTable.innerHTML;
+                }
+
+                const draftSearchInput = document.getElementById('searchDraftJournals');
+                const approvedSearchInput = document.getElementById('searchApprovedJournals');
+                const bulkApprovalSearchInput = document.getElementById('bulkApprovalUserSearch');
+
+                if (draftSearchInput) {
+                    draftSearchInput.value = draftSearchValue;
+                }
+                if (approvedSearchInput) {
+                    approvedSearchInput.value = approvedSearchValue;
+                }
+                if (bulkApprovalSearchInput) {
+                    bulkApprovalSearchInput.value = bulkApprovalSearchValue;
+                }
+
+                if (typeof window.initJournalSearch === 'function') {
+                    window.initJournalSearch();
+                } else if (typeof window.applyJournalSearchFilters === 'function') {
+                    window.applyJournalSearchFilters();
                 }
             })
             .catch(error => {
