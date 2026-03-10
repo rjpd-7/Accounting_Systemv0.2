@@ -1557,8 +1557,12 @@ def journals(request):
             'total_credit': totals['total_credit'] or 0
         })
 
+    # Sort by user id so {% regroup %} consolidates all drafts per user into one group
+    draft_groups_by_user = sorted(draft_groups, key=lambda x: x['header'].user_id)
+
     return render(request, 'Front_End/journal.html', {
         'draft_groups': draft_groups,
+        'draft_groups_by_user': draft_groups_by_user,
         'approved_groups': approved_groups,
         'account_groups': account_groups,
         "accounts" : accounts
