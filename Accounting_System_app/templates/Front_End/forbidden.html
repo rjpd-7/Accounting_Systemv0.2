@@ -58,6 +58,7 @@
 	</style>
 </head>
 <body>
+	{% url 'AccountingSystem:journals' as default_back_url %}
 	<div class="card">
 		<h1>{{ error_title|default:"Action Not Allowed" }}</h1>
 		<p>{{ error_message|default:"You are not allowed to perform this action." }}</p>
@@ -65,7 +66,7 @@
 			<p>{{ error_hint }}</p>
 		{% endif %}
 		<div class="actions">
-			<a href="{% url 'AccountingSystem:journals' %}" class="btn">Back to Journals</a>
+			<a href="{{ error_back_url|default:default_back_url }}" class="btn">{{ error_back_label|default:"Back to Journals" }}</a>
 		</div>
 	</div>
 </body>

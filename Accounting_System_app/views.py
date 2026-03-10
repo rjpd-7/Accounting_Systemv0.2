@@ -1163,8 +1163,18 @@ def create_account(request):
             # Retry if a concurrent insert took the same generated code.
             continue
 
-    messages.error(request, "Could not create account due to concurrent updates. Please try again.")
-    return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
+    return render(
+        request,
+        "Front_End/forbidden.html",
+        {
+            "error_title": "Account Code Already Exists",
+            "error_message": "The account code generated for this account is already used.",
+            "error_hint": "Please go back to Accounts and submit again to generate a fresh account code.",
+            "error_back_url": reverse("AccountingSystem:accounts"),
+            "error_back_label": "Back to Accounts",
+        },
+        status=409,
+    )
 
 # Update Account Function to Backend
 def update_account(request, id):
