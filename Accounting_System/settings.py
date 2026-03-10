@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -87,13 +88,27 @@ CHANNEL_LAYERS = {
 }
 
 # Production ASGI settings for PythonAnywhere
-import os
-if 'PYTHONANYWHERE_DOMAIN' in os.environ or 'pythonanywhere.com' in os.environ.get('SERVER_NAME', ''):
+def _is_truthy(value):
+    return str(value).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+USE_REDIS_CHANNEL_LAYER = _is_truthy(os.environ.get('USE_REDIS_CHANNEL_LAYER'))
+IS_PYTHONANYWHERE = any([
+    bool(os.environ.get('PYTHONANYWHERE_DOMAIN')),
+    bool(os.environ.get('PYTHONANYWHERE_SITE')),
+    'pythonanywhere.com' in os.environ.get('SERVER_NAME', ''),
+    'pythonanywhere.com' in os.environ.get('HTTP_HOST', ''),
+])
+
+if USE_REDIS_CHANNEL_LAYER or IS_PYTHONANYWHERE:
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
             'CONFIG': {
-                "hosts": [('redis-server.redis.pythonanywhere-services.com', 6379)],
+                "hosts": [(
+                    os.environ.get('PYTHONANYWHERE_REDIS_HOST', 'redis-server.redis.pythonanywhere-services.com'),
+                    int(os.environ.get('PYTHONANYWHERE_REDIS_PORT', '6379')),
+                )],
             },
         },
     }
@@ -147,8 +162,6 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-import os
 
 STATIC_URL = '/static/'
 

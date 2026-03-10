@@ -6,9 +6,16 @@
 (function () {
     let refreshTimer = null;
     let isRefreshing = false;
+    let pollingInterval = null;
+    const pollingDelay = 5000;
+
+    function hasJournalTables() {
+        return Boolean(document.querySelector('#draft .display_table') || document.querySelector('#approved .display_table'));
+    }
 
     function refreshJournalTables() {
         if (isRefreshing) return;
+        if (!hasJournalTables()) return;
         isRefreshing = true;
 
         const url = `${window.location.pathname}?_rt=${Date.now()}`;
@@ -57,7 +64,48 @@
         refreshTimer = setTimeout(refreshJournalTables, 350);
     }
 
+    function startPolling() {
+        if (pollingInterval || !hasJournalTables()) {
+            return;
+        }
+
+        pollingInterval = setInterval(() => {
+            if (document.hidden) {
+                return;
+            }
+
+            queueRefresh();
+        }, pollingDelay);
+    }
+
+    function stopPolling() {
+        if (!pollingInterval) {
+            return;
+        }
+
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+
     window.addEventListener('journal:realtime-update', function () {
         queueRefresh();
     });
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            return;
+        }
+
+        queueRefresh();
+    });
+
+    window.addEventListener('focus', function () {
+        queueRefresh();
+    });
+
+    window.addEventListener('beforeunload', function () {
+        stopPolling();
+    });
+
+    startPolling();
 })();
