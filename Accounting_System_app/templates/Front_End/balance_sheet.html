@@ -98,16 +98,14 @@
                         <tr class="table-light"><td>Current Period Net Income</td><td class="text-end">{{ net_income|floatformat:2 }}</td></tr>
                     </tbody>
                     <tfoot>
-                        <tr class="fw-bold"><td>Total Liabilities</td><td class="text-end">{{ total_liabilities|floatformat:2 }}</td></tr>
-                        <tr class="fw-bold"><td>Total Equity (excl. Net Income)</td><td class="text-end">{{ total_equity|floatformat:2 }}</td></tr>
-                        <tr class="fw-bold"><td>Total Equity (incl. Net Income)</td><td class="text-end">{{ total_equity_including_ri|floatformat:2 }}</td></tr>
+                        <tr class="fw-bold"><td>Total Liabilities + Equity (incl. Net Income)</td><td class="text-end">{{ total_liabilities_and_equity|floatformat:2 }}</td></tr>
                     </tfoot>
                 </table>
             </div>
         </div>
 
         <div class="mt-3">
-            <h4>Assets = Liabilities + Equity: <span class="fw-bold">{{ total_assets|floatformat:2 }} = {{ total_liabilities|floatformat:2 }} + {{ total_equity_including_ri|floatformat:2 }}</span></h4>
+            <h4>Assets = Liabilities + Equity: <span class="fw-bold">{{ total_assets|floatformat:2 }} = {{ total_liabilities_and_equity|floatformat:2 }}</span></h4>
         </div>
 
         <div class="mt-4">

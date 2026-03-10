@@ -3212,6 +3212,7 @@ def balance_sheet(request):
     net_income = revenue_sum - cost_of_sales - exp_sum
 
     total_equity_including_ri = total_equity + net_income
+    total_liabilities_and_equity = total_liabilities + total_equity_including_ri
 
     context = {
         'assets': assets,
@@ -3222,6 +3223,7 @@ def balance_sheet(request):
         'total_equity': total_equity,
         'net_income': net_income,
         'total_equity_including_ri': total_equity_including_ri,
+        'total_liabilities_and_equity': total_liabilities_and_equity,
         'start_date': start_str,
         'end_date': end_str,
         'cost_of_sales': cost_of_sales,
@@ -3763,6 +3765,7 @@ def balance_sheet_pdf(request):
 
     net_income = revenue_sum - cost_of_sales - exp_sum
     total_equity_including_ri = total_equity + net_income
+    total_liabilities_and_equity = total_liabilities + total_equity_including_ri
 
     context = {
         'assets': assets,
@@ -3773,6 +3776,7 @@ def balance_sheet_pdf(request):
         'total_equity': total_equity,
         'net_income': net_income,
         'total_equity_including_ri': total_equity_including_ri,
+        'total_liabilities_and_equity': total_liabilities_and_equity,
         'start_date': start_str or '',
         'end_date': end_str or '',
         'cost_of_sales': cost_of_sales,
