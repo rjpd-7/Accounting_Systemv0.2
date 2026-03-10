@@ -33,6 +33,26 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 import random, string
 
+
+def get_system_base_url(request=None):
+    """
+    Resolve a usable absolute base URL for links included in email notifications.
+    """
+    if request is not None and hasattr(request, 'build_absolute_uri'):
+        return request.build_absolute_uri('/').rstrip('/')
+
+    configured_url = getattr(settings, 'SYSTEM_BASE_URL', '').strip()
+    if configured_url:
+        return configured_url.rstrip('/')
+
+    allowed_hosts = getattr(settings, 'ALLOWED_HOSTS', [])
+    for host in allowed_hosts:
+        if host and host not in ['*', 'localhost', '127.0.0.1']:
+            return f"https://{host}"
+
+    return 'http://127.0.0.1:8000'
+
+
 # Helper function to send credentials email to new user
 def send_credentials_email(user, password):
     """
@@ -42,6 +62,7 @@ def send_credentials_email(user, password):
         return False, 'No email address provided for this user.'
     
     subject = 'Your ACLC Accounting System Account Credentials'
+    login_url = f"{get_system_base_url()}{reverse('AccountingSystem:login_view')}"
     message = f"""
 Hello {user.first_name or user.username},
 
@@ -52,7 +73,7 @@ Account Details:
 - Password: {password}
 - Email: {user.email}
 
-Please log in at: {settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else 'your-system-url'}
+Login URL: {login_url}
 
 For security, please change your password after your first login.
 
@@ -366,10 +387,12 @@ def forgot_password(request):
     # generate temporary password
     temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
 
+    login_url = f"{get_system_base_url(request)}{reverse('AccountingSystem:login_view')}"
     subject = 'Temporary Password - ACLC Accounting System'
     message = (
         f"Hello {user.username},\n\nA temporary password has been generated for your account:\n\n"
-        f"{temp_password}\n\nPlease login and change your password immediately.\n\nIf you did not request this, contact support."
+        f"{temp_password}\n\nPlease login and change your password immediately.\n"
+        f"Login URL: {login_url}\n\nIf you did not request this, contact support."
     )
     from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@example.com')
 
@@ -1333,6 +1356,7 @@ def change_user_password(request):
             try:
                 admin_name = request.user.get_full_name() or request.user.username
                 subject = f'Your Password Has Been Changed'
+                login_url = f"{get_system_base_url(request)}{reverse('AccountingSystem:login_view')}"
                 message = f"""
 Dear {user.first_name or user.username},
 
@@ -1345,6 +1369,7 @@ Changed By: {admin_name}
 Change Date: {localdate().strftime('%B %d, %Y')}
 
 IMPORTANT: For security reasons, please login immediately and change this password to something only you know. You will be prompted to change it on your next login.
+Login URL: {login_url}
 
 If you did not request this password change, please contact your administrator immediately.
 
@@ -2085,6 +2110,7 @@ def approve_journal_draft(request, id):
         if creator and creator.email:
             try:
                 approver_name = request.user.get_full_name() or request.user.username
+                journals_url = f"{get_system_base_url(request)}{reverse('AccountingSystem:journals')}"
                 subject = f'Journal Entry Approved: {draft_header.entry_no}'
                 message = f"""
 Dear {creator.first_name or creator.username},
@@ -2099,6 +2125,7 @@ Journal Details:
 - Approval Date: {localdate().strftime('%B %d, %Y')}
 
 You can now view the approved journal in the Accounting System.
+Journals URL: {journals_url}
 
 Best regards,
 Accounting System
@@ -2220,6 +2247,7 @@ def approve_all_user_drafts(request, user_id):
             if target_user and target_user.email:
                 try:
                     approver_name = request.user.get_full_name() or request.user.username
+                    journals_url = f"{get_system_base_url(request)}{reverse('AccountingSystem:journals')}"
                     subject = f'{approved_count} Journal Entries Approved'
                     message = f"""
 Dear {target_user.first_name or target_user.username},
@@ -2233,6 +2261,7 @@ Approved By: {approver_name}
 Approval Date: {localdate().strftime('%B %d, %Y')}
 
 You can now view the approved journals in the Accounting System.
+Journals URL: {journals_url}
 
 Best regards,
 Accounting System
