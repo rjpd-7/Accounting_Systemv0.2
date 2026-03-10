@@ -19,6 +19,7 @@ from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import User
 from django.core.cache import cache
 import json
+import re
 from datetime import datetime
 from decimal import Decimal
 from .decorators import role_required
@@ -1610,8 +1611,9 @@ def insert_journals(request):
         credits = request.POST.getlist('credit')
         description = request.POST['journal_description']
 
-        # If no code provided or empty, generate it automatically
-        if not journal_code:
+        # Never trust placeholder/invalid client values; generate server-side when needed.
+        is_valid_code = bool(re.match(r'^JE-\d{10}$', journal_code))
+        if (not journal_code) or (journal_code in {"Loading...", "Error", "Error loading code"}) or (not is_valid_code):
             journal_code = get_next_journal_code()
 
         # Creates Journal Header

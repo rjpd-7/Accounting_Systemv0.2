@@ -14,6 +14,7 @@ class HybridJournalCodeManager {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000;
+        this.isSubmitting = false;
         
         this.initializeElements();
         this.connectWebSocket();
@@ -40,17 +41,30 @@ class HybridJournalCodeManager {
 
         // Refresh preview right before submit
         this.form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            if (this.isSubmitting) return;
+
             const submitBtn = this.form.querySelector('input[type="submit"], button[type="submit"]');
 
             // If form validation passes, refresh the code right before sending
             if (submitBtn) submitBtn.disabled = true;
+            this.isSubmitting = true;
 
             try {
                 // Get the latest code just before submission to minimize race condition window
                 await this.fetchPreviewCode();
+
+                // Prevent submitting placeholders or failed preview values.
+                const code = (this.journalCodeInput.value || '').trim();
+                if (!/^JE-\d{10}$/.test(code)) {
+                    alert('Unable to get a valid journal code. Please try again.');
+                    return;
+                }
+
                 this.form.submit();
             } finally {
                 if (submitBtn) submitBtn.disabled = false;
+                this.isSubmitting = false;
             }
         });
 
