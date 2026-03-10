@@ -16,7 +16,11 @@ class HybridAccountCodeManager {
         this.reconnectDelay = 2000;
         this.pollingInterval = null;
         this.pollingDelay = 500;
+        this.ajaxAutoRefreshInterval = null;
+        this.ajaxAutoRefreshDelay = 500;
         this.currentAccountType = null;
+        this.previewFetchPromise = null;
+        this.pendingAccountType = null;
         
         this.initializeElements();
         this.connectWebSocket();
@@ -39,7 +43,9 @@ class HybridAccountCodeManager {
 
         // Fetch preview code when modal opens
         this.modal.addEventListener("shown.bs.modal", () => {
-            this.fetchPreviewCode(this.accountTypeSelect.value);
+            this.currentAccountType = this.accountTypeSelect.value;
+            this.fetchPreviewCode(this.currentAccountType);
+            this.startAjaxAutoRefresh();
         });
 
         // Fetch preview code when account type changes
@@ -75,7 +81,33 @@ class HybridAccountCodeManager {
             this.form.reset();
             this.accountCodeInput.value = "";
             this.currentAccountType = null;
+            this.stopAjaxAutoRefresh();
         });
+    }
+
+    startAjaxAutoRefresh() {
+        if (this.ajaxAutoRefreshInterval) {
+            return;
+        }
+
+        this.ajaxAutoRefreshInterval = setInterval(() => {
+            if (!this.modal || !this.modal.classList.contains('show')) {
+                return;
+            }
+            if (!this.currentAccountType) {
+                return;
+            }
+            this.fetchPreviewCode(this.currentAccountType);
+        }, this.ajaxAutoRefreshDelay);
+    }
+
+    stopAjaxAutoRefresh() {
+        if (!this.ajaxAutoRefreshInterval) {
+            return;
+        }
+
+        clearInterval(this.ajaxAutoRefreshInterval);
+        this.ajaxAutoRefreshInterval = null;
     }
 
     async fetchPreviewCode(accountType) {
@@ -84,23 +116,50 @@ class HybridAccountCodeManager {
             return;
         }
 
+        if (this.previewFetchPromise) {
+            this.pendingAccountType = accountType;
+            return this.previewFetchPromise;
+        }
+
         this.accountCodeInput.value = "Loading...";
         this.accountCodeInput.readOnly = true;
 
-        try {
-            const response = await fetch(`/api/next_account_code/?type=${encodeURIComponent(accountType)}`);
-            const data = await response.json();
+        const requestedAccountType = accountType;
 
-            if (data.success) {
-                this.updateCodeField(data.code);
-            } else {
-                this.accountCodeInput.value = "";
-                console.error("Failed to fetch account code:", data.error);
+        this.previewFetchPromise = (async () => {
+            try {
+                const response = await fetch(`/api/next_account_code/?type=${encodeURIComponent(requestedAccountType)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    if (this.currentAccountType === requestedAccountType) {
+                        this.updateCodeField(data.code);
+                    }
+                } else {
+                    if (this.currentAccountType === requestedAccountType) {
+                        this.accountCodeInput.value = "";
+                    }
+                    console.error("Failed to fetch account code:", data.error);
+                }
+            } catch (error) {
+                if (this.currentAccountType === requestedAccountType) {
+                    this.accountCodeInput.value = "";
+                }
+                console.error("Error fetching account code:", error);
+            } finally {
+                this.previewFetchPromise = null;
             }
-        } catch (error) {
-            this.accountCodeInput.value = "";
-            console.error("Error fetching account code:", error);
+        })();
+
+        await this.previewFetchPromise;
+
+        if (this.pendingAccountType && this.pendingAccountType !== requestedAccountType) {
+            const nextAccountType = this.pendingAccountType;
+            this.pendingAccountType = null;
+            return this.fetchPreviewCode(nextAccountType);
         }
+
+        this.pendingAccountType = null;
     }
 
     updateCodeField(code, highlight = false) {
@@ -267,6 +326,7 @@ class HybridAccountCodeManager {
             clearInterval(this.keepaliveInterval);
         }
         this.stopPolling();
+        this.stopAjaxAutoRefresh();
     }
 }
 

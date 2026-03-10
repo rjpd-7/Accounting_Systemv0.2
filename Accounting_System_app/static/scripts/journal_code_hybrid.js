@@ -16,7 +16,11 @@ class HybridJournalCodeManager {
         this.reconnectDelay = 2000;
         this.pollingInterval = null;
         this.pollingDelay = 500;
+        this.ajaxAutoRefreshInterval = null;
+        this.ajaxAutoRefreshDelay = 500;
         this.isSubmitting = false;
+        this.previewFetchPromise = null;
+        this.pendingPreviewRefresh = false;
         
         this.initializeElements();
         this.connectWebSocket();
@@ -39,6 +43,7 @@ class HybridJournalCodeManager {
         // Fetch preview code when modal opens
         this.modal.addEventListener("shown.bs.modal", () => {
             this.fetchPreviewCode();
+            this.startAjaxAutoRefresh();
         });
 
         // Refresh preview right before submit
@@ -74,26 +79,65 @@ class HybridJournalCodeManager {
         this.modal.addEventListener("hidden.bs.modal", () => {
             this.form.reset();
             this.journalCodeInput.value = "";
+            this.stopAjaxAutoRefresh();
         });
     }
 
+    startAjaxAutoRefresh() {
+        if (this.ajaxAutoRefreshInterval) {
+            return;
+        }
+
+        this.ajaxAutoRefreshInterval = setInterval(() => {
+            if (!this.modal || !this.modal.classList.contains('show')) {
+                return;
+            }
+            this.fetchPreviewCode();
+        }, this.ajaxAutoRefreshDelay);
+    }
+
+    stopAjaxAutoRefresh() {
+        if (!this.ajaxAutoRefreshInterval) {
+            return;
+        }
+
+        clearInterval(this.ajaxAutoRefreshInterval);
+        this.ajaxAutoRefreshInterval = null;
+    }
+
     async fetchPreviewCode() {
+        if (this.previewFetchPromise) {
+            this.pendingPreviewRefresh = true;
+            return this.previewFetchPromise;
+        }
+
         this.journalCodeInput.value = "Loading...";
         this.journalCodeInput.readOnly = true;
 
-        try {
-            const response = await fetch('/api/next_journal_code/');
-            const data = await response.json();
+        this.previewFetchPromise = (async () => {
+            try {
+                const response = await fetch('/api/next_journal_code/');
+                const data = await response.json();
 
-            if (data.success) {
-                this.journalCodeInput.value = data.code;
-            } else {
-                this.journalCodeInput.value = "Error loading code";
-                console.error("Failed to fetch journal code:", data.error);
+                if (data.success) {
+                    this.journalCodeInput.value = data.code;
+                } else {
+                    this.journalCodeInput.value = "Error loading code";
+                    console.error("Failed to fetch journal code:", data.error);
+                }
+            } catch (error) {
+                this.journalCodeInput.value = "Error";
+                console.error("❌ AJAX fetch failed:", error);
+            } finally {
+                this.previewFetchPromise = null;
             }
-        } catch (error) {
-            this.journalCodeInput.value = "Error";
-            console.error("❌ AJAX fetch failed:", error);
+        })();
+
+        await this.previewFetchPromise;
+
+        if (this.pendingPreviewRefresh) {
+            this.pendingPreviewRefresh = false;
+            return this.fetchPreviewCode();
         }
     }
 
@@ -247,6 +291,7 @@ class HybridJournalCodeManager {
             this.socket.close(1000);
         }
         this.stopPolling();
+        this.stopAjaxAutoRefresh();
     }
 }
 
