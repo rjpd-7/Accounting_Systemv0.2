@@ -1180,6 +1180,45 @@ def delete_account(request, id):
     return redirect("AccountingSystem:accounts")
 
 # Create User Function for Admin
+@require_http_methods(["POST"])
+def check_username_email_availability(request):
+    """
+    AJAX endpoint to check if username or email is already taken.
+    Returns JSON with availability status.
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            username = data.get('username', '').strip()
+            email = data.get('email', '').strip()
+            
+            response = {
+                'username_available': True,
+                'email_available': True,
+                'username_message': '',
+                'email_message': ''
+            }
+            
+            # Check username availability
+            if username and len(username) >= 3:
+                if User.objects.filter(username__iexact=username).exists():
+                    response['username_available'] = False
+                    response['username_message'] = 'This username is already taken.'
+            
+            # Check email availability
+            if email and '@' in email:
+                if User.objects.filter(email__iexact=email).exists():
+                    response['email_available'] = False
+                    response['email_message'] = 'This email is already registered.'
+            
+            return JsonResponse(response)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@require_http_methods(["POST"])
 def create_user(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
