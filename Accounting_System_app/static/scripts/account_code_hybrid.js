@@ -128,9 +128,9 @@ class HybridAccountCodeManager {
             this.socket.onclose = (event) => this.onWebSocketClose(event);
             this.socket.onerror = (event) => this.onWebSocketError(event);
             
-            console.log('🔌 Connecting to account code WebSocket...');
+            console.log('Connecting to account code WebSocket...');
         } catch (error) {
-            console.error('❌ WebSocket connection failed:', error);
+            console.error(' WebSocket connection failed:', error);
             this.scheduleReconnect();
         }
     }
@@ -139,7 +139,7 @@ class HybridAccountCodeManager {
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this.stopPolling();
-        console.log('✅ Account code WebSocket connected');
+        console.log('Account code WebSocket connected');
         this.updateConnectionStatus(true);
         
         // Setup ping/pong keepalive
@@ -199,7 +199,7 @@ class HybridAccountCodeManager {
 
     scheduleReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('❌ Max WebSocket reconnection attempts reached');
+            console.error('Max WebSocket reconnection attempts reached');
             this.startPolling();
             return;
         }
@@ -207,7 +207,7 @@ class HybridAccountCodeManager {
         this.reconnectAttempts++;
         const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
         
-        console.log(`⏱️ Reconnecting WebSocket in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        console.log(`Reconnecting WebSocket in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
         
         setTimeout(() => this.connectWebSocket(), delay);
     }
@@ -245,15 +245,15 @@ class HybridAccountCodeManager {
             if (isConnected) {
                 this.statusIndicator.className = 'socket-status connected';
                 if (mode === 'polling') {
-                    this.statusIndicator.innerHTML = '🔄 Polling';
+                    this.statusIndicator.innerHTML = '🔄';
                     this.statusIndicator.title = `Fallback polling active (${this.pollingDelay / 1000}s interval)`;
                 } else {
-                    this.statusIndicator.innerHTML = '🟢 Live';
+                    this.statusIndicator.innerHTML = '🟢';
                     this.statusIndicator.title = 'Real-time updates active';
                 }
             } else {
                 this.statusIndicator.className = 'socket-status disconnected';
-                this.statusIndicator.innerHTML = '🟡 AJAX Only';
+                this.statusIndicator.innerHTML = '🟡';
                 this.statusIndicator.title = 'Using AJAX preview (WebSocket offline)';
             }
         }
@@ -276,7 +276,7 @@ let hybridAccountCodeManager = null;
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     hybridAccountCodeManager = new HybridAccountCodeManager();
-    console.log('🚀 Hybrid Account Code Manager initialized');
+    console.log('Hybrid Account Code Manager initialized');
 });
 
 // Cleanup on page unload
