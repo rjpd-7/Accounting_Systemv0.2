@@ -110,10 +110,10 @@ def get_next_account_code(account_type):
     
     prefix = type_prefixes.get(account_type, 100000)
     
-    # Use transaction and select_for_update() to ensure atomicity
-    # This prevents race conditions when multiple users request codes simultaneously
+    # Use transaction and select_for_update() to ensure atomicity.
+    # This prevents race conditions when multiple users request codes simultaneously.
     with transaction.atomic():
-        # Lock all accounts of this type to prevent concurrent reads of the same max value
+        # Lock all accounts of this type and derive the next sequence from existing code digits.
         accounts = ChartOfAccounts.objects.filter(
             account_type=account_type
         ).select_for_update().values_list('account_code', flat=True)
@@ -121,7 +121,10 @@ def get_next_account_code(account_type):
         max_number = 0
         for code in accounts:
             try:
-                num = int(code) - prefix
+                match = re.search(r'(\d+)$', str(code))
+                if not match:
+                    continue
+                num = int(match.group(1)) - prefix
                 if num > max_number:
                     max_number = num
             except (ValueError, TypeError):
@@ -162,17 +165,17 @@ def get_next_journal_code():
     from django.db import transaction
     
     with transaction.atomic():
-        # Lock the latest journals to prevent race conditions
-        latest_draft = JournalHeaderDrafts.objects.select_for_update().order_by('-id').first()
-        latest_approved = JournalHeader.objects.select_for_update().order_by('-id').first()
+        # Lock journal rows and derive the sequence from the numeric suffix of entry_no.
+        draft_codes = JournalHeaderDrafts.objects.select_for_update().values_list('entry_no', flat=True)
+        approved_codes = JournalHeader.objects.select_for_update().values_list('entry_no', flat=True)
 
-        # Use PK reference (max id across draft/approved) + 1 for next journal code.
-        max_id = max(
-            latest_draft.id if latest_draft else 0,
-            latest_approved.id if latest_approved else 0,
-        )
+        max_number = 0
+        for code in list(draft_codes) + list(approved_codes):
+            match = re.search(r'(\d+)$', str(code))
+            if match:
+                max_number = max(max_number, int(match.group(1)))
 
-        next_number = str(max_id + 1).zfill(10)
+        next_number = str(max_number + 1).zfill(10)
         return f'JE-{next_number}'
 
 # API endpoint to get next account code
