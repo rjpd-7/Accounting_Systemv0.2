@@ -1684,58 +1684,68 @@ def insert_journals(request):
         if (not journal_code) or (journal_code in {"Loading...", "Error", "Error loading code"}) or (not is_valid_code):
             journal_code = get_next_journal_code()
 
-        # Creates Journal Header
-        header = JournalHeaderDrafts.objects.create(
-            entry_no = journal_code,
-            entry_date = date_submit,
-            journal_description = description,
-            group_name = AccountGroups.objects.get(pk=account_group),
-            user = request.user,
-        ) 
-        header.save()
-        
-        # Log journal header creation
-        log_audit_trail(
-            journal_header_draft=header,
-            changed_by=request.user,
-            change_type='created',
-            field_name='journal_created',
-            new_value=f'Journal {journal_code} created'
-        )
+        try:
+            with transaction.atomic():
+                # Creates Journal Header
+                header = JournalHeaderDrafts.objects.create(
+                    entry_no=journal_code,
+                    entry_date=date_submit,
+                    journal_description=description,
+                    group_name=AccountGroups.objects.get(pk=account_group),
+                    user=request.user,
+                )
 
-        # Loops through the rows and create Journal Entries
-        for i in range(len(account_ids)):
-            account_id = account_ids[i]
-            debit = debits[i] if i < len(debits) else ''
-            credit = credits[i] if i < len(credits) else ''
+                # Log journal header creation
+                log_audit_trail(
+                    journal_header_draft=header,
+                    changed_by=request.user,
+                    change_type='created',
+                    field_name='journal_created',
+                    new_value=f'Journal {journal_code} created'
+                )
 
-            # Skip rows with no account or empty amounts
-            if not account_id or (debit == '' and credit == ''):
-                continue
+                # Loops through the rows and create Journal Entries
+                for i in range(len(account_ids)):
+                    account_id = account_ids[i]
+                    debit = debits[i] if i < len(debits) else ''
+                    credit = credits[i] if i < len(credits) else ''
 
-            try:
-                account = ChartOfAccounts.objects.get(pk=account_id)
-            except ChartOfAccounts.DoesNotExist:
-                continue
+                    # Skip rows with no account or empty amounts
+                    if not account_id or (debit == '' and credit == ''):
+                        continue
 
-            journal_entry = JournalEntryDrafts.objects.create(
-                journal_header=header,
-                account=account,
-                debit=float(debit or 0),
-                credit=float(credit or 0)
+                    try:
+                        account = ChartOfAccounts.objects.get(pk=account_id)
+                    except ChartOfAccounts.DoesNotExist:
+                        continue
 
-            )
+                    journal_entry = JournalEntryDrafts.objects.create(
+                        journal_header=header,
+                        account=account,
+                        debit=float(debit or 0),
+                        credit=float(credit or 0)
 
-            journal_entry.save()
-            
-            # Log journal entry creation
-            log_audit_trail(
-                journal_header_draft=header,
-                changed_by=request.user,
-                change_type='created',
-                field_name='entry_created',
-                new_value=f'{account.account_name} (D:{debit}, C:{credit})',
-                entry_id=journal_entry.id
+                    )
+
+                    # Log journal entry creation
+                    log_audit_trail(
+                        journal_header_draft=header,
+                        changed_by=request.user,
+                        change_type='created',
+                        field_name='entry_created',
+                        new_value=f'{account.account_name} (D:{debit}, C:{credit})',
+                        entry_id=journal_entry.id
+                    )
+        except IntegrityError:
+            return render(
+                request,
+                "Front_End/forbidden.html",
+                {
+                    "error_title": "Journal Code Already Exists",
+                    "error_message": "The journal code you tried to save is already used.",
+                    "error_hint": "Please go back, reopen the Add Journal form, and try again to get a fresh journal code.",
+                },
+                status=409,
             )
         
         broadcast_journal_realtime_update(

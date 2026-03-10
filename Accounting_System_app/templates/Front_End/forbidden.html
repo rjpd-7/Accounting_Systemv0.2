@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>{{ error_title|default:"Action Not Allowed" }}</title>
+	<style>
+		body {
+			margin: 0;
+			min-height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: #f5f7fb;
+			font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+			color: #1f2937;
+		}
+
+		.card {
+			width: min(92%, 520px);
+			background: #ffffff;
+			border-radius: 12px;
+			padding: 24px;
+			box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+			border: 1px solid #e5e7eb;
+		}
+
+		h1 {
+			margin: 0 0 10px;
+			font-size: 24px;
+			color: #b91c1c;
+		}
+
+		p {
+			margin: 0 0 12px;
+			line-height: 1.45;
+			font-size: 15px;
+		}
+
+		.actions {
+			margin-top: 18px;
+		}
+
+		.btn {
+			display: inline-block;
+			text-decoration: none;
+			background: #1d4ed8;
+			color: #fff;
+			padding: 10px 14px;
+			border-radius: 8px;
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.btn:hover {
+			background: #1e40af;
+		}
+	</style>
+</head>
+<body>
+	<div class="card">
+		<h1>{{ error_title|default:"Action Not Allowed" }}</h1>
+		<p>{{ error_message|default:"You are not allowed to perform this action." }}</p>
+		{% if error_hint %}
+			<p>{{ error_hint }}</p>
+		{% endif %}
+		<div class="actions">
+			<a href="{% url 'AccountingSystem:journals' %}" class="btn">Back to Journals</a>
+		</div>
+	</div>
+</body>
+</html>
