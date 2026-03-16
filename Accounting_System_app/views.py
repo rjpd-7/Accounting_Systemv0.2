@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, TaskAssignment, TaskAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection, UserProfile, JournalAuditTrail
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, TaskAssignment, TaskAttachment, TaskSubmission, TaskSubmissionAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection, UserProfile, JournalAuditTrail
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm, TaskAssignmentForm, TaskAttachmentForm
 from itertools import zip_longest
@@ -4386,6 +4386,32 @@ def get_tasks(request):
                 'download_url': reverse('AccountingSystem:download_task_attachment', kwargs={'attachment_id': att.id})
             })
 
+        submission_payload = None
+        try:
+            submission = task.submission
+            submission_attachments = []
+            for submission_attachment in submission.attachments.all():
+                submission_attachments.append({
+                    'id': submission_attachment.id,
+                    'filename': submission_attachment.filename,
+                    'file_size': submission_attachment.file_size,
+                    'url': submission_attachment.file.url,
+                    'download_url': reverse(
+                        'AccountingSystem:download_task_submission_attachment',
+                        kwargs={'attachment_id': submission_attachment.id}
+                    )
+                })
+
+            submission_payload = {
+                'submitted_by': submission.submitted_by.get_full_name() or submission.submitted_by.username,
+                'submitted_by_id': submission.submitted_by_id,
+                'submitted_at': localtime(submission.submitted_at).strftime('%Y-%m-%d %H:%M'),
+                'comment': submission.comment or '',
+                'attachments': submission_attachments,
+            }
+        except TaskSubmission.DoesNotExist:
+            submission_payload = None
+
         return {
             'id': task.id,
             'sender': task.sender.get_full_name() or task.sender.username,
@@ -4399,6 +4425,8 @@ def get_tasks(request):
             'is_completed': task.is_completed,
             'is_overdue': (not task.is_completed) and (task.deadline < localdate()),
             'attachments': attachments,
+            'has_submission': submission_payload is not None,
+            'submission': submission_payload,
             'type': task_type,
         }
 
@@ -4408,6 +4436,48 @@ def get_tasks(request):
     return JsonResponse({
         'received': [_serialize_task(task, 'received') for task in received],
         'sent': [_serialize_task(task, 'sent') for task in sent],
+    })
+
+
+@role_required(['student'])
+@require_http_methods(["POST"])
+def submit_task(request, task_id):
+    """Submit student work for a received task and mark it completed."""
+    task = get_object_or_404(TaskAssignment, id=task_id, recipient=request.user)
+
+    if hasattr(task, 'submission'):
+        return JsonResponse({'error': 'You have already submitted this task.'}, status=400)
+
+    submission_files = request.FILES.getlist('submission_files')
+    comment = (request.POST.get('comment') or '').strip()
+
+    if not submission_files:
+        return JsonResponse({'error': 'Please attach at least one file before turning in.'}, status=400)
+
+    with transaction.atomic():
+        submission = TaskSubmission.objects.create(
+            task=task,
+            submitted_by=request.user,
+            comment=comment,
+        )
+
+        for file in submission_files:
+            if file.size > 0:
+                file.seek(0)
+                attachment = TaskSubmissionAttachment(
+                    submission=submission,
+                    filename=file.name,
+                    file_size=file.size,
+                )
+                attachment.file.save(file.name, ContentFile(file.read()), save=True)
+
+        task.is_completed = True
+        task.save(update_fields=['is_completed', 'updated_at'])
+
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Task submitted successfully.',
+        'submitted_at': localtime(submission.submitted_at).strftime('%Y-%m-%d %H:%M'),
     })
 
 
@@ -4433,6 +4503,28 @@ def download_task_attachment(request, attachment_id):
 
     attachment = get_object_or_404(TaskAttachment, id=attachment_id)
     task = attachment.task
+
+    if task.sender_id != request.user.id and task.recipient_id != request.user.id:
+        return HttpResponse('Forbidden', status=403)
+
+    if not attachment.file or not attachment.file.name:
+        return HttpResponse('File not available on site (missing file reference).', status=404)
+
+    if not attachment.file.storage.exists(attachment.file.name):
+        return HttpResponse('File not available on site (file not found on server).', status=404)
+
+    attachment.file.open('rb')
+    return FileResponse(attachment.file, as_attachment=True, filename=attachment.filename)
+
+
+@require_http_methods(["GET"])
+def download_task_submission_attachment(request, attachment_id):
+    """Download a task submission attachment."""
+    if not request.user.is_authenticated:
+        return HttpResponse('Unauthorized', status=401)
+
+    attachment = get_object_or_404(TaskSubmissionAttachment, id=attachment_id)
+    task = attachment.submission.task
 
     if task.sender_id != request.user.id and task.recipient_id != request.user.id:
         return HttpResponse('Forbidden', status=403)

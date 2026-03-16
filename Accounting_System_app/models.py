@@ -262,6 +262,33 @@ class TaskAttachment(models.Model):
     def __str__(self):
         return f"Task attachment: {self.filename}"
 
+
+class TaskSubmission(models.Model):
+    task = models.OneToOneField(TaskAssignment, on_delete=models.CASCADE, related_name='submission')
+    submitted_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='task_submissions')
+    comment = models.TextField(blank=True, null=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "task_submissions_table"
+
+    def __str__(self):
+        return f"Submission for task #{self.task_id} by {self.submitted_by.username}"
+
+
+class TaskSubmissionAttachment(models.Model):
+    submission = models.ForeignKey(TaskSubmission, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='task_submission_attachments/%Y/%m/%d/')
+    filename = models.CharField(max_length=255)
+    file_size = models.IntegerField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "task_submission_attachments_table"
+
+    def __str__(self):
+        return f"Task submission attachment: {self.filename}"
+
 # Journal Audit Trail - tracks all changes made to journal entries
 class JournalAuditTrail(models.Model):
     CHANGE_TYPE_CHOICES = [
