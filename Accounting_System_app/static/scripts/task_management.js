@@ -403,6 +403,7 @@ function viewTask(type, taskId) {
                                 <th>Student</th>
                                 <th>Status</th>
                                 <th>Submitted At</th>
+                                <th>Files</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -411,6 +412,13 @@ function viewTask(type, taskId) {
                                     <td>${recipient.student_name}</td>
                                     <td>${recipient.is_submitted ? '<span class="badge bg-success">Submitted</span>' : '<span class="badge bg-secondary">Pending</span>'}</td>
                                     <td>${recipient.submitted_at || '<span class="text-muted">Not yet submitted</span>'}</td>
+                                    <td>
+                                        ${recipient.is_submitted
+                                            ? ((recipient.submission_attachments && recipient.submission_attachments.length > 0)
+                                                ? recipient.submission_attachments.map(att => `<div><a href="${att.download_url}" target="_blank" rel="noopener">${att.filename}</a></div>`).join('')
+                                                : '<span class="text-muted">No files</span>')
+                                            : '<span class="text-muted">-</span>'}
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>

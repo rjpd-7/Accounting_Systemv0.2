@@ -4390,6 +4390,7 @@ def get_tasks(request):
         return JsonResponse({'error': 'Not authenticated'}, status=401)
 
     block_unsubmit_after_deadline = bool(getattr(settings, 'TASK_BLOCK_UNSUBMIT_AFTER_DEADLINE', False))
+    allow_late_submission = bool(getattr(settings, 'TASK_ALLOW_LATE_SUBMISSION', False))
 
     def _serialize_task(task, task_type):
         attachments = []
@@ -4449,6 +4450,9 @@ def get_tasks(request):
             'is_completed': task.is_completed,
             'is_deadline_passed': is_deadline_passed,
             'is_overdue': (not task.is_completed) and is_deadline_passed,
+            'allow_late_submission': allow_late_submission,
+            'submission_closed_by_deadline': bool(is_deadline_passed and not allow_late_submission),
+            'can_submit_now': bool((not has_submission) and (allow_late_submission or not is_deadline_passed)),
             'attachments': attachments,
             'has_submission': has_submission,
             'submission': submission_payload,
@@ -4469,6 +4473,19 @@ def get_tasks(request):
             if submitted:
                 submitted_count += 1
 
+            submission_attachments = []
+            if submitted:
+                for submission_attachment in grouped_task.submission.attachments.all():
+                    submission_attachments.append({
+                        'id': submission_attachment.id,
+                        'filename': submission_attachment.filename,
+                        'file_size': submission_attachment.file_size,
+                        'download_url': reverse(
+                            'AccountingSystem:download_task_submission_attachment',
+                            kwargs={'attachment_id': submission_attachment.id}
+                        )
+                    })
+
             recipients.append({
                 'task_id': grouped_task.id,
                 'student_name': grouped_task.recipient.get_full_name() or grouped_task.recipient.username,
@@ -4476,6 +4493,7 @@ def get_tasks(request):
                 'is_submitted': submitted,
                 'submitted_at': localtime(grouped_task.submission.submitted_at).strftime('%Y-%m-%d %H:%M') if submitted else '',
                 'submission_comment': grouped_task.submission.comment if submitted and grouped_task.submission.comment else '',
+                'submission_attachments': submission_attachments,
             })
 
         representative_payload.update({
@@ -4513,6 +4531,10 @@ def get_tasks(request):
 def submit_task(request, task_id):
     """Submit student work for a received task and mark it completed."""
     task = get_object_or_404(TaskAssignment, id=task_id, recipient=request.user)
+
+    allow_late_submission = bool(getattr(settings, 'TASK_ALLOW_LATE_SUBMISSION', False))
+    if (not allow_late_submission) and task.deadline <= timezone.now():
+        return JsonResponse({'error': 'Cannot submit because the deadline has passed.'}, status=400)
 
     if hasattr(task, 'submission'):
         return JsonResponse({'error': 'You have already submitted this task.'}, status=400)

@@ -192,6 +192,7 @@ EMAIL_HOST_PASSWORD = 'knqr xfaj xasj cbbi'    # SMTP password or app password
 DEFAULT_FROM_EMAIL = 'ACLC Accounting <dalistan.roeljoseph.aclcb@gmail.com>'
 
 TASK_BLOCK_UNSUBMIT_AFTER_DEADLINE = False
+TASK_ALLOW_LATE_SUBMISSION = False
 
 # For local development/testing you can instead use the console backend
 # which prints emails to the runserver console (no SMTP required):

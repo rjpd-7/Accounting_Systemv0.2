@@ -1,6 +1,60 @@
 let studentTaskCache = [];
 let currentStudentTaskId = null;
 
+function getTaskDeadlineDate(task) {
+    const rawValue = task.deadline_iso || task.deadline;
+    if (!rawValue) {
+        return null;
+    }
+
+    const parsed = new Date(rawValue);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+    return parsed;
+}
+
+function getDueIndicator(task) {
+    if (task.has_submission) {
+        return ' • SUBMITTED';
+    }
+
+    if (task.is_overdue) {
+        return ' • OVERDUE';
+    }
+
+    const deadlineDate = getTaskDeadlineDate(task);
+    if (!deadlineDate) {
+        return '';
+    }
+
+    const diffMs = deadlineDate.getTime() - Date.now();
+    if (diffMs <= 0) {
+        return ' • OVERDUE';
+    }
+
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) {
+        return ` • Due in ${days}d ${hours}h`;
+    }
+    if (hours > 0) {
+        return ` • Due in ${hours}h ${minutes}m`;
+    }
+    return ` • Due in ${Math.max(minutes, 1)}m`;
+}
+
+function getDueIndicatorInParentheses(task) {
+    const indicator = getDueIndicator(task);
+    if (!indicator) {
+        return '';
+    }
+    return ` (${indicator.replace(' • ', '')})`;
+}
+
 function getStudentTaskCsrfToken() {
     const tokenInput = document.querySelector('[name="csrfmiddlewaretoken"]');
     return tokenInput ? tokenInput.value : '';
@@ -148,7 +202,7 @@ function displayStudentTasks(tasks) {
                 <small class="text-muted">${task.created_at}</small>
             </div>
             <div class="message-subject">${task.title}</div>
-            <div class="message-preview">Deadline: ${task.deadline}${task.has_submission ? ' • SUBMITTED' : (task.is_overdue ? ' • OVERDUE' : '')}</div>
+            <div class="message-preview">Deadline: ${task.deadline}${getDueIndicator(task)}</div>
             ${task.attachments.length > 0 ? `<div class="message-attachments"><i class="bi bi-paperclip"></i> ${task.attachments.length} file(s)</div>` : ''}
         </div>
     `).join('');
@@ -183,7 +237,7 @@ function viewStudentTask(taskId, showModal = true) {
             <div class="mb-3 pb-3 border-bottom">
                 <p class="mb-1">From: <strong>${task.sender}</strong></p>
                 <small class="text-muted">Created: ${task.created_at}</small><br>
-                <small class="text-muted">Deadline: ${task.deadline}${task.has_submission ? ' (Submitted)' : (task.is_overdue ? ' (Overdue)' : '')}</small>
+                <small class="text-muted">Deadline: ${task.deadline}${getDueIndicatorInParentheses(task)}</small>
             </div>
             <div class="mb-3">
                 <h6>${task.title}</h6>
@@ -254,6 +308,12 @@ function renderStudentSubmissionSection(task) {
                 unsubmitBtn.addEventListener('click', handleStudentTaskUnsubmit);
             }
         }
+        return;
+    }
+
+    if (task.submission_closed_by_deadline) {
+        statusContainer.innerHTML = '<div class="alert alert-warning mb-0">Submission is closed because the deadline has passed.</div>';
+        submissionForm.style.display = 'none';
         return;
     }
 
