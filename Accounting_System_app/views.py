@@ -4375,6 +4375,8 @@ def get_tasks(request):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Not authenticated'}, status=401)
 
+    block_unsubmit_after_deadline = bool(getattr(settings, 'TASK_BLOCK_UNSUBMIT_AFTER_DEADLINE', False))
+
     def _serialize_task(task, task_type):
         attachments = []
         for att in task.attachments.all():
@@ -4412,6 +4414,10 @@ def get_tasks(request):
         except TaskSubmission.DoesNotExist:
             submission_payload = None
 
+        is_deadline_passed = task.deadline < localdate()
+        has_submission = submission_payload is not None
+        unsubmit_blocked_by_deadline = bool(block_unsubmit_after_deadline and is_deadline_passed)
+
         return {
             'id': task.id,
             'sender': task.sender.get_full_name() or task.sender.username,
@@ -4423,10 +4429,14 @@ def get_tasks(request):
             'deadline': task.deadline.strftime('%Y-%m-%d'),
             'created_at': localtime(task.created_at).strftime('%Y-%m-%d %H:%M'),
             'is_completed': task.is_completed,
-            'is_overdue': (not task.is_completed) and (task.deadline < localdate()),
+            'is_deadline_passed': is_deadline_passed,
+            'is_overdue': (not task.is_completed) and is_deadline_passed,
             'attachments': attachments,
-            'has_submission': submission_payload is not None,
+            'has_submission': has_submission,
             'submission': submission_payload,
+            'block_unsubmit_after_deadline': block_unsubmit_after_deadline,
+            'unsubmit_blocked_by_deadline': unsubmit_blocked_by_deadline,
+            'can_unsubmit': bool(has_submission and not unsubmit_blocked_by_deadline),
             'type': task_type,
         }
 
@@ -4478,6 +4488,32 @@ def submit_task(request, task_id):
         'status': 'success',
         'message': 'Task submitted successfully.',
         'submitted_at': localtime(submission.submitted_at).strftime('%Y-%m-%d %H:%M'),
+    })
+
+
+@role_required(['student'])
+@require_http_methods(["POST"])
+def unsubmit_task(request, task_id):
+    """Remove a student's submission and reopen the task."""
+    task = get_object_or_404(TaskAssignment, id=task_id, recipient=request.user)
+
+    block_unsubmit_after_deadline = bool(getattr(settings, 'TASK_BLOCK_UNSUBMIT_AFTER_DEADLINE', False))
+    if block_unsubmit_after_deadline and task.deadline < localdate():
+        return JsonResponse({'error': 'Cannot unsubmit after the deadline has passed.'}, status=400)
+
+    try:
+        submission = task.submission
+    except TaskSubmission.DoesNotExist:
+        return JsonResponse({'error': 'No submission found for this task.'}, status=400)
+
+    with transaction.atomic():
+        submission.delete()
+        task.is_completed = False
+        task.save(update_fields=['is_completed', 'updated_at'])
+
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Submission removed. You can submit again.',
     })
 
 

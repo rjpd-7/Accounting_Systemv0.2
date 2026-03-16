@@ -12,8 +12,24 @@ function initializeStudentTasks() {
     }
 
     setupStudentTaskFilters();
+    setupStudentTaskModalCleanup();
     loadStudentTasks();
     setInterval(loadStudentTasks, 5000);
+}
+
+function setupStudentTaskModalCleanup() {
+    const modalElement = document.getElementById('studentTaskDetailModal');
+    if (!modalElement) {
+        return;
+    }
+
+    modalElement.addEventListener('hidden.bs.modal', function() {
+        if (!document.querySelector('.modal.show')) {
+            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+        }
+    });
 }
 
 function setupStudentTaskFilters() {
@@ -138,7 +154,7 @@ function displayStudentTasks(tasks) {
     `).join('');
 }
 
-function viewStudentTask(taskId) {
+function viewStudentTask(taskId, showModal = true) {
     const task = studentTaskCache.find(item => item.id === taskId);
     if (!task) {
         return;
@@ -181,8 +197,15 @@ function viewStudentTask(taskId) {
 
     renderStudentSubmissionSection(task);
 
-    const modal = new bootstrap.Modal(document.getElementById('studentTaskDetailModal'));
-    modal.show();
+    const modalElement = document.getElementById('studentTaskDetailModal');
+    if (!modalElement) {
+        return;
+    }
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    if (showModal && !modalElement.classList.contains('show')) {
+        modal.show();
+    }
 }
 
 function renderStudentSubmissionSection(task) {
@@ -218,14 +241,71 @@ function renderStudentSubmissionSection(task) {
                 <strong>Submitted:</strong> ${task.submission.submitted_at}
                 ${task.submission.comment ? `<br><strong>Your Note:</strong> ${task.submission.comment}` : ''}
                 ${submissionAttachmentsHtml}
+                ${task.unsubmit_blocked_by_deadline
+                    ? '<div class="mt-3 text-muted"><small>Unsubmit is disabled because the deadline has passed.</small></div>'
+                    : '<div class="mt-3 text-end"><button type="button" class="btn btn-outline-danger btn-sm" id="student_task_unsubmit_btn">Unsubmit</button></div>'}
             </div>
         `;
         submissionForm.style.display = 'none';
+
+        if (task.can_unsubmit) {
+            const unsubmitBtn = document.getElementById('student_task_unsubmit_btn');
+            if (unsubmitBtn) {
+                unsubmitBtn.addEventListener('click', handleStudentTaskUnsubmit);
+            }
+        }
         return;
     }
 
     statusContainer.innerHTML = '<div class="alert alert-info mb-0">Upload your completed files, then click <strong>Turn In Work</strong>.</div>';
     submissionForm.style.display = '';
+}
+
+function handleStudentTaskUnsubmit() {
+    if (!currentStudentTaskId) {
+        return;
+    }
+
+    const statusContainer = document.getElementById('student-task-submission-status');
+    if (!statusContainer) {
+        return;
+    }
+
+    if (!confirm('Are you sure you want to unsubmit this task?')) {
+        return;
+    }
+
+    const unsubmitUrl = window.studentTaskApiUrls.unsubmitTask.replace('0', currentStudentTaskId);
+    fetch(unsubmitUrl, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getStudentTaskCsrfToken()
+        }
+    })
+    .then(async response => {
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (err) {
+            data = { error: 'Unexpected server response.' };
+        }
+        if (!response.ok) {
+            throw new Error(data.error || `Request failed (${response.status})`);
+        }
+        return data;
+    })
+    .then(() => {
+        return loadStudentTasks().then(() => {
+            const refreshedTask = studentTaskCache.find(item => item.id === currentStudentTaskId);
+            if (refreshedTask) {
+                viewStudentTask(refreshedTask.id, false);
+            }
+        });
+    })
+    .catch(error => {
+        statusContainer.innerHTML = `<div class="alert alert-danger mb-0">${error.message}</div>`;
+    });
 }
 
 function renderStudentSubmissionFileList() {
@@ -302,7 +382,7 @@ function handleStudentTaskSubmission(event) {
         return loadStudentTasks().then(() => {
             const refreshedTask = studentTaskCache.find(item => item.id === currentStudentTaskId);
             if (refreshedTask) {
-                viewStudentTask(refreshedTask.id);
+                viewStudentTask(refreshedTask.id, false);
             }
         });
     })
