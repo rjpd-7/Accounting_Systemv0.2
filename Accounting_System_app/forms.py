@@ -77,7 +77,7 @@ class TaskAssignmentForm(forms.ModelForm):
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Task title'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Task instructions...'}),
-            'deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'deadline': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
         }
 
 

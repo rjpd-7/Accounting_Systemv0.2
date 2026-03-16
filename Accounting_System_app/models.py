@@ -237,7 +237,7 @@ class TaskAssignment(models.Model):
     batch_key = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     title = models.CharField(max_length=255)
     description = models.TextField()
-    deadline = models.DateField()
+    deadline = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_completed = models.BooleanField(default=False)

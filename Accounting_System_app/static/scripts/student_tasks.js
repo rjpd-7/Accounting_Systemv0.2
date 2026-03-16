@@ -113,7 +113,7 @@ function applyStudentTaskFilters() {
             title.includes(searchTerm) ||
             description.includes(searchTerm);
 
-        const matchesDeadline = !deadlineFilter || (task.deadline === deadlineFilter);
+        const matchesDeadline = !deadlineFilter || (task.deadline_date === deadlineFilter);
         const matchesOverdue = !overdueOnly || Boolean(task.is_overdue);
 
         return matchesSearch && matchesDeadline && matchesOverdue;

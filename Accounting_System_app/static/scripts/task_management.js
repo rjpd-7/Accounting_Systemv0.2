@@ -2,6 +2,16 @@ let taskStudents = [];
 let taskCache = { sent: [], received: [] };
 let taskSelectedRecipientIds = new Set();
 
+function getCurrentDateTimeLocalString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 function getTaskCsrfToken() {
     const tokenInput = document.querySelector('[name="csrfmiddlewaretoken"]');
     return tokenInput ? tokenInput.value : '';
@@ -14,7 +24,7 @@ function initializeTaskManagement() {
 
     const taskDeadlineInput = document.getElementById('task_deadline');
     if (taskDeadlineInput) {
-        taskDeadlineInput.min = new Date().toISOString().split('T')[0];
+        taskDeadlineInput.min = getCurrentDateTimeLocalString();
     }
 
     setupTaskEventListeners();

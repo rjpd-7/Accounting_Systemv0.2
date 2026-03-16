@@ -4308,12 +4308,23 @@ def send_task(request):
     if not selected_recipient_ids:
         return JsonResponse({'error': 'Please select at least one student.'}, status=400)
 
-    try:
-        deadline = datetime.strptime(deadline_raw, '%Y-%m-%d').date()
-    except ValueError:
+    parsed_deadline = None
+    for deadline_format in ('%Y-%m-%dT%H:%M', '%Y-%m-%d'):
+        try:
+            parsed_deadline = datetime.strptime(deadline_raw, deadline_format)
+            break
+        except ValueError:
+            continue
+
+    if parsed_deadline is None:
         return JsonResponse({'error': 'Invalid deadline format.'}, status=400)
 
-    if deadline < localdate():
+    if timezone.is_naive(parsed_deadline):
+        deadline = timezone.make_aware(parsed_deadline, timezone.get_current_timezone())
+    else:
+        deadline = parsed_deadline
+
+    if deadline <= timezone.now():
         return JsonResponse({'error': 'Deadline cannot be in the past.'}, status=400)
 
     try:
@@ -4417,7 +4428,8 @@ def get_tasks(request):
         except TaskSubmission.DoesNotExist:
             submission_payload = None
 
-        is_deadline_passed = task.deadline < localdate()
+        deadline_local = localtime(task.deadline)
+        is_deadline_passed = task.deadline < timezone.now()
         has_submission = submission_payload is not None
         unsubmit_blocked_by_deadline = bool(block_unsubmit_after_deadline and is_deadline_passed)
 
@@ -4430,7 +4442,9 @@ def get_tasks(request):
             'recipient_id': task.recipient.id,
             'title': task.title,
             'description': task.description,
-            'deadline': task.deadline.strftime('%Y-%m-%d'),
+            'deadline': deadline_local.strftime('%Y-%m-%d %H:%M'),
+            'deadline_date': deadline_local.strftime('%Y-%m-%d'),
+            'deadline_iso': deadline_local.strftime('%Y-%m-%dT%H:%M'),
             'created_at': localtime(task.created_at).strftime('%Y-%m-%d %H:%M'),
             'is_completed': task.is_completed,
             'is_deadline_passed': is_deadline_passed,
@@ -4543,7 +4557,7 @@ def unsubmit_task(request, task_id):
     task = get_object_or_404(TaskAssignment, id=task_id, recipient=request.user)
 
     block_unsubmit_after_deadline = bool(getattr(settings, 'TASK_BLOCK_UNSUBMIT_AFTER_DEADLINE', False))
-    if block_unsubmit_after_deadline and task.deadline < localdate():
+    if block_unsubmit_after_deadline and task.deadline < timezone.now():
         return JsonResponse({'error': 'Cannot unsubmit after the deadline has passed.'}, status=400)
 
     try:
