@@ -32,6 +32,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.core.files.base import ContentFile
 import random, string
+from uuid import uuid4
 
 
 def get_system_base_url(request=None):
@@ -4335,12 +4336,14 @@ def send_task(request):
         return JsonResponse({'error': 'Selected students are not under your managed sections.'}, status=403)
 
     created_task_ids = []
+    batch_key = uuid4().hex
     with transaction.atomic():
         recipients = User.objects.filter(id__in=valid_recipient_ids)
         for recipient in recipients:
             task = TaskAssignment.objects.create(
                 sender=request.user,
                 recipient=recipient,
+                batch_key=batch_key,
                 title=title,
                 description=description,
                 deadline=deadline,
@@ -4420,6 +4423,7 @@ def get_tasks(request):
 
         return {
             'id': task.id,
+            'batch_key': task.batch_key or f'legacy-{task.id}',
             'sender': task.sender.get_full_name() or task.sender.username,
             'sender_id': task.sender.id,
             'recipient': task.recipient.get_full_name() or task.recipient.username,
@@ -4440,12 +4444,53 @@ def get_tasks(request):
             'type': task_type,
         }
 
+    def _serialize_sent_task_group(tasks):
+        representative_task = tasks[0]
+        representative_payload = _serialize_task(representative_task, 'sent')
+
+        recipients = []
+        submitted_count = 0
+        for grouped_task in tasks:
+            submitted = hasattr(grouped_task, 'submission')
+            if submitted:
+                submitted_count += 1
+
+            recipients.append({
+                'task_id': grouped_task.id,
+                'student_name': grouped_task.recipient.get_full_name() or grouped_task.recipient.username,
+                'student_id': grouped_task.recipient_id,
+                'is_submitted': submitted,
+                'submitted_at': localtime(grouped_task.submission.submitted_at).strftime('%Y-%m-%d %H:%M') if submitted else '',
+                'submission_comment': grouped_task.submission.comment if submitted and grouped_task.submission.comment else '',
+            })
+
+        representative_payload.update({
+            'id': representative_task.id,
+            'batch_key': representative_task.batch_key or f'legacy-{representative_task.id}',
+            'recipient': f'{len(recipients)} student(s)',
+            'recipients': recipients,
+            'recipient_count': len(recipients),
+            'submitted_count': submitted_count,
+            'pending_count': len(recipients) - submitted_count,
+            'all_submitted': len(recipients) > 0 and submitted_count == len(recipients),
+        })
+        return representative_payload
+
     received = TaskAssignment.objects.filter(recipient=request.user).order_by('-created_at')
     sent = TaskAssignment.objects.filter(sender=request.user).order_by('-created_at')
 
+    grouped_sent = []
+    sent_groups = {}
+    for task in sent:
+        group_key = task.batch_key or f'legacy-{task.id}'
+        if group_key not in sent_groups:
+            sent_groups[group_key] = []
+            grouped_sent.append(group_key)
+        sent_groups[group_key].append(task)
+
     return JsonResponse({
         'received': [_serialize_task(task, 'received') for task in received],
-        'sent': [_serialize_task(task, 'sent') for task in sent],
+        'sent': [_serialize_sent_task_group(sent_groups[group_key]) for group_key in grouped_sent],
     })
 
 
@@ -4526,6 +4571,10 @@ def delete_task(request, task_id):
     task = get_object_or_404(TaskAssignment, id=task_id)
     if task.sender_id != request.user.id and task.recipient_id != request.user.id:
         return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    if task.sender_id == request.user.id and task.batch_key:
+        deleted_count, _ = TaskAssignment.objects.filter(sender=request.user, batch_key=task.batch_key).delete()
+        return JsonResponse({'status': 'success', 'message': f'Task batch deleted ({deleted_count} record(s) removed).'})
 
     task.delete()
     return JsonResponse({'status': 'success', 'message': 'Task deleted'})

@@ -234,6 +234,7 @@ class MessageAttachment(models.Model):
 class TaskAssignment(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_tasks')
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_tasks')
+    batch_key = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     title = models.CharField(max_length=255)
     description = models.TextField()
     deadline = models.DateField()

@@ -324,7 +324,7 @@ function displaySentTasks(tasks) {
                 <small class="text-muted">${task.created_at}</small>
             </div>
             <div class="message-subject">${task.title}</div>
-            <div class="message-preview">Deadline: ${task.deadline}${task.is_overdue ? ' • OVERDUE' : ''}</div>
+            <div class="message-preview">Deadline: ${task.deadline}${task.all_submitted ? ' • ALL SUBMITTED' : ` • ${task.submitted_count}/${task.recipient_count} SUBMITTED`}</div>
             ${task.attachments.length > 0 ? `<div class="message-attachments"><i class="bi bi-paperclip"></i> ${task.attachments.length} file(s)</div>` : ''}
         </div>
     `).join('');
@@ -381,12 +381,42 @@ function viewTask(type, taskId) {
         `
         : '';
 
+    let recipientsStatusHtml = '';
+    if (type === 'sent' && Array.isArray(task.recipients) && task.recipients.length > 0) {
+        recipientsStatusHtml = `
+            <div class="mt-4">
+                <h6>Student Submission Status</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Status</th>
+                                <th>Submitted At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${task.recipients.map(recipient => `
+                                <tr>
+                                    <td>${recipient.student_name}</td>
+                                    <td>${recipient.is_submitted ? '<span class="badge bg-success">Submitted</span>' : '<span class="badge bg-secondary">Pending</span>'}</td>
+                                    <td>${recipient.submitted_at || '<span class="text-muted">Not yet submitted</span>'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
     detailsContainer.innerHTML = `
         <div>
             <div class="mb-3 pb-3 border-bottom">
                 <p class="mb-1">${directionLine}</p>
                 <small class="text-muted">Created: ${task.created_at}</small><br>
                 <small class="text-muted">Deadline: ${task.deadline}${task.is_overdue ? ' (Overdue)' : ''}</small>
+                ${type === 'sent' ? `<br><small class="text-muted">Submission Summary: ${task.submitted_count}/${task.recipient_count} submitted</small>` : ''}
             </div>
             <div class="mb-3">
                 <h6>${task.title}</h6>
@@ -395,6 +425,7 @@ function viewTask(type, taskId) {
                 <p style="white-space: pre-wrap; word-wrap: break-word;">${task.description}</p>
             </div>
             ${attachmentsHtml}
+            ${recipientsStatusHtml}
         </div>
     `;
 
