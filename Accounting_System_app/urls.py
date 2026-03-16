@@ -84,4 +84,11 @@ urlpatterns = [
      path('messages/delete/<int:message_id>/', views.delete_message, name='delete_message'),
      path('messages/download/<int:attachment_id>/', views.download_attachment, name='download_attachment'),
      path('api/users/', views.get_users_api, name='get_users_api'),
+
+     # Task Management URLs
+     path('tasks/send/', views.send_task, name='send_task'),
+     path('tasks/get/', views.get_tasks, name='get_tasks'),
+     path('tasks/delete/<int:task_id>/', views.delete_task, name='delete_task'),
+     path('tasks/download/<int:attachment_id>/', views.download_task_attachment, name='download_task_attachment'),
+     path('api/teacher/students/', views.get_teacher_task_students_api, name='get_teacher_task_students_api'),
 ]

@@ -4,9 +4,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localtime, localdate
-from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection, UserProfile, JournalAuditTrail
+from .models import USN_Accounts, AccountGroups, Accounts, ChartOfAccounts, JournalHeaderDrafts, JournalEntryDrafts, JournalHeader, JournalEntry, Message, MessageAttachment, TaskAssignment, TaskAttachment, JournalCollaborator, JournalDraftCollaborator, StudentSection, UserProfile, JournalAuditTrail
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm
+from .forms import USNAccountsForm, ChartOfAccountsForm, UpdateAccountsForm, UserCreationForm, MessageForm, MessageAttachmentForm, TaskAssignmentForm, TaskAttachmentForm
 from itertools import zip_longest
 from django.db.models import Sum, RestrictedError, Q, Value, DecimalField, Max, Count
 from django.db.models.functions import Coalesce
@@ -4262,3 +4262,186 @@ def get_users_api(request):
         })
     
     return JsonResponse({'users': users_list})
+
+
+@role_required(['teacher'])
+@require_http_methods(["GET"])
+def get_teacher_task_students_api(request):
+    """Get students in sections managed by the current teacher for task assignment."""
+    managed_section_ids = request.user.managed_sections.values_list('id', flat=True)
+    students = User.objects.filter(
+        profile__role='student',
+        profile__section_id__in=managed_section_ids,
+    ).select_related('profile', 'profile__section').order_by('last_name', 'first_name', 'username')
+
+    student_list = []
+    for student in students:
+        full_name = f"{student.first_name} {student.last_name}".strip() or student.username
+        student_list.append({
+            'id': student.id,
+            'username': student.username,
+            'full_name': full_name,
+            'section': student.profile.section.name if student.profile.section else '',
+        })
+
+    return JsonResponse({'students': student_list})
+
+
+@role_required(['teacher'])
+@require_http_methods(["POST"])
+def send_task(request):
+    """Send a task with deadline to one or more students managed by the teacher."""
+    files = request.FILES.getlist('attachments')
+
+    title = (request.POST.get('title') or '').strip()
+    description = (request.POST.get('description') or '').strip()
+    deadline_raw = (request.POST.get('deadline') or '').strip()
+    selected_recipient_ids = request.POST.getlist('recipients')
+
+    if not title:
+        return JsonResponse({'error': 'Task title is required.'}, status=400)
+    if not description:
+        return JsonResponse({'error': 'Task description is required.'}, status=400)
+    if not deadline_raw:
+        return JsonResponse({'error': 'Deadline is required.'}, status=400)
+    if not selected_recipient_ids:
+        return JsonResponse({'error': 'Please select at least one student.'}, status=400)
+
+    try:
+        deadline = datetime.strptime(deadline_raw, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Invalid deadline format.'}, status=400)
+
+    if deadline < localdate():
+        return JsonResponse({'error': 'Deadline cannot be in the past.'}, status=400)
+
+    try:
+        selected_recipient_ids = [int(recipient_id) for recipient_id in selected_recipient_ids if str(recipient_id).strip()]
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid student selection.'}, status=400)
+
+    selected_recipient_ids = list(set(selected_recipient_ids))
+
+    managed_section_ids = request.user.managed_sections.values_list('id', flat=True)
+    valid_recipient_ids = list(
+        User.objects.filter(
+            id__in=selected_recipient_ids,
+            profile__role='student',
+            profile__section_id__in=managed_section_ids,
+        ).values_list('id', flat=True)
+    )
+
+    if not valid_recipient_ids:
+        return JsonResponse({'error': 'Selected students are not under your managed sections.'}, status=403)
+
+    created_task_ids = []
+    with transaction.atomic():
+        recipients = User.objects.filter(id__in=valid_recipient_ids)
+        for recipient in recipients:
+            task = TaskAssignment.objects.create(
+                sender=request.user,
+                recipient=recipient,
+                title=title,
+                description=description,
+                deadline=deadline,
+            )
+            created_task_ids.append(task.id)
+
+            for file in files:
+                if file.size > 0:
+                    file.seek(0)
+                    attachment = TaskAttachment(
+                        task=task,
+                        filename=file.name,
+                        file_size=file.size,
+                    )
+                    attachment.file.save(file.name, ContentFile(file.read()), save=True)
+
+    skipped_count = len(selected_recipient_ids) - len(valid_recipient_ids)
+    success_message = f'Task sent to {len(valid_recipient_ids)} student(s).'
+    if skipped_count > 0:
+        success_message += f' Skipped {skipped_count} invalid student(s).'
+
+    return JsonResponse({
+        'status': 'success',
+        'task_ids': created_task_ids,
+        'message': success_message,
+    })
+
+
+@require_http_methods(["GET"])
+def get_tasks(request):
+    """Get tasks for current user (sent and received)."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+
+    def _serialize_task(task, task_type):
+        attachments = []
+        for att in task.attachments.all():
+            attachments.append({
+                'id': att.id,
+                'filename': att.filename,
+                'file_size': att.file_size,
+                'url': att.file.url,
+                'download_url': reverse('AccountingSystem:download_task_attachment', kwargs={'attachment_id': att.id})
+            })
+
+        return {
+            'id': task.id,
+            'sender': task.sender.get_full_name() or task.sender.username,
+            'sender_id': task.sender.id,
+            'recipient': task.recipient.get_full_name() or task.recipient.username,
+            'recipient_id': task.recipient.id,
+            'title': task.title,
+            'description': task.description,
+            'deadline': task.deadline.strftime('%Y-%m-%d'),
+            'created_at': localtime(task.created_at).strftime('%Y-%m-%d %H:%M'),
+            'is_completed': task.is_completed,
+            'is_overdue': (not task.is_completed) and (task.deadline < localdate()),
+            'attachments': attachments,
+            'type': task_type,
+        }
+
+    received = TaskAssignment.objects.filter(recipient=request.user).order_by('-created_at')
+    sent = TaskAssignment.objects.filter(sender=request.user).order_by('-created_at')
+
+    return JsonResponse({
+        'received': [_serialize_task(task, 'received') for task in received],
+        'sent': [_serialize_task(task, 'sent') for task in sent],
+    })
+
+
+@require_http_methods(["POST"])
+def delete_task(request, task_id):
+    """Delete a task if user is sender or recipient."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+
+    task = get_object_or_404(TaskAssignment, id=task_id)
+    if task.sender_id != request.user.id and task.recipient_id != request.user.id:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    task.delete()
+    return JsonResponse({'status': 'success', 'message': 'Task deleted'})
+
+
+@require_http_methods(["GET"])
+def download_task_attachment(request, attachment_id):
+    """Download a task attachment."""
+    if not request.user.is_authenticated:
+        return HttpResponse('Unauthorized', status=401)
+
+    attachment = get_object_or_404(TaskAttachment, id=attachment_id)
+    task = attachment.task
+
+    if task.sender_id != request.user.id and task.recipient_id != request.user.id:
+        return HttpResponse('Forbidden', status=403)
+
+    if not attachment.file or not attachment.file.name:
+        return HttpResponse('File not available on site (missing file reference).', status=404)
+
+    if not attachment.file.storage.exists(attachment.file.name):
+        return HttpResponse('File not available on site (file not found on server).', status=404)
+
+    attachment.file.open('rb')
+    return FileResponse(attachment.file, as_attachment=True, filename=attachment.filename)

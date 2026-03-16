@@ -230,6 +230,38 @@ class MessageAttachment(models.Model):
     def __str__(self):
         return f"Attachment: {self.filename}"
 
+
+class TaskAssignment(models.Model):
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_tasks')
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_tasks')
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    deadline = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_completed = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "task_assignments_table"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Task from {self.sender.username} to {self.recipient.username}: {self.title}"
+
+
+class TaskAttachment(models.Model):
+    task = models.ForeignKey(TaskAssignment, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='task_attachments/%Y/%m/%d/')
+    filename = models.CharField(max_length=255)
+    file_size = models.IntegerField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "task_attachments_table"
+
+    def __str__(self):
+        return f"Task attachment: {self.filename}"
+
 # Journal Audit Trail - tracks all changes made to journal entries
 class JournalAuditTrail(models.Model):
     CHANGE_TYPE_CHOICES = [

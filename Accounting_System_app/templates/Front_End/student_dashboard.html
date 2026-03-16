@@ -211,6 +211,11 @@
         {% include "Front_End/messaging.html" %}
         <!-- End of Messages Section -->
 
+        <br>
+        <!-- Assigned Tasks Section -->
+        {% include "Front_End/student_tasks.html" %}
+        <!-- End Assigned Tasks Section -->
+
         <!-- Change Password Modal -->
         <div class="modal fade" id="changeOwnPasswordModal" tabindex="-1" aria-labelledby="changeOwnPasswordModalLabel" aria-hidden="true">
             <div class="modal-dialog">
@@ -267,6 +272,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
     <script src="scripts/scripts.js"></script>
     <script src="{% static 'scripts/messaging.js' %}"></script>
+    <script src="{% static 'scripts/student_tasks.js' %}"></script>
     <script src="{% static 'scripts/password_toggle.js' %}"></script>
     <script src="{% static 'scripts/student_dashboard.js' %}"></script>
 </body>

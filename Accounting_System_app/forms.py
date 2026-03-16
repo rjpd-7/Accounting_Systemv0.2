@@ -1,5 +1,5 @@
 from django import forms
-from .models import USN_Accounts, ChartOfAccounts, Message, MessageAttachment, StudentSection, AccountGroups
+from .models import USN_Accounts, ChartOfAccounts, Message, MessageAttachment, StudentSection, AccountGroups, TaskAssignment, TaskAttachment
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
@@ -64,6 +64,26 @@ class MessageForm(forms.ModelForm):
 class MessageAttachmentForm(forms.ModelForm):
     class Meta:
         model = MessageAttachment
+        fields = ['file']
+        widgets = {
+            'file': forms.FileInput(attrs={'class': 'form-control', 'accept': '*/*'})
+        }
+
+
+class TaskAssignmentForm(forms.ModelForm):
+    class Meta:
+        model = TaskAssignment
+        fields = ['title', 'description', 'deadline']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Task title'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Task instructions...'}),
+            'deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
+
+
+class TaskAttachmentForm(forms.ModelForm):
+    class Meta:
+        model = TaskAttachment
         fields = ['file']
         widgets = {
             'file': forms.FileInput(attrs={'class': 'form-control', 'accept': '*/*'})

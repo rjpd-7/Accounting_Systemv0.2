@@ -1,0 +1,131 @@
+<!-- Task Management Component -->
+<div class="messaging-container">
+    <div class="messaging-header">
+        <h5 class="mb-0">
+            <i class="bi bi-list-check"></i> Task Management
+        </h5>
+        <br>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#sendTaskModal">
+                <i class="bi bi-plus-circle"></i> New Task
+            </button>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="messaging-body">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="task-sent-tab" data-bs-toggle="tab" data-bs-target="#task-sent" type="button" role="tab">
+                    Sent Tasks
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="task-received-tab" data-bs-toggle="tab" data-bs-target="#task-received" type="button" role="tab">
+                    Received Tasks
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="task-sent" role="tabpanel">
+                <div class="messages-list" id="task-sent-list">
+                    <div class="text-center text-muted p-4">
+                        <p>Loading sent tasks...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="task-received" role="tabpanel">
+                <div class="messages-list" id="task-received-list">
+                    <div class="text-center text-muted p-4">
+                        <p>Loading received tasks...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Task Modal -->
+<div class="modal fade" id="sendTaskModal" tabindex="-1" aria-labelledby="sendTaskLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendTaskLabel">Create Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'AccountingSystem:send_task' %}" enctype="multipart/form-data" id="taskForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="task_section_filter" class="form-label">Filter by Section</label>
+                        <select class="form-control" id="task_section_filter">
+                            <option value="">All Sections</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="task_recipient_list" class="form-label">Select student(s):</label>
+                        <div id="task_recipient_list" class="border rounded p-2" style="max-height: 260px; overflow-y: auto;">
+                            <div class="text-muted">Loading students...</div>
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="task_select_all_recipients">Select All</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="task_clear_all_recipients">Clear</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="task_title" class="form-label">Task Title</label>
+                        <input type="text" class="form-control" id="task_title" name="title" placeholder="Task title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="task_deadline" class="form-label">Deadline</label>
+                        <input type="date" class="form-control" id="task_deadline" name="deadline" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="task_description" class="form-label">Instructions</label>
+                        <textarea class="form-control" id="task_description" name="description" rows="4" placeholder="Describe what students need to do..." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="task_attachments" class="form-label">Attachments (Optional)</label>
+                        <input type="file" class="form-control" id="task_attachments" name="attachments" multiple>
+                        <div id="task-file-list" class="mt-2"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="sendTaskBtn">Send Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Task Detail Modal -->
+<div class="modal fade" id="taskDetailModal" tabindex="-1" aria-labelledby="taskDetailLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskDetailLabel">Task Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="task-detail-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="deleteTaskBtn">Delete</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.taskApiUrls = {
+        getStudents: '{% url "AccountingSystem:get_teacher_task_students_api" %}',
+        getTasks: '{% url "AccountingSystem:get_tasks" %}',
+        sendTask: '{% url "AccountingSystem:send_task" %}',
+        deleteTask: '{% url "AccountingSystem:delete_task" task_id=0 %}'
+    };
+</script>
