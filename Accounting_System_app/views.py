@@ -33,6 +33,21 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 import random, string
 from uuid import uuid4
+import mimetypes
+
+
+def _build_attachment_response(file_field, filename):
+    """Return a file response that previews PDFs inline and downloads other files."""
+    resolved_name = filename or os.path.basename(getattr(file_field, 'name', '') or '')
+    content_type, _ = mimetypes.guess_type(resolved_name)
+    is_pdf = (content_type == 'application/pdf') or resolved_name.lower().endswith('.pdf')
+
+    return FileResponse(
+        file_field,
+        as_attachment=not is_pdf,
+        filename=resolved_name,
+        content_type=content_type or 'application/octet-stream',
+    )
 
 
 def get_system_base_url(request=None):
@@ -1028,7 +1043,7 @@ def _render_accounts_pdf(filename, accounts, title):
         return HttpResponse('Error generating PDF', status=500)
 
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
 
 
@@ -2952,7 +2967,7 @@ def general_ledger_pdf(request):
         return HttpResponse('Error generating PDF', status=500)
 
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="general_ledger.pdf"'
+    response['Content-Disposition'] = 'inline; filename="general_ledger.pdf"'
     return response
 
 # Trial Balance Function
@@ -3064,7 +3079,7 @@ def trial_balance_pdf(request):
         return HttpResponse('Error generating PDF', status=500)
 
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="trial_balance.pdf"'
+    response['Content-Disposition'] = 'inline; filename="trial_balance.pdf"'
     return response
 
 
@@ -3595,7 +3610,7 @@ def journal_pdf(request, id):
 
     filename = f"journal_{header.entry_no or header.id}.pdf"
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
 
 
@@ -3741,7 +3756,7 @@ def income_statement_pdf(request):
 
     filename = "income_statement.pdf"
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
 
 
@@ -3893,7 +3908,7 @@ def balance_sheet_pdf(request):
 
     filename = "balance_sheet.pdf"
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
 
 # Messaging Views
@@ -4232,7 +4247,7 @@ def download_attachment(request, attachment_id):
         return HttpResponse('File not available on site (file not found on server).', status=404)
 
     attachment.file.open('rb')
-    return FileResponse(attachment.file, as_attachment=True, filename=attachment.filename)
+    return _build_attachment_response(attachment.file, attachment.filename)
 
 @require_http_methods(["GET"])
 def get_users_api(request):
@@ -4635,7 +4650,7 @@ def download_task_attachment(request, attachment_id):
         return HttpResponse('File not available on site (file not found on server).', status=404)
 
     attachment.file.open('rb')
-    return FileResponse(attachment.file, as_attachment=True, filename=attachment.filename)
+    return _build_attachment_response(attachment.file, attachment.filename)
 
 
 @require_http_methods(["GET"])
@@ -4657,4 +4672,4 @@ def download_task_submission_attachment(request, attachment_id):
         return HttpResponse('File not available on site (file not found on server).', status=404)
 
     attachment.file.open('rb')
-    return FileResponse(attachment.file, as_attachment=True, filename=attachment.filename)
+    return _build_attachment_response(attachment.file, attachment.filename)

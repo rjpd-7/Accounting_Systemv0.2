@@ -3,6 +3,11 @@ let taskCache = { sent: [], received: [] };
 let taskSelectedRecipientIds = new Set();
 let submissionFilesByRecipientTaskId = {};
 
+function getPdfPreviewAttrs(filename, fileUrl) {
+    const source = String(filename || fileUrl || '').toLowerCase();
+    return source.endsWith('.pdf') ? ' target="_blank" rel="noopener"' : '';
+}
+
 function getCurrentDateTimeLocalString() {
     const now = new Date();
     const year = now.getFullYear();
@@ -386,7 +391,7 @@ function viewTask(type, taskId) {
             <div class="mt-3">
                 <strong>Attachments:</strong>
                 <ul class="list-unstyled mt-2">
-                    ${task.attachments.map(att => `<li><i class="bi bi-file"></i> <a href="${att.download_url || att.url}" class="ms-2">${att.filename}</a></li>`).join('')}
+                    ${task.attachments.map(att => `<li><i class="bi bi-file"></i> <a href="${att.download_url || att.url}" class="ms-2"${getPdfPreviewAttrs(att.filename, att.download_url || att.url)}>${att.filename}</a></li>`).join('')}
                 </ul>
             </div>
         `

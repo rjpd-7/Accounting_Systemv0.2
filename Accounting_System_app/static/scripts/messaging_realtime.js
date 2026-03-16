@@ -5,6 +5,11 @@ let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 const reconnectDelay = 3000; // 3 seconds
 
+function getPdfPreviewAttrs(filename, fileUrl) {
+    const source = String(filename || fileUrl || '').toLowerCase();
+    return source.endsWith('.pdf') ? ' target="_blank" rel="noopener"' : '';
+}
+
 // Helper function to escape HTML for attributes
 function escapeHtml(text) {
     if (!text) return '';
@@ -377,7 +382,7 @@ function displayMessageDetail(message) {
                     ${message.attachments.map(att => `
                         <li>
                             <i class="bi bi-file"></i>
-                            <a href="${att.download_url || att.url}" class="ms-2">
+                            <a href="${att.download_url || att.url}" class="ms-2"${getPdfPreviewAttrs(att.filename, att.download_url || att.url)}>
                                 ${att.filename} (${formatFileSize(att.file_size)})
                             </a>
                         </li>

@@ -131,7 +131,7 @@
             <a href="{% url 'AccountingSystem:balance_sheet' %}?start_date={{ start_date }}&end_date={{ end_date }}" target="_blank" class="btn btn-secondary">
                 <i class="bi bi-columns"></i> Balance Sheet
             </a>
-            <a href="{% url 'AccountingSystem:ledgers_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success">
+            <a href="{% url 'AccountingSystem:ledgers_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success" target="_blank" rel="noopener">
                 <i class="bi bi-file-earmark-pdf"></i> Download General Ledger as PDF
             </a>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">

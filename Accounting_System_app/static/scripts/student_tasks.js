@@ -1,6 +1,11 @@
 let studentTaskCache = [];
 let currentStudentTaskId = null;
 
+function getPdfPreviewAttrs(filename, fileUrl) {
+    const source = String(filename || fileUrl || '').toLowerCase();
+    return source.endsWith('.pdf') ? ' target="_blank" rel="noopener"' : '';
+}
+
 function getTaskDeadlineDate(task) {
     const rawValue = task.deadline_iso || task.deadline;
     if (!rawValue) {
@@ -226,7 +231,7 @@ function viewStudentTask(taskId, showModal = true) {
             <div class="mt-3">
                 <strong>Attachments:</strong>
                 <ul class="list-unstyled mt-2">
-                    ${task.attachments.map(att => `<li><i class="bi bi-file"></i> <a href="${att.download_url || att.url}" class="ms-2">${att.filename}</a></li>`).join('')}
+                    ${task.attachments.map(att => `<li><i class="bi bi-file"></i> <a href="${att.download_url || att.url}" class="ms-2"${getPdfPreviewAttrs(att.filename, att.download_url || att.url)}>${att.filename}</a></li>`).join('')}
                 </ul>
             </div>
         `
@@ -284,7 +289,7 @@ function renderStudentSubmissionSection(task) {
                 <div class="mt-2">
                     <strong>Submitted Files:</strong>
                     <ul class="list-unstyled mt-2 mb-0">
-                        ${submissionAttachments.map(att => `<li><i class="bi bi-file-earmark-check"></i> <a href="${att.download_url || att.url}" class="ms-2">${att.filename}</a></li>`).join('')}
+                        ${submissionAttachments.map(att => `<li><i class="bi bi-file-earmark-check"></i> <a href="${att.download_url || att.url}" class="ms-2"${getPdfPreviewAttrs(att.filename, att.download_url || att.url)}>${att.filename}</a></li>`).join('')}
                     </ul>
                 </div>
             `
