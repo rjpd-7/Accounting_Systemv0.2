@@ -1,6 +1,7 @@
 let taskStudents = [];
 let taskCache = { sent: [], received: [] };
 let taskSelectedRecipientIds = new Set();
+let submissionFilesByRecipientTaskId = {};
 
 function getCurrentDateTimeLocalString() {
     const now = new Date();
@@ -393,6 +394,14 @@ function viewTask(type, taskId) {
 
     let recipientsStatusHtml = '';
     if (type === 'sent' && Array.isArray(task.recipients) && task.recipients.length > 0) {
+        submissionFilesByRecipientTaskId = {};
+        task.recipients.forEach(recipient => {
+            submissionFilesByRecipientTaskId[String(recipient.task_id)] = {
+                studentName: recipient.student_name,
+                files: Array.isArray(recipient.submission_attachments) ? recipient.submission_attachments : [],
+            };
+        });
+
         recipientsStatusHtml = `
             <div class="mt-4">
                 <h6>Student Submission Status</h6>
@@ -414,9 +423,7 @@ function viewTask(type, taskId) {
                                     <td>${recipient.submitted_at || '<span class="text-muted">Not yet submitted</span>'}</td>
                                     <td>
                                         ${recipient.is_submitted
-                                            ? ((recipient.submission_attachments && recipient.submission_attachments.length > 0)
-                                                ? recipient.submission_attachments.map(att => `<div><a href="${att.download_url}" target="_blank" rel="noopener">${att.filename}</a></div>`).join('')
-                                                : '<span class="text-muted">No files</span>')
+                                            ? `<button type="button" class="btn btn-outline-primary btn-sm" onclick="openSubmissionFilesModal(${recipient.task_id})">View Files (${(recipient.submission_attachments || []).length})</button>`
                                             : '<span class="text-muted">-</span>'}
                                     </td>
                                 </tr>
@@ -457,6 +464,42 @@ function viewTask(type, taskId) {
 }
 
 window.viewTask = viewTask;
+
+function openSubmissionFilesModal(recipientTaskId) {
+    const modalContent = document.getElementById('submission-files-modal-content');
+    const modalTitle = document.getElementById('submissionFilesModalLabel');
+    if (!modalContent || !modalTitle) {
+        return;
+    }
+
+    const recipientEntry = submissionFilesByRecipientTaskId[String(recipientTaskId)];
+    if (!recipientEntry) {
+        modalTitle.textContent = 'Submitted Files';
+        modalContent.innerHTML = '<div class="text-muted">No files available.</div>';
+    } else {
+        modalTitle.textContent = `Submitted Files - ${recipientEntry.studentName}`;
+
+        if (!recipientEntry.files.length) {
+            modalContent.innerHTML = '<div class="text-muted">No files submitted.</div>';
+        } else {
+            modalContent.innerHTML = `
+                <ul class="list-unstyled mb-0">
+                    ${recipientEntry.files.map(file => `
+                        <li class="mb-2">
+                            <i class="bi bi-file-earmark-arrow-down"></i>
+                            <a href="${file.download_url}" target="_blank" rel="noopener" class="ms-2">${file.filename}</a>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        }
+    }
+
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('submissionFilesModal'));
+    modal.show();
+}
+
+window.openSubmissionFilesModal = openSubmissionFilesModal;
 
 function handleDeleteTask() {
     const taskId = this.getAttribute('data-task-id');

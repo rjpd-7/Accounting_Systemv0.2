@@ -121,6 +121,24 @@
     </div>
 </div>
 
+<!-- Submitted Files Modal -->
+<div class="modal fade" id="submissionFilesModal" tabindex="-1" aria-labelledby="submissionFilesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="submissionFilesModalLabel">Submitted Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="submission-files-modal-content">
+                <div class="text-muted">No files available.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     window.taskApiUrls = {
         getStudents: '{% url "AccountingSystem:get_teacher_task_students_api" %}',
