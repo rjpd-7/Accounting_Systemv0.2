@@ -337,14 +337,17 @@ def login_view(request):
             # Successful login -> clear counters and proceed
             cache.delete(attempts_key)
             cache.delete(lockout_key)
+            profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'role': 'student'})
+
+            # Block students with no assigned section from logging in
+            if profile.role == "student" and profile.section is None:
+                messages.error(request, "You are not assigned to a section yet. You cannot log in to the system.")
+                return render(request, "Front_End/login.html")
+
             login(request, user)
 
-            # Ensure every user has a profile (defaults to student)
-            if not hasattr(user, "profile"):
-                UserProfile.objects.create(user=user, role='student')
-
             messages.success(request, "Login Successful")
-            role = getattr(user, "profile", None).role if getattr(user, "profile", None) else ('admin' if user.is_superuser else 'student')
+            role = profile.role if profile else ('admin' if user.is_superuser else 'student')
             if role == "admin":
                 return redirect("AccountingSystem:admin_dashboard")
             if role == "teacher":
