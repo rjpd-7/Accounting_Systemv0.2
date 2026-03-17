@@ -4270,10 +4270,10 @@ def send_message(request):
         # Backward compatibility: accept both single and multi recipient payloads.
         selected_recipient_ids = request.POST.getlist('recipients') or request.POST.getlist('recipient')
 
-        if not content:
+        if not content and not files:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'error': 'Message content is required.'}, status=400)
-            messages.error(request, 'Message content is required.')
+                return JsonResponse({'error': 'Message text or at least one attachment is required.'}, status=400)
+            messages.error(request, 'Message text or at least one attachment is required.')
             return _redirect_to_dashboard()
 
         if not selected_recipient_ids:

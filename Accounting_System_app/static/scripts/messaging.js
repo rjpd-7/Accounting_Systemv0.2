@@ -6,6 +6,7 @@ let archiveLoadedOnce = false;
 let latestMessagesPayload = { received: [], sent: [], archive: [], unread_count: 0 };
 let activeThreadUserId = null;
 let activeThreadName = '';
+let selectedInlineReplyFiles = [];
 let isUserPinnedToThreadBottom = true;
 let pendingThreadNewCount = 0;
 let websocket = null;
@@ -494,8 +495,10 @@ function renderActiveThread(options = {}) {
     const meta = document.getElementById('messenger-preview-meta');
     const inlineReplyInput = document.getElementById('inlineReplyContent');
     const inlineReplySendBtn = document.getElementById('inlineReplySendBtn');
+    const inlineReplyAttachments = document.getElementById('inlineReplyAttachments');
+    const inlineReplyFileList = document.getElementById('inline-reply-file-list');
 
-    if (!content || !title || !meta || !inlineReplyInput || !inlineReplySendBtn) return;
+    if (!content || !title || !meta || !inlineReplyInput || !inlineReplySendBtn || !inlineReplyAttachments) return;
 
     if (!activeThreadUserId) {
         title.textContent = 'Select a conversation';
@@ -509,6 +512,9 @@ function renderActiveThread(options = {}) {
         `;
         inlineReplyInput.disabled = true;
         inlineReplySendBtn.disabled = true;
+        inlineReplyAttachments.disabled = true;
+        inlineReplyAttachments.value = '';
+        clearAllInlineReplyFiles();
         setJumpToLatestBadgeCount(0);
         updateJumpToLatestVisibility();
         return;
@@ -569,6 +575,7 @@ function renderActiveThread(options = {}) {
 
     inlineReplyInput.disabled = false;
     inlineReplySendBtn.disabled = false;
+    inlineReplyAttachments.disabled = false;
     updateJumpToLatestVisibility();
 }
 
@@ -762,6 +769,66 @@ function handleFileSelection(event) {
     fileList.innerHTML = html;
 }
 
+function handleInlineReplyFileSelection(event) {
+    const files = event.target.files;
+    selectedInlineReplyFiles = Array.from(files || []);
+    renderInlineReplyFileList();
+}
+
+function syncInlineReplyInputFiles() {
+    const attachmentsInput = document.getElementById('inlineReplyAttachments');
+    if (!attachmentsInput) return;
+
+    const dataTransfer = new DataTransfer();
+    selectedInlineReplyFiles.forEach(file => dataTransfer.items.add(file));
+    attachmentsInput.files = dataTransfer.files;
+}
+
+function clearAllInlineReplyFiles() {
+    selectedInlineReplyFiles = [];
+    syncInlineReplyInputFiles();
+    renderInlineReplyFileList();
+}
+
+function removeInlineReplyFile(index) {
+    if (index < 0 || index >= selectedInlineReplyFiles.length) return;
+    selectedInlineReplyFiles.splice(index, 1);
+    syncInlineReplyInputFiles();
+    renderInlineReplyFileList();
+}
+
+function renderInlineReplyFileList() {
+    const fileList = document.getElementById('inline-reply-file-list');
+    const clearAllBtn = document.getElementById('inlineReplyClearAllBtn');
+    if (!fileList) return;
+
+    if (selectedInlineReplyFiles.length === 0) {
+        fileList.innerHTML = '';
+        if (clearAllBtn) {
+            clearAllBtn.style.display = 'none';
+        }
+        return;
+    }
+
+    if (clearAllBtn) {
+        clearAllBtn.style.display = selectedInlineReplyFiles.length > 1 ? 'inline-block' : 'none';
+    }
+
+    let html = '';
+    selectedInlineReplyFiles.forEach((file, index) => {
+        html += `
+            <div class="inline-reply-file-item">
+                <i class="bi bi-paperclip"></i>
+                <span>${escapeHtml(file.name)} (${formatFileSize(file.size)})</span>
+                <button type="button" class="btn btn-sm btn-link text-danger inline-reply-file-remove" data-inline-file-index="${index}" aria-label="Remove file">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        `;
+    });
+    fileList.innerHTML = html;
+}
+
 function handleMessageSubmit(event) {
     event.preventDefault();
 
@@ -851,11 +918,15 @@ function handleInlineReplySubmit(event) {
 
     const replyInput = document.getElementById('inlineReplyContent');
     const sendBtn = document.getElementById('inlineReplySendBtn');
-    if (!replyInput || !sendBtn) return;
+    const attachmentsInput = document.getElementById('inlineReplyAttachments');
+    const inlineReplyFileList = document.getElementById('inline-reply-file-list');
+    if (!replyInput || !sendBtn || !attachmentsInput) return;
 
     const content = (replyInput.value || '').trim();
-    if (!content) {
-        showAlert('Please type a reply.', 'warning');
+    const hasFiles = selectedInlineReplyFiles.length > 0;
+
+    if (!content && !hasFiles) {
+        showAlert('Please type a reply or attach at least one file.', 'warning');
         return;
     }
 
@@ -863,6 +934,11 @@ function handleInlineReplySubmit(event) {
     formData.append('recipients', String(activeThreadUserId));
     formData.append('subject', '');
     formData.append('content', content);
+    if (hasFiles) {
+        for (let file of selectedInlineReplyFiles) {
+            formData.append('attachments', file);
+        }
+    }
 
     sendBtn.disabled = true;
     const previousButtonHtml = sendBtn.innerHTML;
@@ -891,6 +967,8 @@ function handleInlineReplySubmit(event) {
         })
         .then(() => {
             replyInput.value = '';
+            attachmentsInput.value = '';
+            clearAllInlineReplyFiles();
             loadMessages();
         })
         .catch(error => {
@@ -967,6 +1045,29 @@ function setupEventListeners() {
     const inlineReplyForm = document.getElementById('inlineReplyForm');
     if (inlineReplyForm) {
         inlineReplyForm.addEventListener('submit', handleInlineReplySubmit);
+    }
+
+    const inlineReplyAttachments = document.getElementById('inlineReplyAttachments');
+    if (inlineReplyAttachments) {
+        inlineReplyAttachments.addEventListener('change', handleInlineReplyFileSelection);
+    }
+
+    const inlineReplyClearAllBtn = document.getElementById('inlineReplyClearAllBtn');
+    if (inlineReplyClearAllBtn) {
+        inlineReplyClearAllBtn.addEventListener('click', clearAllInlineReplyFiles);
+    }
+
+    const inlineReplyFileList = document.getElementById('inline-reply-file-list');
+    if (inlineReplyFileList) {
+        inlineReplyFileList.addEventListener('click', function (event) {
+            const removeBtn = event.target.closest('.inline-reply-file-remove');
+            if (!removeBtn) return;
+
+            const index = Number(removeBtn.getAttribute('data-inline-file-index'));
+            if (!Number.isNaN(index)) {
+                removeInlineReplyFile(index);
+            }
+        });
     }
 
     const roleFilter = document.getElementById('recipient_role_filter');

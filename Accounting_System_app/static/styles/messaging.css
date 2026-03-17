@@ -169,6 +169,29 @@
     resize: none;
 }
 
+#inline-reply-file-list {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+#inline-reply-file-list .inline-reply-file-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+
+#inline-reply-file-list .inline-reply-file-item .inline-reply-file-remove {
+    margin-left: auto;
+    padding: 0;
+    line-height: 1;
+    text-decoration: none;
+}
+
+#inlineReplyClearAllBtn {
+    white-space: nowrap;
+}
+
 .messenger-jump-latest {
     position: absolute;
     right: 16px;

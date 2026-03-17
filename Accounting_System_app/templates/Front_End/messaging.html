@@ -130,6 +130,13 @@
                         <div class="flex-grow-1">
                             <label for="inlineReplyContent" class="visually-hidden">Reply</label>
                             <textarea class="form-control" id="inlineReplyContent" rows="2" placeholder="Type a reply..." disabled></textarea>
+                            <div class="d-flex align-items-center gap-2 mt-2">
+                                <input type="file" class="form-control form-control-sm" id="inlineReplyAttachments" multiple disabled>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="inlineReplyClearAllBtn" style="display: none;" disabled>
+                                    Clear all
+                                </button>
+                            </div>
+                            <div id="inline-reply-file-list" class="mt-2"></div>
                         </div>
                         <button type="submit" class="btn btn-primary" id="inlineReplySendBtn" disabled>
                             <i class="bi bi-send"></i> Send
