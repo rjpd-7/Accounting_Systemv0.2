@@ -8,6 +8,8 @@ let activeThreadUserId = null;
 let activeThreadName = '';
 let selectedInlineReplyFiles = [];
 let isUserPinnedToThreadBottom = true;
+let hasUserScrolledAwayFromLatest = false;
+let suppressThreadScrollTrackingUntil = 0;
 let pendingThreadNewCount = 0;
 let websocket = null;
 let reconnectAttempts = 0;
@@ -55,6 +57,14 @@ function isNearBottom(element, thresholdPx = 100) {
     return distanceToBottom <= thresholdPx;
 }
 
+function suppressThreadScrollTracking(durationMs = 400) {
+    suppressThreadScrollTrackingUntil = Date.now() + Math.max(0, Number(durationMs) || 0);
+}
+
+function isThreadScrollTrackingSuppressed() {
+    return Date.now() < suppressThreadScrollTrackingUntil;
+}
+
 function updateJumpToLatestVisibility() {
     const threadContent = document.getElementById('messenger-conversation-content');
     const jumpBtn = document.getElementById('jumpToLatestBtn');
@@ -65,7 +75,7 @@ function updateJumpToLatestVisibility() {
         return;
     }
 
-    const show = !isNearBottom(threadContent, 80);
+    const show = hasUserScrolledAwayFromLatest && !isNearBottom(threadContent, 80);
     jumpBtn.classList.toggle('show', show);
 }
 
@@ -87,8 +97,10 @@ function jumpToLatestMessages() {
     const threadContent = document.getElementById('messenger-conversation-content');
     if (!threadContent) return;
 
+    suppressThreadScrollTracking(500);
     threadContent.scrollTo({ top: threadContent.scrollHeight, behavior: 'smooth' });
     isUserPinnedToThreadBottom = true;
+    hasUserScrolledAwayFromLatest = false;
     setJumpToLatestBadgeCount(0);
     updateJumpToLatestVisibility();
 }
@@ -496,6 +508,7 @@ function renderActiveThread(options = {}) {
     const inlineReplyInput = document.getElementById('inlineReplyContent');
     const inlineReplySendBtn = document.getElementById('inlineReplySendBtn');
     const inlineReplyAttachments = document.getElementById('inlineReplyAttachments');
+    const inlineReplyClearAllBtn = document.getElementById('inlineReplyClearAllBtn');
     const inlineReplyFileList = document.getElementById('inline-reply-file-list');
 
     if (!content || !title || !meta || !inlineReplyInput || !inlineReplySendBtn || !inlineReplyAttachments) return;
@@ -513,6 +526,7 @@ function renderActiveThread(options = {}) {
         inlineReplyInput.disabled = true;
         inlineReplySendBtn.disabled = true;
         inlineReplyAttachments.disabled = true;
+        if (inlineReplyClearAllBtn) inlineReplyClearAllBtn.disabled = true;
         inlineReplyAttachments.value = '';
         clearAllInlineReplyFiles();
         setJumpToLatestBadgeCount(0);
@@ -563,12 +577,15 @@ function renderActiveThread(options = {}) {
         const autoScrollEnabled = window.messagingLiveOptions.autoScroll !== false;
         const requestedAutoScroll = options.autoScroll !== false;
         if (autoScrollEnabled && requestedAutoScroll) {
+            suppressThreadScrollTracking(250);
             content.scrollTop = content.scrollHeight;
             isUserPinnedToThreadBottom = true;
+            hasUserScrolledAwayFromLatest = false;
             setJumpToLatestBadgeCount(0);
         } else {
             const newScrollHeight = content.scrollHeight;
             const heightDelta = newScrollHeight - previousScrollHeight;
+            suppressThreadScrollTracking(250);
             content.scrollTop = Math.max(0, previousScrollTop + Math.max(0, heightDelta));
         }
     }
@@ -576,6 +593,9 @@ function renderActiveThread(options = {}) {
     inlineReplyInput.disabled = false;
     inlineReplySendBtn.disabled = false;
     inlineReplyAttachments.disabled = false;
+    if (inlineReplyClearAllBtn) {
+        inlineReplyClearAllBtn.disabled = selectedInlineReplyFiles.length <= 1;
+    }
     updateJumpToLatestVisibility();
 }
 
@@ -595,6 +615,7 @@ function selectConversationFromElement(messageElement) {
     if (!otherUserId) return;
     activeThreadUserId = otherUserId;
     activeThreadName = otherUserName;
+    hasUserScrolledAwayFromLatest = false;
     setJumpToLatestBadgeCount(0);
 
     highlightSelectedConversation(otherUserId);
@@ -806,12 +827,14 @@ function renderInlineReplyFileList() {
         fileList.innerHTML = '';
         if (clearAllBtn) {
             clearAllBtn.style.display = 'none';
+            clearAllBtn.disabled = true;
         }
         return;
     }
 
     if (clearAllBtn) {
         clearAllBtn.style.display = selectedInlineReplyFiles.length > 1 ? 'inline-block' : 'none';
+        clearAllBtn.disabled = selectedInlineReplyFiles.length <= 1;
     }
 
     let html = '';
@@ -1130,6 +1153,16 @@ function setupEventListeners() {
     if (threadContent) {
         threadContent.addEventListener('scroll', function () {
             isUserPinnedToThreadBottom = isNearBottom(threadContent, 60);
+            if (isThreadScrollTrackingSuppressed()) {
+                if (isUserPinnedToThreadBottom) {
+                    hasUserScrolledAwayFromLatest = false;
+                    setJumpToLatestBadgeCount(0);
+                }
+                updateJumpToLatestVisibility();
+                return;
+            }
+
+            hasUserScrolledAwayFromLatest = !isUserPinnedToThreadBottom;
             if (isUserPinnedToThreadBottom) {
                 setJumpToLatestBadgeCount(0);
             }
