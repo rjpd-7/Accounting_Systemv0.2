@@ -380,18 +380,37 @@ function buildLatestConversationList(messages, userIdField) {
     (messages || []).forEach((msg, index) => {
         const rawId = msg && msg[userIdField] != null ? msg[userIdField] : `unknown-${index}`;
         const threadKey = String(rawId);
+        const currentTimestamp = toEpoch(msg?.created_at);
+
         if (!threadMap.has(threadKey)) {
             threadMap.set(threadKey, {
                 latest: msg,
                 hasUnread: Boolean(msg && msg.is_read === false),
+                latestTimestamp: currentTimestamp,
             });
-        } else if (msg && msg.is_read === false) {
+        } else {
             const existing = threadMap.get(threadKey);
-            existing.hasUnread = true;
+            if (currentTimestamp >= (existing.latestTimestamp || 0)) {
+                existing.latest = msg;
+                existing.latestTimestamp = currentTimestamp;
+            }
+
+            if (msg && msg.is_read === false) {
+                existing.hasUnread = true;
+            }
         }
     });
 
-    return Array.from(threadMap.values());
+    return Array.from(threadMap.values())
+        .sort((a, b) => {
+            const tsA = a.latestTimestamp || 0;
+            const tsB = b.latestTimestamp || 0;
+            if (tsB !== tsA) return tsB - tsA;
+
+            const idA = Number(a?.latest?.id) || 0;
+            const idB = Number(b?.latest?.id) || 0;
+            return idB - idA;
+        });
 }
 
 function displayReceivedMessages(messages) {
