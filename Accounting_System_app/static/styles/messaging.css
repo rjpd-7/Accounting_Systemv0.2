@@ -42,6 +42,8 @@
     display: flex;
     flex-direction: column;
     background: #f8f9fa;
+    min-height: 0;
+    position: relative;
 }
 
 .messenger-conversation-header {
@@ -57,6 +59,7 @@
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    min-height: 0;
 }
 
 .messenger-thread {
@@ -92,6 +95,25 @@
     line-height: 1.4;
     word-break: break-word;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.message-bubble.message-bubble-new {
+    animation: bubblePulseHighlight 1.8s ease;
+}
+
+@keyframes bubblePulseHighlight {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.35);
+    }
+    25% {
+        transform: scale(1.01);
+        box-shadow: 0 0 0 6px rgba(13, 110, 253, 0.18);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
 }
 
 .message-bubble .message-bubble-subject {
@@ -145,6 +167,37 @@
 
 .messenger-reply-box textarea {
     resize: none;
+}
+
+.messenger-jump-latest {
+    position: absolute;
+    right: 16px;
+    bottom: 84px;
+    border-radius: 999px;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    z-index: 5;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.messenger-jump-latest.show {
+    display: inline-flex;
+}
+
+.messenger-jump-badge {
+    min-width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: #fff;
+    color: #0d6efd;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    line-height: 1;
 }
 
 .messenger-placeholder {
@@ -454,6 +507,11 @@
 
     .messenger-conversation-pane {
         min-height: 220px;
+    }
+
+    .messenger-jump-latest {
+        right: 12px;
+        bottom: 76px;
     }
 
     .message-bubble {

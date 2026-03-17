@@ -119,6 +119,10 @@
                         <small>Select a message on the left to open a persistent thread.</small>
                     </div>
                 </div>
+                <button type="button" class="btn btn-primary btn-sm messenger-jump-latest" id="jumpToLatestBtn" aria-label="Jump to latest messages">
+                    <i class="bi bi-arrow-down-circle"></i> Jump to latest
+                    <span class="messenger-jump-badge" id="jumpToLatestBadge" style="display: none;">0</span>
+                </button>
                 <div class="messenger-reply-box">
                     <form id="inlineReplyForm" class="d-flex gap-2 align-items-end">
                         <div class="flex-grow-1">
@@ -245,6 +249,13 @@
 </div>
 
 <script>
+    // Optional live-thread behavior toggles
+    window.messagingLiveOptions = {
+        autoScroll: true,
+        highlightNewMessage: true,
+        highlightDurationMs: 1800
+    };
+
     // Set API URLs for messaging JavaScript
     window.messagingApiUrls = {
         getUsers: '{% url "AccountingSystem:get_users_api" %}',

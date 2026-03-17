@@ -6,6 +6,18 @@ let archiveLoadedOnce = false;
 let latestMessagesPayload = { received: [], sent: [], archive: [], unread_count: 0 };
 let activeThreadUserId = null;
 let activeThreadName = '';
+let isUserPinnedToThreadBottom = true;
+let pendingThreadNewCount = 0;
+let websocket = null;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 5;
+const reconnectDelay = 3000;
+
+window.messagingLiveOptions = Object.assign({
+    autoScroll: true,
+    highlightNewMessage: true,
+    highlightDurationMs: 1800,
+}, window.messagingLiveOptions || {});
 
 function getPdfPreviewAttrs(filename, fileUrl) {
     const source = String(filename || fileUrl || '').toLowerCase();
@@ -36,15 +48,178 @@ function formatFileSize(bytes) {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
+function isNearBottom(element, thresholdPx = 100) {
+    if (!element) return false;
+    const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    return distanceToBottom <= thresholdPx;
+}
+
+function updateJumpToLatestVisibility() {
+    const threadContent = document.getElementById('messenger-conversation-content');
+    const jumpBtn = document.getElementById('jumpToLatestBtn');
+    if (!threadContent || !jumpBtn) return;
+
+    if (!activeThreadUserId) {
+        jumpBtn.classList.remove('show');
+        return;
+    }
+
+    const show = !isNearBottom(threadContent, 80);
+    jumpBtn.classList.toggle('show', show);
+}
+
+function setJumpToLatestBadgeCount(count) {
+    const badge = document.getElementById('jumpToLatestBadge');
+    if (!badge) return;
+
+    const normalized = Math.max(0, Number(count) || 0);
+    pendingThreadNewCount = normalized;
+    if (normalized > 0) {
+        badge.textContent = normalized > 99 ? '99+' : String(normalized);
+        badge.style.display = 'inline-flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function jumpToLatestMessages() {
+    const threadContent = document.getElementById('messenger-conversation-content');
+    if (!threadContent) return;
+
+    threadContent.scrollTo({ top: threadContent.scrollHeight, behavior: 'smooth' });
+    isUserPinnedToThreadBottom = true;
+    setJumpToLatestBadgeCount(0);
+    updateJumpToLatestVisibility();
+}
+
+function highlightBubbleByMessageId(messageId) {
+    if (!window.messagingLiveOptions.highlightNewMessage) return;
+    const bubble = document.querySelector(`.message-bubble[data-message-id="${messageId}"]`);
+    if (!bubble) return;
+
+    bubble.classList.add('message-bubble-new');
+    const duration = Number(window.messagingLiveOptions.highlightDurationMs) || 1800;
+    setTimeout(() => {
+        bubble.classList.remove('message-bubble-new');
+    }, duration);
+}
+
+function upsertIncomingMessage(messageData) {
+    if (!messageData || !messageData.message_id) return;
+
+    const normalized = {
+        id: Number(messageData.message_id),
+        sender: messageData.sender || 'Unknown Sender',
+        sender_id: Number(messageData.sender_id),
+        recipient: 'You',
+        recipient_id: null,
+        subject: messageData.subject || 'No Subject',
+        content: messageData.content || '',
+        created_at: messageData.created_at || '',
+        is_read: false,
+        attachments: Array.isArray(messageData.attachments) ? messageData.attachments : [],
+        type: 'received',
+    };
+
+    const existingIndex = (latestMessagesPayload.received || []).findIndex(msg => Number(msg.id) === normalized.id);
+    if (existingIndex >= 0) {
+        latestMessagesPayload.received[existingIndex] = normalized;
+    } else {
+        latestMessagesPayload.received = [normalized, ...(latestMessagesPayload.received || [])];
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     initializeMessaging();
     setInterval(refreshMessages, 5000);
 });
 
 function initializeMessaging() {
+    connectWebSocket();
     loadAllUsers();
     loadMessages();
     setupEventListeners();
+}
+
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/messages/`;
+
+    websocket = new WebSocket(wsUrl);
+
+    websocket.onopen = function () {
+        reconnectAttempts = 0;
+        sendWebSocketMessage({ type: 'get_unread_count' });
+    };
+
+    websocket.onmessage = function (event) {
+        try {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+        } catch (error) {
+            console.error('Invalid WebSocket payload:', error);
+        }
+    };
+
+    websocket.onclose = function () {
+        attemptReconnect();
+    };
+
+    websocket.onerror = function (event) {
+        console.error('WebSocket error:', event);
+        websocket.close();
+    };
+}
+
+function attemptReconnect() {
+    if (reconnectAttempts >= maxReconnectAttempts) {
+        return;
+    }
+    reconnectAttempts += 1;
+    setTimeout(connectWebSocket, reconnectDelay);
+}
+
+function sendWebSocketMessage(data) {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify(data));
+    }
+}
+
+function handleWebSocketMessage(payload) {
+    if (!payload || !payload.type) return;
+
+    if (payload.type === 'new_message' && payload.data) {
+        const messageData = payload.data;
+        upsertIncomingMessage(messageData);
+
+        displayReceivedMessages(latestMessagesPayload.received || []);
+        if (window.reapplySearchFilters) {
+            window.reapplySearchFilters();
+        }
+
+        updateUnreadCount((latestMessagesPayload.unread_count || 0) + 1);
+        sendWebSocketMessage({ type: 'get_unread_count' });
+
+        const activeContent = document.getElementById('messenger-conversation-content');
+        const shouldStickToBottom = isNearBottom(activeContent, 120) && isUserPinnedToThreadBottom;
+
+        if (activeThreadUserId && Number(activeThreadUserId) === Number(messageData.sender_id)) {
+            renderActiveThread({ autoScroll: shouldStickToBottom });
+            highlightBubbleByMessageId(messageData.message_id);
+            if (shouldStickToBottom) {
+                setJumpToLatestBadgeCount(0);
+            } else {
+                setJumpToLatestBadgeCount(pendingThreadNewCount + 1);
+            }
+            sendWebSocketMessage({
+                type: 'mark_as_read',
+                message_id: messageData.message_id,
+            });
+        }
+    } else if (payload.type === 'unread_count') {
+        latestMessagesPayload.unread_count = payload.unread_count || 0;
+        updateUnreadCount(latestMessagesPayload.unread_count);
+    }
 }
 
 function loadAllUsers() {
@@ -187,7 +362,7 @@ function loadMessages() {
             }
 
             if (activeThreadUserId) {
-                renderActiveThread();
+                renderActiveThread({ autoScroll: isUserPinnedToThreadBottom });
                 highlightSelectedConversation(activeThreadUserId);
             }
         })
@@ -199,17 +374,41 @@ function refreshMessages() {
     updateUnreadBadge();
 }
 
+function buildLatestConversationList(messages, userIdField) {
+    const threadMap = new Map();
+
+    (messages || []).forEach((msg, index) => {
+        const rawId = msg && msg[userIdField] != null ? msg[userIdField] : `unknown-${index}`;
+        const threadKey = String(rawId);
+        if (!threadMap.has(threadKey)) {
+            threadMap.set(threadKey, {
+                latest: msg,
+                hasUnread: Boolean(msg && msg.is_read === false),
+            });
+        } else if (msg && msg.is_read === false) {
+            const existing = threadMap.get(threadKey);
+            existing.hasUnread = true;
+        }
+    });
+
+    return Array.from(threadMap.values());
+}
+
 function displayReceivedMessages(messages) {
     const container = document.getElementById('received-messages-list');
     if (!container) return;
 
-    if (messages.length === 0) {
-        container.innerHTML = '<div class="text-center text-muted p-4"><p>No received messages</p></div>';
+    const conversations = buildLatestConversationList(messages, 'sender_id');
+
+    if (conversations.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted p-4"><p>No conversations in inbox</p></div>';
         return;
     }
 
-    container.innerHTML = messages.map(msg => `
-        <div class="message-item ${msg.is_read ? '' : 'unread'}"
+    container.innerHTML = conversations.map(thread => {
+        const msg = thread.latest;
+        return `
+        <div class="message-item ${thread.hasUnread ? 'unread' : ''}"
             data-message-id="${msg.id}"
             data-other-user-id="${msg.sender_id}"
             data-other-user-name="${escapeHtml(msg.sender || '')}"
@@ -224,19 +423,24 @@ function displayReceivedMessages(messages) {
             <div class="message-preview">${escapeHtml((msg.content || '').substring(0, 80))}${(msg.content || '').length > 80 ? '...' : ''}</div>
             ${msg.attachments.length > 0 ? `<div class="message-attachments"><i class="bi bi-paperclip"></i> ${msg.attachments.length} file(s)</div>` : ''}
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function displaySentMessages(messages) {
     const container = document.getElementById('sent-messages-list');
     if (!container) return;
 
-    if (messages.length === 0) {
-        container.innerHTML = '<div class="text-center text-muted p-4"><p>No sent messages</p></div>';
+    const conversations = buildLatestConversationList(messages, 'recipient_id');
+
+    if (conversations.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted p-4"><p>No sent conversations</p></div>';
         return;
     }
 
-    container.innerHTML = messages.map(msg => `
+    container.innerHTML = conversations.map(thread => {
+        const msg = thread.latest;
+        return `
         <div class="message-item"
             data-message-id="${msg.id}"
             data-other-user-id="${msg.recipient_id}"
@@ -252,7 +456,8 @@ function displaySentMessages(messages) {
             <div class="message-preview">${escapeHtml((msg.content || '').substring(0, 80))}${(msg.content || '').length > 80 ? '...' : ''}</div>
             ${msg.attachments.length > 0 ? `<div class="message-attachments"><i class="bi bi-paperclip"></i> ${msg.attachments.length} file(s)</div>` : ''}
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function getAllThreadMessages() {
@@ -264,7 +469,7 @@ function getThreadMessagesByUser(userId) {
     return getAllThreadMessages().filter(msg => msg.sender_id === userId || msg.recipient_id === userId);
 }
 
-function renderActiveThread() {
+function renderActiveThread(options = {}) {
     const content = document.getElementById('messenger-conversation-content');
     const title = document.getElementById('messenger-preview-title');
     const meta = document.getElementById('messenger-preview-meta');
@@ -285,12 +490,16 @@ function renderActiveThread() {
         `;
         inlineReplyInput.disabled = true;
         inlineReplySendBtn.disabled = true;
+        setJumpToLatestBadgeCount(0);
+        updateJumpToLatestVisibility();
         return;
     }
 
     const threadMessages = getThreadMessagesByUser(activeThreadUserId);
     title.textContent = activeThreadName || 'Conversation';
     meta.textContent = `${threadMessages.length} message(s)`;
+    const previousScrollTop = content.scrollTop;
+    const previousScrollHeight = content.scrollHeight;
 
     if (!threadMessages.length) {
         content.innerHTML = '<div class="messenger-placeholder text-center text-muted"><p class="mb-0">No messages in this thread yet.</p></div>';
@@ -326,11 +535,22 @@ function renderActiveThread() {
         }).join('');
 
         content.innerHTML = `<div class="messenger-thread">${rows}</div>`;
-        content.scrollTop = content.scrollHeight;
+        const autoScrollEnabled = window.messagingLiveOptions.autoScroll !== false;
+        const requestedAutoScroll = options.autoScroll !== false;
+        if (autoScrollEnabled && requestedAutoScroll) {
+            content.scrollTop = content.scrollHeight;
+            isUserPinnedToThreadBottom = true;
+            setJumpToLatestBadgeCount(0);
+        } else {
+            const newScrollHeight = content.scrollHeight;
+            const heightDelta = newScrollHeight - previousScrollHeight;
+            content.scrollTop = Math.max(0, previousScrollTop + Math.max(0, heightDelta));
+        }
     }
 
     inlineReplyInput.disabled = false;
     inlineReplySendBtn.disabled = false;
+    updateJumpToLatestVisibility();
 }
 
 function highlightSelectedConversation(userId) {
@@ -349,9 +569,10 @@ function selectConversationFromElement(messageElement) {
     if (!otherUserId) return;
     activeThreadUserId = otherUserId;
     activeThreadName = otherUserName;
+    setJumpToLatestBadgeCount(0);
 
     highlightSelectedConversation(otherUserId);
-    renderActiveThread();
+    renderActiveThread({ autoScroll: true });
 }
 
 function displayArchiveMessages(messages) {
@@ -783,5 +1004,21 @@ function setupEventListeners() {
     const deleteBtn = document.getElementById('deleteMessageBtn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', handleDeleteMessage);
+    }
+
+    const threadContent = document.getElementById('messenger-conversation-content');
+    if (threadContent) {
+        threadContent.addEventListener('scroll', function () {
+            isUserPinnedToThreadBottom = isNearBottom(threadContent, 60);
+            if (isUserPinnedToThreadBottom) {
+                setJumpToLatestBadgeCount(0);
+            }
+            updateJumpToLatestVisibility();
+        });
+    }
+
+    const jumpToLatestBtn = document.getElementById('jumpToLatestBtn');
+    if (jumpToLatestBtn) {
+        jumpToLatestBtn.addEventListener('click', jumpToLatestMessages);
     }
 }
