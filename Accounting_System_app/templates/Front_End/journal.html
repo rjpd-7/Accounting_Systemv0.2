@@ -176,6 +176,7 @@
                                     data-user-id="{{ user_group.grouper.id }}"
                                     data-user-name="{{ user_group.grouper.get_full_name|default:user_group.grouper.username }}"
                                     data-draft-count="{{ user_group.list|length }}"
+                                    data-draft-ids="{% for item in user_group.list %}{{ item.header.id }}{% if not forloop.last %},{% endif %}{% endfor %}"
                                     title="Approve all drafts from this user">
                                     <i class="bi bi-check-circle-fill me-1"></i>Approve All
                                 </button>
@@ -235,6 +236,7 @@
                                             data-bs-toggle="modal" 
                                             data-bs-target="#EDITstaticBackdrop"  
                                             data-id="{{ group.header.id }}"
+                                            data-entries-table-id="entries_draft_{{ group.header.id }}"
                                             data-date="{{ group.header.entry_date }}"
                                             data-description="{{ group.header.journal_description }}"
                                             data-totaldebit="{{ group.total_debit }}"
@@ -248,7 +250,7 @@
                                         </button>
 
                                         <!-- Hidden table to store entry data -->
-                                        <table class="d-none" id="entries_{{ group.header.id }}">
+                                        <table class="d-none" id="entries_draft_{{ group.header.id }}">
                                             {% for entry in group.entries %}
                                                 <tr data-account-id="{{ entry.account.id }}"
                                                     data-account-name="{{ entry.account.account_name }}"
@@ -259,7 +261,7 @@
                                             {% endfor %}
                                         </table>
                                         {% if request.user.profile.role == 'admin' or request.user.profile.role == 'teacher' %}
-                                        <button type="button" class="approve-journal-btn btn btn-success btn-sm" data-journal-id="{{ group.header.id }}" data-journal-code="{{ group.header.entry_no }}" title="Approve Journal">
+                                        <button type="button" class="approve-journal-btn btn btn-success btn-sm" data-journal-id="{{ group.header.id }}" data-journal-code="{{ group.header.entry_no }}" data-entries-table-id="entries_draft_{{ group.header.id }}" title="Approve Journal">
                                             <i class="bi bi-check-circle"></i> <span class="d-none d-xl-inline">Approve</span>
                                         </button>
                                         {% endif %}
@@ -387,6 +389,7 @@
                                             data-bs-toggle="modal" 
                                             data-bs-target="#EDITstaticBackdrop"  
                                             data-id="{{ group.header.id }}"
+                                            data-entries-table-id="entries_approved_{{ group.header.id }}"
                                             data-date="{{ group.header.entry_date }}"
                                             data-description="{{ group.header.journal_description }}"
                                             data-totaldebit="{{ group.total_debit }}"
@@ -400,7 +403,7 @@
                                         {% endif %}
 
                                         <!-- Hidden table to store entry data -->
-                                        <table class="d-none" id="entries_{{ group.header.id }}">
+                                        <table class="d-none" id="entries_approved_{{ group.header.id }}">
                                             {% for entry in group.entries %}
                                                 <tr data-account-id="{{ entry.account.id }}"
                                                     data-account-name="{{ entry.account.account_name }}"
@@ -508,6 +511,7 @@
                 <div class="journal-form">
                 <form action="{% url 'AccountingSystem:insert_journals' %}" method="post" id="journal_form">
                     {% csrf_token %}
+                    <div id="journal_balance_alert" class="alert alert-danger d-none" role="alert"></div>
                     <!-- Journal Code -->
                      <label for="journal_code">Journal Code:</label>
                     <div class="journal-code-group">
@@ -614,6 +618,7 @@
                 <div class="journal-form">
                 <form method="post" id="edit_journal_form">
                     {% csrf_token %}
+                    <div id="edit_journal_balance_alert" class="alert alert-danger d-none" role="alert"></div>
 
                     <!-- Account Group Display -->
                     <label for="edit_account_group_display">Account Group:</label>
@@ -959,6 +964,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
     <script>
         window.dashboardNotificationApiUrl = '{% url "AccountingSystem:dashboard_notifications" %}';
+        window.journalAccountBalances = JSON.parse('{{ account_balances_json|escapejs }}');
     </script>
     <script src="{% static 'scripts/sidebar_home_notifications.js' %}"></script>
     <script src="{% static 'scripts/journal_code_hybrid.js' %}"></script>
@@ -979,6 +985,125 @@
     </script>
 
     <script>
+    window.journalBalanceValidation = (function() {
+        const debitNormalTypes = new Set(['Assets', 'Expenses']);
+
+        function toNumber(value) {
+            const parsed = parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+
+        function hideAlert(alertElement) {
+            if (!alertElement) {
+                return;
+            }
+            alertElement.textContent = '';
+            alertElement.classList.add('d-none');
+        }
+
+        function showAlert(alertElement, message) {
+            if (!alertElement) {
+                alert(message);
+                return;
+            }
+            alertElement.textContent = message;
+            alertElement.classList.remove('d-none');
+            alertElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function getNormalBalanceEffect(accountType, debit, credit) {
+            return debitNormalTypes.has(accountType) ? debit - credit : credit - debit;
+        }
+
+        function analyzeRows(rows, options) {
+            const balances = (window.journalAccountBalances || {});
+            const entryEffects = new Map();
+            const originalEntries = Array.isArray(options?.originalEntries) ? options.originalEntries : [];
+            const excludeOriginalEntries = Boolean(options?.excludeOriginalEntries);
+
+            rows.forEach((row) => {
+                if (!row || !row.accountId) {
+                    return;
+                }
+                const movement = entryEffects.get(row.accountId) || {
+                    accountId: row.accountId,
+                    accountName: row.accountName,
+                    accountType: row.accountType,
+                    effect: 0,
+                    requiredReduction: 0,
+                };
+
+                const delta = getNormalBalanceEffect(row.accountType, row.debit, row.credit);
+                movement.effect += delta;
+                if (delta < 0) {
+                    movement.requiredReduction += Math.abs(delta);
+                }
+                entryEffects.set(row.accountId, movement);
+            });
+
+            const originalEffects = new Map();
+            if (excludeOriginalEntries) {
+                originalEntries.forEach((row) => {
+                    if (!row || !row.accountId) {
+                        return;
+                    }
+                    const current = originalEffects.get(row.accountId) || 0;
+                    originalEffects.set(row.accountId, current + getNormalBalanceEffect(row.accountType, row.debit, row.credit));
+                });
+            }
+
+            for (const movement of entryEffects.values()) {
+                const balanceInfo = balances[String(movement.accountId)] || {};
+                let availableBalance = toNumber(balanceInfo.available_balance);
+                if (excludeOriginalEntries) {
+                    availableBalance -= toNumber(originalEffects.get(movement.accountId));
+                }
+
+                const projectedBalance = availableBalance + movement.effect;
+                movement.availableBalance = availableBalance;
+                movement.projectedBalance = projectedBalance;
+                if (projectedBalance < 0) {
+                    const accountName = movement.accountName || balanceInfo.account_name || 'Selected account';
+                    if (accountName.toLowerCase().includes('cash') && availableBalance <= 0) {
+                        return {
+                            valid: false,
+                            message: `The journal cannot go through because cash account "${accountName}" is empty.`,
+                            accountEffects: Array.from(entryEffects.values())
+                        };
+                    }
+
+                    return {
+                        valid: false,
+                        message: `The journal cannot go through because account "${accountName}" has insufficient balance.`,
+                        accountEffects: Array.from(entryEffects.values())
+                    };
+                }
+            }
+
+            return {
+                valid: true,
+                message: '',
+                accountEffects: Array.from(entryEffects.values())
+            };
+        }
+
+        function validateRows(rows, options) {
+            const analysis = analyzeRows(rows, options);
+            return {
+                valid: analysis.valid,
+                message: analysis.message,
+            };
+        }
+
+        return {
+            toNumber,
+            hideAlert,
+            showAlert,
+            analyzeRows,
+            validateRows,
+        };
+    })();
+
     // Journal Search Functionality
     function filterJournals(searchInput, tabPane) {
         const searchTerm = searchInput.value.toLowerCase().trim();

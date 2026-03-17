@@ -28,6 +28,83 @@ document.addEventListener("DOMContentLoaded", function () {
     var totalDebitField = document.getElementById('total_debit');
     var totalCreditField = document.getElementById('total_credit');
     var clearAmountsBtn = document.getElementById('clear-amounts-btn');
+    var balanceAlert = document.getElementById('journal_balance_alert');
+
+    function collectJournalRows() {
+        var rows = [];
+        if (!journalEntryBody) return rows;
+
+        journalEntryBody.querySelectorAll('tr').forEach(function(row) {
+            var selectElem = row.querySelector('select[name="account_name"]');
+            if (!selectElem || !selectElem.value) return;
+
+            var selectedOption = selectElem.options[selectElem.selectedIndex];
+            var debitInput = row.querySelector('input[name="debit"]');
+            var creditInput = row.querySelector('input[name="credit"]');
+            var debit = window.journalBalanceValidation.toNumber(debitInput ? debitInput.value : 0);
+            var credit = window.journalBalanceValidation.toNumber(creditInput ? creditInput.value : 0);
+            if (debit === 0 && credit === 0) return;
+
+            rows.push({
+                accountId: selectElem.value,
+                accountName: selectedOption ? selectedOption.text.trim() : '',
+                accountType: selectedOption ? (selectedOption.getAttribute('data-type') || '') : '',
+                debit: debit,
+                credit: credit
+            });
+        });
+
+        return rows;
+    }
+
+    function getOrCreateBalanceHint(row) {
+        if (!row) return null;
+        var hint = row.querySelector('.balance-hint');
+        if (hint) return hint;
+
+        var typeCell = row.cells && row.cells[1] ? row.cells[1] : null;
+        if (!typeCell) return null;
+
+        hint = document.createElement('small');
+        hint.className = 'balance-hint d-block mt-1 text-muted';
+        typeCell.appendChild(hint);
+        return hint;
+    }
+
+    function updateLiveBalanceHints() {
+        if (!journalEntryBody || !window.journalBalanceValidation || typeof window.journalBalanceValidation.analyzeRows !== 'function') {
+            return;
+        }
+
+        var rows = collectJournalRows();
+        var analysis = window.journalBalanceValidation.analyzeRows(rows);
+        var accountMap = {};
+        (analysis.accountEffects || []).forEach(function(effect) {
+            accountMap[String(effect.accountId)] = effect;
+        });
+
+        journalEntryBody.querySelectorAll('tr').forEach(function(row) {
+            var hint = getOrCreateBalanceHint(row);
+            if (!hint) return;
+
+            var selectElem = row.querySelector('select[name="account_name"]');
+            if (!selectElem || !selectElem.value) {
+                hint.textContent = '';
+                hint.className = 'balance-hint d-block mt-1 text-muted';
+                return;
+            }
+
+            var effect = accountMap[String(selectElem.value)];
+            if (!effect) {
+                hint.textContent = '';
+                hint.className = 'balance-hint d-block mt-1 text-muted';
+                return;
+            }
+
+            hint.textContent = 'Available: ' + effect.availableBalance.toFixed(2) + ' | Projected: ' + effect.projectedBalance.toFixed(2);
+            hint.className = 'balance-hint d-block mt-1 ' + (effect.projectedBalance < 0 ? 'text-danger' : 'text-success');
+        });
+    }
 
     function updateAccountTypeDisplay(selectElem) {
         if (!selectElem) return;
@@ -74,6 +151,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 totalCreditField.style.color = "#721c24";
             }
         }
+
+        updateLiveBalanceHints();
     }
 
     function clearAmounts() {
@@ -239,6 +318,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var journalForm = document.getElementById("journal_form");
 if (journalForm) {
     journalForm.addEventListener("submit", function (e) {
+        window.journalBalanceValidation.hideAlert(balanceAlert);
         var total_debit = parseFloat((totalDebitField && totalDebitField.value) || 0) || 0;
         var total_credit = parseFloat((totalCreditField && totalCreditField.value) || 0) || 0;
 
@@ -287,6 +367,14 @@ if (journalForm) {
             return;
         }
 
+        var rows = collectJournalRows();
+        var validationResult = window.journalBalanceValidation.validateRows(rows);
+        if (!validationResult.valid) {
+            e.preventDefault();
+            window.journalBalanceValidation.showAlert(balanceAlert, validationResult.message);
+            return;
+        }
+
         // allow submit
     });
 }
@@ -311,6 +399,8 @@ if (journalForm) {
             }
 
             clearAmounts();
+            window.journalBalanceValidation.hideAlert(balanceAlert);
+            updateLiveBalanceHints();
             var jc = document.getElementById("journal_code");
             if (jc) jc.value = generateJournalCode();
         });

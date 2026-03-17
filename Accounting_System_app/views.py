@@ -21,7 +21,7 @@ from django.core.cache import cache
 import json
 import re
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .decorators import role_required
 import io
 from django.template.loader import render_to_string
@@ -271,6 +271,131 @@ def log_audit_trail(journal_header=None, journal_header_draft=None, changed_by=N
         )
     except Exception as e:
         print(f"Error logging audit trail: {e}")
+
+
+def _to_decimal(value):
+    if value in (None, '', 'NaN'):
+        return Decimal('0')
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal('0')
+
+
+def _validate_account_balance_for_rows(entry_rows, exclude_header_id=None):
+    """
+    Validate that journal rows will not make any account go below zero
+    based on account normal balance:
+      - Assets/Expenses: balance = debit - credit
+      - Liabilities/Equity/Revenue: balance = credit - debit
+    """
+    if not entry_rows:
+        return True, ''
+
+    account_effects = {}
+    account_objects = {}
+
+    for row in entry_rows:
+        account = row.get('account')
+        if not account:
+            continue
+
+        debit = _to_decimal(row.get('debit'))
+        credit = _to_decimal(row.get('credit'))
+        if debit == 0 and credit == 0:
+            continue
+
+        account_objects[account.id] = account
+        effect = account_effects.setdefault(account.id, {'debit': Decimal('0'), 'credit': Decimal('0')})
+        effect['debit'] += debit
+        effect['credit'] += credit
+
+    if not account_effects:
+        return True, ''
+
+    balances_qs = JournalEntry.objects.filter(account_id__in=account_effects.keys())
+    if exclude_header_id is not None:
+        balances_qs = balances_qs.exclude(journal_header_id=exclude_header_id)
+
+    existing_balances = {}
+    for row in balances_qs.values('account_id').annotate(total_debit=Sum('debit'), total_credit=Sum('credit')):
+        existing_balances[row['account_id']] = {
+            'debit': row['total_debit'] or Decimal('0'),
+            'credit': row['total_credit'] or Decimal('0'),
+        }
+
+    debit_normal_types = {'Assets', 'Expenses'}
+
+    for account_id, movement in account_effects.items():
+        account = account_objects.get(account_id)
+        if not account:
+            continue
+
+        current = existing_balances.get(account_id, {'debit': Decimal('0'), 'credit': Decimal('0')})
+        current_debit = _to_decimal(current['debit'])
+        current_credit = _to_decimal(current['credit'])
+
+        if account.account_type in debit_normal_types:
+            current_balance = current_debit - current_credit
+            movement_effect = movement['debit'] - movement['credit']
+            required_reduction = movement['credit'] - movement['debit']
+        else:
+            current_balance = current_credit - current_debit
+            movement_effect = movement['credit'] - movement['debit']
+            required_reduction = movement['debit'] - movement['credit']
+
+        projected_balance = current_balance + movement_effect
+
+        if projected_balance < 0:
+            if 'cash' in account.account_name.lower() and required_reduction > 0 and current_balance <= 0:
+                return False, f'The journal cannot go through because cash account "{account.account_name}" is empty.'
+
+            return False, (
+                f'The journal cannot go through because account "{account.account_name}" '
+                f'has insufficient balance (available: {current_balance}, needed: {required_reduction if required_reduction > 0 else Decimal("0")}).'
+            )
+
+    return True, ''
+
+
+def _build_account_balance_map(accounts_queryset):
+    account_list = list(accounts_queryset)
+    if not account_list:
+        return {}
+
+    account_ids = [account.id for account in account_list]
+    balances = {
+        str(account.id): {
+            'account_name': account.account_name,
+            'account_type': account.account_type,
+            'available_balance': 0.0,
+        }
+        for account in account_list
+    }
+
+    journal_totals = JournalEntry.objects.filter(account_id__in=account_ids).values('account_id').annotate(
+        total_debit=Sum('debit'),
+        total_credit=Sum('credit')
+    )
+
+    debit_normal_types = {'Assets', 'Expenses'}
+
+    for row in journal_totals:
+        account_id = str(row['account_id'])
+        account_data = balances.get(account_id)
+        if not account_data:
+            continue
+
+        total_debit = _to_decimal(row['total_debit'])
+        total_credit = _to_decimal(row['total_credit'])
+        if account_data['account_type'] in debit_normal_types:
+            available_balance = total_debit - total_credit
+        else:
+            available_balance = total_credit - total_debit
+
+        account_data['available_balance'] = float(available_balance)
+
+    return balances
 
 # Create your views here.
 
@@ -1655,13 +1780,15 @@ def journals(request):
 
     # Sort by user id so {% regroup %} consolidates all drafts per user into one group
     draft_groups_by_user = sorted(draft_groups, key=lambda x: x['header'].user_id)
+    account_balances_json = json.dumps(_build_account_balance_map(accounts), cls=DjangoJSONEncoder)
 
     return render(request, 'Front_End/journal.html', {
         'draft_groups': draft_groups,
         'draft_groups_by_user': draft_groups_by_user,
         'approved_groups': approved_groups,
         'account_groups': account_groups,
-        "accounts" : accounts
+        "accounts" : accounts,
+        'account_balances_json': account_balances_json,
         })
 
 # Journal Drafts Page
@@ -1716,6 +1843,33 @@ def insert_journals(request):
         if (not journal_code) or (journal_code in {"Loading...", "Error", "Error loading code"}) or (not is_valid_code):
             journal_code = get_next_journal_code()
 
+        prepared_rows = []
+        for i in range(len(account_ids)):
+            account_id = account_ids[i]
+            debit = debits[i] if i < len(debits) else ''
+            credit = credits[i] if i < len(credits) else ''
+
+            if not account_id or (debit == '' and credit == ''):
+                continue
+
+            try:
+                account = ChartOfAccounts.objects.get(pk=account_id)
+            except ChartOfAccounts.DoesNotExist:
+                continue
+
+            prepared_rows.append({
+                'account': account,
+                'debit': _to_decimal(debit),
+                'credit': _to_decimal(credit),
+            })
+
+        is_balance_valid, balance_error = _validate_account_balance_for_rows(prepared_rows)
+        if not is_balance_valid:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': balance_error}, status=400)
+            messages.error(request, balance_error)
+            return redirect('AccountingSystem:journals')
+
         try:
             with transaction.atomic():
                 # Creates Journal Header
@@ -1737,25 +1891,16 @@ def insert_journals(request):
                 )
 
                 # Loops through the rows and create Journal Entries
-                for i in range(len(account_ids)):
-                    account_id = account_ids[i]
-                    debit = debits[i] if i < len(debits) else ''
-                    credit = credits[i] if i < len(credits) else ''
-
-                    # Skip rows with no account or empty amounts
-                    if not account_id or (debit == '' and credit == ''):
-                        continue
-
-                    try:
-                        account = ChartOfAccounts.objects.get(pk=account_id)
-                    except ChartOfAccounts.DoesNotExist:
-                        continue
+                for row in prepared_rows:
+                    account = row['account']
+                    debit = row['debit']
+                    credit = row['credit']
 
                     journal_entry = JournalEntryDrafts.objects.create(
                         journal_header=header,
                         account=account,
-                        debit=float(debit or 0),
-                        credit=float(credit or 0)
+                        debit=debit,
+                        credit=credit
 
                     )
 
@@ -1857,6 +2002,35 @@ def update_journal(request, id):
         # set a message or handle as needed
         return redirect(reverse("AccountingSystem:journals"))
 
+    prepared_rows = []
+    for i, acc_val in enumerate(account_values):
+        debit = parsed_debits[i] if i < len(parsed_debits) else 0.0
+        credit = parsed_credits[i] if i < len(parsed_credits) else 0.0
+        if not acc_val or (debit == 0 and credit == 0):
+            continue
+
+        account = None
+        try:
+            account = ChartOfAccounts.objects.get(pk=int(acc_val))
+        except (ValueError, ChartOfAccounts.DoesNotExist):
+            account = ChartOfAccounts.objects.filter(account_name=acc_val).first()
+
+        if not account:
+            continue
+
+        prepared_rows.append({
+            'account': account,
+            'debit': _to_decimal(debit),
+            'credit': _to_decimal(credit),
+        })
+
+    is_balance_valid, balance_error = _validate_account_balance_for_rows(prepared_rows, exclude_header_id=header.id)
+    if not is_balance_valid:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': balance_error}, status=400)
+        messages.error(request, balance_error)
+        return redirect(reverse("AccountingSystem:journals"))
+
     # perform update inside transaction
     with transaction.atomic():
         # Store old values for audit trail
@@ -1894,24 +2068,10 @@ def update_journal(request, id):
         JournalEntry.objects.filter(journal_header=header).delete()
 
         # recreate entries
-        for i, acc_val in enumerate(account_values):
-            # get amounts for this row
-            debit = parsed_debits[i] if i < len(parsed_debits) else 0.0
-            credit = parsed_credits[i] if i < len(parsed_credits) else 0.0
-            # skip empty rows (no account selected) or rows with no amounts
-            if not acc_val or (debit == 0 and credit == 0):
-                continue
-
-            # try to resolve account by PK first, fallback to name
-            account = None
-            try:
-                account = ChartOfAccounts.objects.get(pk=int(acc_val))
-            except (ValueError, ChartOfAccounts.DoesNotExist):
-                account = ChartOfAccounts.objects.filter(account_name=acc_val).first()
-
-            # if account still not found, skip
-            if not account:
-                continue
+        for row in prepared_rows:
+            account = row['account']
+            debit = row['debit']
+            credit = row['credit']
 
             new_entry = JournalEntry.objects.create(
                 journal_header=header,
@@ -2107,39 +2267,56 @@ def approve_journal_draft(request, id):
                     return JsonResponse({'success': False, 'error': error_msg}, status=403)
                 messages.error(request, error_msg)
                 return redirect("AccountingSystem:journals")
+
+        draft_entries = list(JournalEntryDrafts.objects.filter(journal_header=draft_header).select_related('account'))
+        prepared_rows = [
+            {
+                'account': draft_entry.account,
+                'debit': draft_entry.debit,
+                'credit': draft_entry.credit,
+            }
+            for draft_entry in draft_entries
+        ]
+        is_balance_valid, balance_error = _validate_account_balance_for_rows(prepared_rows)
+        if not is_balance_valid:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': balance_error}, status=400)
+            messages.error(request, balance_error)
+            return redirect("AccountingSystem:journals")
         
-        # create an approved header with same data
-        approved_header = JournalHeader.objects.create(
-            entry_no=draft_header.entry_no,
-            entry_date=draft_header.entry_date,
-            journal_description=draft_header.journal_description,
-            group_name=draft_header.group_name,
-            user=draft_header.user
-        )
-        
-        # Log the approval in the new approved journal
-        log_audit_trail(
-            journal_header=approved_header,
-            changed_by=request.user,
-            change_type='updated',
-            field_name='journal_approved',
-            new_value=f'Journal approved from draft {draft_header.entry_no}'
-        )
-        
-        # copy all draft entries to approved entries
-        draft_entries = JournalEntryDrafts.objects.filter(journal_header=draft_header)
-        for draft_entry in draft_entries:
-            JournalEntry.objects.create(
-                journal_header=approved_header,
-                account=draft_entry.account,
-                debit=draft_entry.debit,
-                credit=draft_entry.credit,
-                description=draft_entry.description
+        with transaction.atomic():
+            approved_header, created = JournalHeader.objects.get_or_create(
+                entry_no=draft_header.entry_no,
+                defaults={
+                    'entry_date': draft_header.entry_date,
+                    'journal_description': draft_header.journal_description,
+                    'group_name': draft_header.group_name,
+                    'user': draft_header.user,
+                }
             )
-        
-        # delete draft entries and header
-        draft_entries.delete()
-        draft_header.delete()
+
+            if created:
+                # Log the approval in the new approved journal
+                log_audit_trail(
+                    journal_header=approved_header,
+                    changed_by=request.user,
+                    change_type='updated',
+                    field_name='journal_approved',
+                    new_value=f'Journal approved from draft {draft_header.entry_no}'
+                )
+
+                # copy all draft entries to approved entries
+                for draft_entry in draft_entries:
+                    JournalEntry.objects.create(
+                        journal_header=approved_header,
+                        account=draft_entry.account,
+                        debit=draft_entry.debit,
+                        credit=draft_entry.credit,
+                        description=draft_entry.description
+                    )
+
+            # Remove the draft copy (entries cascade via FK)
+            draft_header.delete()
 
         broadcast_journal_realtime_update(
             action='approved',
@@ -2183,7 +2360,11 @@ Accounting System
                 # Log the error but don't interrupt the approval process
                 print(f"Error sending approval email to {creator.email}: {str(e)}")
         
-        success_msg = f'Journal {draft_header.entry_no} has been approved successfully.'
+        success_msg = (
+            f'Journal {draft_header.entry_no} has been approved successfully.'
+            if created else
+            f'Journal {draft_header.entry_no} was already approved. Draft copy was removed.'
+        )
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True, 'message': success_msg})
         messages.success(request, success_msg)
@@ -2237,38 +2418,52 @@ def approve_all_user_drafts(request, user_id):
         # Approve each draft
         for draft_header in draft_headers:
             try:
-                # create an approved header with same data
-                approved_header = JournalHeader.objects.create(
-                    entry_no=draft_header.entry_no,
-                    entry_date=draft_header.entry_date,
-                    journal_description=draft_header.journal_description,
-                    group_name=draft_header.group_name,
-                    user=draft_header.user
-                )
-                
-                # Log the approval
-                log_audit_trail(
-                    journal_header=approved_header,
-                    changed_by=request.user,
-                    change_type='updated',
-                    field_name='journal_approved',
-                    new_value=f'Journal approved from draft {draft_header.entry_no} (bulk approval)'
-                )
-                
-                # copy all draft entries to approved entries
-                draft_entries = JournalEntryDrafts.objects.filter(journal_header=draft_header)
-                for draft_entry in draft_entries:
-                    JournalEntry.objects.create(
-                        journal_header=approved_header,
-                        account=draft_entry.account,
-                        debit=draft_entry.debit,
-                        credit=draft_entry.credit,
-                        description=draft_entry.description
+                draft_entries = list(JournalEntryDrafts.objects.filter(journal_header=draft_header).select_related('account'))
+                prepared_rows = [
+                    {
+                        'account': draft_entry.account,
+                        'debit': draft_entry.debit,
+                        'credit': draft_entry.credit,
+                    }
+                    for draft_entry in draft_entries
+                ]
+                is_balance_valid, balance_error = _validate_account_balance_for_rows(prepared_rows)
+                if not is_balance_valid:
+                    raise ValueError(f'Cannot approve {draft_header.entry_no}: {balance_error}')
+
+                with transaction.atomic():
+                    approved_header, created = JournalHeader.objects.get_or_create(
+                        entry_no=draft_header.entry_no,
+                        defaults={
+                            'entry_date': draft_header.entry_date,
+                            'journal_description': draft_header.journal_description,
+                            'group_name': draft_header.group_name,
+                            'user': draft_header.user,
+                        }
                     )
-                
-                # delete draft entries and header
-                draft_entries.delete()
-                draft_header.delete()
+
+                    if created:
+                        # Log the approval
+                        log_audit_trail(
+                            journal_header=approved_header,
+                            changed_by=request.user,
+                            change_type='updated',
+                            field_name='journal_approved',
+                            new_value=f'Journal approved from draft {draft_header.entry_no} (bulk approval)'
+                        )
+
+                        # copy all draft entries to approved entries
+                        for draft_entry in draft_entries:
+                            JournalEntry.objects.create(
+                                journal_header=approved_header,
+                                account=draft_entry.account,
+                                debit=draft_entry.debit,
+                                credit=draft_entry.credit,
+                                description=draft_entry.description
+                            )
+
+                    # Remove the draft copy (entries cascade via FK)
+                    draft_header.delete()
                 
                 approved_count += 1
                 approved_codes.append(approved_header.entry_no)
@@ -2406,6 +2601,35 @@ def update_journal_draft(request, id):
             return JsonResponse({'success': False, 'error': 'Total Debit and Credit must be equal!'})
         return redirect(reverse("AccountingSystem:journals"))
 
+    prepared_rows = []
+    for i, acc_val in enumerate(account_values):
+        debit = parsed_debits[i] if i < len(parsed_debits) else 0.0
+        credit = parsed_credits[i] if i < len(parsed_credits) else 0.0
+        if not acc_val or (debit == 0 and credit == 0):
+            continue
+
+        account = None
+        try:
+            account = ChartOfAccounts.objects.get(pk=int(acc_val))
+        except (ValueError, ChartOfAccounts.DoesNotExist):
+            account = ChartOfAccounts.objects.filter(account_name=acc_val).first()
+
+        if not account:
+            continue
+
+        prepared_rows.append({
+            'account': account,
+            'debit': _to_decimal(debit),
+            'credit': _to_decimal(credit),
+        })
+
+    is_balance_valid, balance_error = _validate_account_balance_for_rows(prepared_rows)
+    if not is_balance_valid:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': balance_error}, status=400)
+        messages.error(request, balance_error)
+        return redirect(reverse("AccountingSystem:journals"))
+
     # perform update inside transaction
     with transaction.atomic():
         # Store old values for audit trail
@@ -2443,24 +2667,10 @@ def update_journal_draft(request, id):
         JournalEntryDrafts.objects.filter(journal_header=header).delete()
 
         # recreate entries
-        for i, acc_val in enumerate(account_values):
-            # get amounts for this row
-            debit = parsed_debits[i] if i < len(parsed_debits) else 0.0
-            credit = parsed_credits[i] if i < len(parsed_credits) else 0.0
-            # skip empty rows (no account selected) or rows with no amounts
-            if not acc_val or (debit == 0 and credit == 0):
-                continue
-
-            # try to resolve account by PK first, fallback to name
-            account = None
-            try:
-                account = ChartOfAccounts.objects.get(pk=int(acc_val))
-            except (ValueError, ChartOfAccounts.DoesNotExist):
-                account = ChartOfAccounts.objects.filter(account_name=acc_val).first()
-
-            # if account still not found, skip
-            if not account:
-                continue
+        for row in prepared_rows:
+            account = row['account']
+            debit = row['debit']
+            credit = row['credit']
 
             new_entry = JournalEntryDrafts.objects.create(
                 journal_header=header,

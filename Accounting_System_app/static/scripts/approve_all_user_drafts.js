@@ -25,6 +25,7 @@
             document.getElementById('approveAllDraftCount').textContent = draftCount;
             document.getElementById('approveAllConfirmBtn').dataset.userId = userId;
             document.getElementById('approveAllConfirmBtn').dataset.userName = userName;
+            document.getElementById('approveAllConfirmBtn').dataset.draftIds = button.dataset.draftIds || '';
             
             const bootstrapModal = new bootstrap.Modal(modal);
             bootstrapModal.show();
@@ -36,9 +37,53 @@
         if (event.target.id === 'approveAllConfirmBtn') {
             const userId = event.target.dataset.userId;
             const userName = event.target.dataset.userName;
+            const draftIds = event.target.dataset.draftIds || '';
+            const balanceValidation = validateBulkDraftBalance(draftIds);
+            if (!balanceValidation.valid) {
+                const shouldContinue = confirm(`${balanceValidation.message}\n\nDo you want to continue and let the server perform final validation per journal?`);
+                if (!shouldContinue) {
+                    showAlert('danger', balanceValidation.message);
+                    return;
+                }
+            }
             approveAllUserDraftsAjax(userId, userName);
         }
     });
+
+    function collectRowsForDraftIds(draftIds) {
+        const rows = [];
+        const idList = String(draftIds || '')
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+
+        idList.forEach((draftId) => {
+            const sourceRows = document.querySelectorAll(`#entries_draft_${draftId} tr`);
+            sourceRows.forEach((row) => {
+                const accountId = row.dataset.accountId;
+                if (!accountId) {
+                    return;
+                }
+                rows.push({
+                    accountId: String(accountId),
+                    accountName: row.dataset.accountName || '',
+                    accountType: row.dataset.accountType || '',
+                    debit: window.journalBalanceValidation.toNumber(row.dataset.debit),
+                    credit: window.journalBalanceValidation.toNumber(row.dataset.credit),
+                });
+            });
+        });
+
+        return rows;
+    }
+
+    function validateBulkDraftBalance(draftIds) {
+        if (!window.journalBalanceValidation || typeof window.journalBalanceValidation.validateRows !== 'function') {
+            return { valid: true, message: '' };
+        }
+        const rows = collectRowsForDraftIds(draftIds);
+        return window.journalBalanceValidation.validateRows(rows);
+    }
 
     function approveAllUserDraftsAjax(userId, userName) {
         const confirmBtn = document.getElementById('approveAllConfirmBtn');

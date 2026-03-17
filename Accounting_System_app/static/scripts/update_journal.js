@@ -9,6 +9,99 @@ document.addEventListener("DOMContentLoaded", function () {
     var clearAmountsBtn = document.getElementById('edit-clear-amounts-btn');
     var editForm = document.getElementById("edit_journal_form");
     var editModal = document.getElementById('EDITstaticBackdrop');
+    var editBalanceAlert = document.getElementById('edit_journal_balance_alert');
+
+    function collectEditJournalRows() {
+        var rows = [];
+        if (!journalEntryBody) return rows;
+
+        journalEntryBody.querySelectorAll('tr').forEach(function(row) {
+            var selectElem = row.querySelector('select[name="edit_account_name"], select.edit_account_name');
+            if (!selectElem || !selectElem.value) return;
+
+            var selectedOption = selectElem.options[selectElem.selectedIndex];
+            var accountTypeInput = row.querySelector('input[name="edit_account_type"]');
+            var debitInput = row.querySelector('input[name="edit_debit"]');
+            var creditInput = row.querySelector('input[name="edit_credit"]');
+            var debit = window.journalBalanceValidation.toNumber(debitInput ? debitInput.value : 0);
+            var credit = window.journalBalanceValidation.toNumber(creditInput ? creditInput.value : 0);
+            if (debit === 0 && credit === 0) return;
+
+            rows.push({
+                accountId: selectElem.value,
+                accountName: selectedOption ? selectedOption.text.trim() : '',
+                accountType: (accountTypeInput && accountTypeInput.value) || optionType(selectedOption),
+                debit: debit,
+                credit: credit
+            });
+        });
+
+        return rows;
+    }
+
+    function getEditValidationOptions() {
+        var originalEntries = [];
+        if (editForm) {
+            try {
+                originalEntries = JSON.parse(editForm.dataset.originalEntries || '[]');
+            } catch (error) {
+                originalEntries = [];
+            }
+        }
+
+        return {
+            originalEntries: originalEntries,
+            excludeOriginalEntries: editForm ? (editForm.dataset.isDraft !== 'true') : false
+        };
+    }
+
+    function getOrCreateEditBalanceHint(row) {
+        if (!row) return null;
+        var hint = row.querySelector('.balance-hint');
+        if (hint) return hint;
+
+        var typeCell = row.cells && row.cells[1] ? row.cells[1] : null;
+        if (!typeCell) return null;
+
+        hint = document.createElement('small');
+        hint.className = 'balance-hint d-block mt-1 text-muted';
+        typeCell.appendChild(hint);
+        return hint;
+    }
+
+    function updateEditLiveBalanceHints() {
+        if (!journalEntryBody || !window.journalBalanceValidation || typeof window.journalBalanceValidation.analyzeRows !== 'function') {
+            return;
+        }
+
+        var analysis = window.journalBalanceValidation.analyzeRows(collectEditJournalRows(), getEditValidationOptions());
+        var accountMap = {};
+        (analysis.accountEffects || []).forEach(function(effect) {
+            accountMap[String(effect.accountId)] = effect;
+        });
+
+        journalEntryBody.querySelectorAll('tr').forEach(function(row) {
+            var hint = getOrCreateEditBalanceHint(row);
+            if (!hint) return;
+
+            var selectElem = row.querySelector('select[name="edit_account_name"], select.edit_account_name');
+            if (!selectElem || !selectElem.value) {
+                hint.textContent = '';
+                hint.className = 'balance-hint d-block mt-1 text-muted';
+                return;
+            }
+
+            var effect = accountMap[String(selectElem.value)];
+            if (!effect) {
+                hint.textContent = '';
+                hint.className = 'balance-hint d-block mt-1 text-muted';
+                return;
+            }
+
+            hint.textContent = 'Available: ' + effect.availableBalance.toFixed(2) + ' | Projected: ' + effect.projectedBalance.toFixed(2);
+            hint.className = 'balance-hint d-block mt-1 ' + (effect.projectedBalance < 0 ? 'text-danger' : 'text-success');
+        });
+    }
 
     // helper: get data-type from an option safely
     function optionType(opt) {
@@ -73,6 +166,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 totalCreditField.style.color = "#721c24";
             }
         }
+
+        updateEditLiveBalanceHints();
     }
 
     function clearEditDebitAndCreditInputs() {
@@ -285,6 +380,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const groupId = $(this).data('group');
         const groupName = $(this).data('group-name');
         const isDraft = $(this).data('is-draft');
+        const entriesTableId = $(this).data('entries-table-id') || ((isDraft === true || isDraft === 'true') ? `entries_draft_${headerId}` : `entries_approved_${headerId}`);
 
         // set form action (use your URL pattern)
         var form = document.getElementById('edit_journal_form');
@@ -304,6 +400,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 form.appendChild(hid);
             }
             hid.value = headerId;
+            form.dataset.isDraft = (isDraft === true || isDraft === 'true') ? 'true' : 'false';
         }
 
         // format date to yyyy-mm-dd
@@ -326,14 +423,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const tbody = $('#edit-journal-entry-body');
         tbody.empty();
+        var originalEntries = [];
 
         // Iterate hidden rows and create modal rows
-        $(`#entries_${headerId} tr`).each(function(index) {
+        $(`#${entriesTableId} tr`).each(function(index) {
             const accountId = $(this).data('account-id');
             const accountName = $(this).data('account-name');
             const accountType = $(this).data('account-type') || '';
             const debit = $(this).data('debit') || '';
             const credit = $(this).data('credit') || '';
+
+            originalEntries.push({
+                accountId: accountId ? String(accountId) : '',
+                accountName: accountName || '',
+                accountType: accountType || '',
+                debit: window.journalBalanceValidation.toNumber(debit),
+                credit: window.journalBalanceValidation.toNumber(credit)
+            });
 
             const accountOptions = index === 0 ? $('#edit-debit-accounts').html() : $('#edit-all-accounts-select').html();
 
@@ -385,6 +491,12 @@ document.addEventListener("DOMContentLoaded", function () {
             calculateEditTotals();
         }
 
+        if (editForm) {
+            editForm.dataset.originalEntries = JSON.stringify(originalEntries);
+        }
+
+        window.journalBalanceValidation.hideAlert(editBalanceAlert);
+
         calculateEditTotals();
         $('#EDITstaticBackdrop').modal('show');
     });
@@ -392,6 +504,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Form submit validation
     if (editForm) {
         editForm.addEventListener("submit", function(e) {
+            window.journalBalanceValidation.hideAlert(editBalanceAlert);
             const total_debit = parseFloat(totalDebitField ? totalDebitField.value : 0) || 0;
             const total_credit = parseFloat(totalCreditField ? totalCreditField.value : 0) || 0;
 
@@ -430,6 +543,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
 
+            var validationResult = window.journalBalanceValidation.validateRows(collectEditJournalRows(), getEditValidationOptions());
+            if (!validationResult.valid) {
+                e.preventDefault();
+                window.journalBalanceValidation.showAlert(editBalanceAlert, validationResult.message);
+                return;
+            }
+
             alert("Journal Entry Updated");
         });
     }
@@ -447,6 +567,11 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             clearEditDebitAndCreditInputs();
+            window.journalBalanceValidation.hideAlert(editBalanceAlert);
+            if (editForm) {
+                editForm.dataset.originalEntries = '[]';
+                editForm.dataset.isDraft = 'false';
+            }
 
             // reapply restrictions on first row
             const firstSelect = journalEntryBody.querySelector('select[name="edit_account_name"], select.edit_account_name');
