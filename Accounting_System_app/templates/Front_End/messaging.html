@@ -106,7 +106,7 @@
                 <div class="messenger-conversation-header">
                     <div>
                         <h6 class="mb-1" id="messenger-preview-title">Select a conversation</h6>
-                        <small class="text-muted" id="messenger-preview-meta">Click a message from Inbox or Sent.</small>
+                        <small class="text-muted" id="messenger-preview-meta">Choose a user from Inbox or Sent to open the full thread.</small>
                     </div>
                     <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
                         <i class="bi bi-pencil-square"></i> Compose
@@ -115,9 +115,20 @@
                 <div class="messenger-conversation-content" id="messenger-conversation-content">
                     <div class="messenger-placeholder text-center text-muted">
                         <i class="bi bi-chat-left-text"></i>
-                        <p class="mb-1">Messenger-style layout is enabled.</p>
-                        <small>Open any message item to view full details.</small>
+                        <p class="mb-1">No conversation selected yet.</p>
+                        <small>Select a message on the left to open a persistent thread.</small>
                     </div>
+                </div>
+                <div class="messenger-reply-box">
+                    <form id="inlineReplyForm" class="d-flex gap-2 align-items-end">
+                        <div class="flex-grow-1">
+                            <label for="inlineReplyContent" class="visually-hidden">Reply</label>
+                            <textarea class="form-control" id="inlineReplyContent" rows="2" placeholder="Type a reply..." disabled></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="inlineReplySendBtn" disabled>
+                            <i class="bi bi-send"></i> Send
+                        </button>
+                    </form>
                 </div>
             </section>
         </div>
@@ -284,23 +295,11 @@
         }
     };
 
-    function escapePreviewHtml(value) {
-        return String(value || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
     // Message Search Functionality
     document.addEventListener('DOMContentLoaded', function() {
         const searchReceivedInput = document.getElementById('searchReceivedMessages');
         const searchSentInput = document.getElementById('searchSentMessages');
         const searchArchiveInput = document.getElementById('searchArchiveMessages');
-        const previewTitle = document.getElementById('messenger-preview-title');
-        const previewMeta = document.getElementById('messenger-preview-meta');
-        const previewBody = document.getElementById('messenger-conversation-content');
 
         if (searchReceivedInput) {
             searchReceivedInput.addEventListener('input', function() {
@@ -322,31 +321,5 @@
                 window.filterMessages(searchArchiveInput, archiveContainer);
             });
         }
-
-        document.addEventListener('click', function(event) {
-            const messageItem = event.target.closest('.message-item');
-            if (!messageItem || !previewTitle || !previewMeta || !previewBody) return;
-
-            document.querySelectorAll('.messages-list .message-item.active').forEach(item => {
-                item.classList.remove('active');
-            });
-            messageItem.classList.add('active');
-
-            const sender = messageItem.querySelector('.message-header strong')?.textContent?.trim() || 'Conversation';
-            const time = messageItem.querySelector('.message-header small')?.textContent?.trim() || '';
-            const subject = messageItem.querySelector('.message-subject')?.textContent?.trim() || 'No Subject';
-            const preview = messageItem.querySelector('.message-preview')?.textContent?.trim() || '';
-
-            previewTitle.textContent = sender;
-            previewMeta.textContent = time;
-            previewBody.innerHTML = `
-                <div class="messenger-placeholder text-start align-items-start justify-content-start p-4">
-                    <h6 class="mb-2">${escapePreviewHtml(subject)}</h6>
-                    <p class="mb-0 text-muted">${escapePreviewHtml(preview)}</p>
-                    <small class="text-muted mt-3">Click the message to open full details.</small>
-                </div>
-            `;
-        });
     });
 </script>
-<script src="{% static 'scripts/messaging_realtime.js' %}"></script>

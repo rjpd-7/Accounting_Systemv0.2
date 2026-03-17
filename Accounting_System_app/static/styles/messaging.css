@@ -59,6 +59,94 @@
     overflow-y: auto;
 }
 
+.messenger-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.messenger-day-divider {
+    text-align: center;
+    color: #777;
+    font-size: 12px;
+    margin: 6px 0;
+}
+
+.message-row {
+    display: flex;
+}
+
+.message-row.outgoing {
+    justify-content: flex-end;
+}
+
+.message-row.incoming {
+    justify-content: flex-start;
+}
+
+.message-bubble {
+    max-width: 72%;
+    border-radius: 16px;
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    word-break: break-word;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.message-bubble .message-bubble-subject {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.message-bubble .message-bubble-meta {
+    margin-top: 6px;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+.message-row.outgoing .message-bubble {
+    background: #0d6efd;
+    color: #fff;
+    border-bottom-right-radius: 6px;
+}
+
+.message-row.incoming .message-bubble {
+    background: #fff;
+    color: #222;
+    border: 1px solid #e2e8f0;
+    border-bottom-left-radius: 6px;
+}
+
+.message-bubble-attachments {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.message-bubble-attachments a {
+    text-decoration: none;
+}
+
+.message-row.outgoing .message-bubble-attachments a {
+    color: #e6f0ff;
+}
+
+.message-row.incoming .message-bubble-attachments a {
+    color: #0d6efd;
+}
+
+.messenger-reply-box {
+    border-top: 1px solid #e9ecef;
+    background: #fff;
+    padding: 12px 14px;
+}
+
+.messenger-reply-box textarea {
+    resize: none;
+}
+
 .messenger-placeholder {
     height: 100%;
     min-height: 260px;
@@ -366,6 +454,10 @@
 
     .messenger-conversation-pane {
         min-height: 220px;
+    }
+
+    .message-bubble {
+        max-width: 88%;
     }
 
     .messaging-container {
