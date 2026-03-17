@@ -81,6 +81,7 @@ urlpatterns = [
      path('messages/send/', views.send_message, name='send_message'),
      path('messages/get/', views.get_messages, name='get_messages'),
      path('messages/unread/', views.get_unread_count, name='unread_count'),
+     path('dashboard/notifications/', views.get_dashboard_notifications, name='dashboard_notifications'),
      path('messages/delete/<int:message_id>/', views.delete_message, name='delete_message'),
      path('messages/download/<int:attachment_id>/', views.download_attachment, name='download_attachment'),
      path('api/users/', views.get_users_api, name='get_users_api'),

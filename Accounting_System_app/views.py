@@ -4212,6 +4212,68 @@ def get_unread_count(request):
     ).count()
     return JsonResponse({'unread_count': unread_count})
 
+@require_http_methods(["GET"])
+def get_dashboard_notifications(request):
+    """Return dashboard notification counters for messages and tasks."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+
+    unread_messages = Message.objects.filter(
+        recipient=request.user,
+        is_read=False,
+    ).count()
+
+    pending_tasks = TaskAssignment.objects.filter(
+        recipient=request.user,
+        is_completed=False,
+    ).count()
+
+    total_unread = unread_messages + pending_tasks
+
+    latest_unread_messages = Message.objects.filter(
+        recipient=request.user,
+        is_read=False,
+    ).select_related('sender').order_by('-created_at')[:5]
+
+    latest_pending_tasks = TaskAssignment.objects.filter(
+        recipient=request.user,
+        is_completed=False,
+    ).select_related('sender').order_by('-created_at')[:5]
+
+    latest_notifications = []
+    for msg in latest_unread_messages:
+        latest_notifications.append({
+            'type': 'message',
+            'label': 'New message',
+            'title': msg.sender.get_full_name() or msg.sender.username,
+            'subtitle': msg.subject or 'No Subject',
+            'created_at': localtime(msg.created_at).strftime('%Y-%m-%d %H:%M'),
+            'created_at_epoch': int(msg.created_at.timestamp()),
+            'target': 'messages',
+        })
+
+    for task in latest_pending_tasks:
+        latest_notifications.append({
+            'type': 'task',
+            'label': 'New task',
+            'title': task.title,
+            'subtitle': f"From {task.sender.get_full_name() or task.sender.username}",
+            'created_at': localtime(task.created_at).strftime('%Y-%m-%d %H:%M'),
+            'created_at_epoch': int(task.created_at.timestamp()),
+            'target': 'tasks',
+        })
+
+    latest_notifications.sort(key=lambda item: item.get('created_at_epoch', 0), reverse=True)
+    latest_notifications = latest_notifications[:5]
+
+    return JsonResponse({
+        'unread_messages': unread_messages,
+        'pending_tasks': pending_tasks,
+        'total_unread': total_unread,
+        'has_notifications': total_unread > 0,
+        'latest_notifications': latest_notifications,
+    })
+
 @require_http_methods(["POST"])
 def delete_message(request, message_id):
     """Delete a message"""
