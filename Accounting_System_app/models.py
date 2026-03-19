@@ -187,6 +187,8 @@ class UserProfile(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     section = models.ForeignKey(StudentSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
     account_groups = models.ManyToManyField(AccountGroups, related_name='assigned_users', blank=True)
+    temporary_password_expires_at = models.DateTimeField(null=True, blank=True)
+    requires_password_change = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"

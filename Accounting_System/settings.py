@@ -190,6 +190,7 @@ EMAIL_USE_TLS = True                           # True if using STARTTLS
 EMAIL_HOST_USER = 'dalistan.roeljoseph.aclcb@gmail.com'     # SMTP username
 EMAIL_HOST_PASSWORD = 'knqr xfaj xasj cbbi'    # SMTP password or app password
 DEFAULT_FROM_EMAIL = 'ACLC Accounting <dalistan.roeljoseph.aclcb@gmail.com>'
+TEMP_PASSWORD_EXPIRY_MINUTES = int(os.environ.get('TEMP_PASSWORD_EXPIRY_MINUTES', '5'))
 
 TASK_BLOCK_UNSUBMIT_AFTER_DEADLINE = False
 TASK_ALLOW_LATE_SUBMISSION = False

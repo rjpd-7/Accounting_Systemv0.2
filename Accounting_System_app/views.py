@@ -20,7 +20,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from .decorators import role_required
 import io
@@ -67,6 +67,29 @@ def get_system_base_url(request=None):
             return f"https://{host}"
 
     return 'http://127.0.0.1:8000'
+
+
+def clear_temporary_password_state(user):
+    profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'role': 'student'})
+    profile.temporary_password_expires_at = None
+    profile.requires_password_change = False
+    profile.save(update_fields=['temporary_password_expires_at', 'requires_password_change'])
+    return profile
+
+
+def mark_temporary_password(user):
+    profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'role': 'student'})
+    expiry_minutes = max(1, int(getattr(settings, 'TEMP_PASSWORD_EXPIRY_MINUTES', 5)))
+    profile.temporary_password_expires_at = timezone.now() + timedelta(minutes=expiry_minutes)
+    profile.requires_password_change = True
+    profile.save(update_fields=['temporary_password_expires_at', 'requires_password_change'])
+    return profile
+
+
+def is_temporary_password_expired(profile):
+    if not profile.requires_password_change or not profile.temporary_password_expires_at:
+        return False
+    return timezone.now() >= profile.temporary_password_expires_at
 
 
 # Helper function to send credentials email to new user
@@ -464,6 +487,13 @@ def login_view(request):
             cache.delete(lockout_key)
             profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'role': 'student'})
 
+            if is_temporary_password_expired(profile):
+                user.set_unusable_password()
+                user.save(update_fields=['password'])
+                clear_temporary_password_state(user)
+                messages.error(request, 'Your temporary password has expired. Request a new one and use it within 5 minutes.')
+                return render(request, "Front_End/login.html")
+
             # Block students with no assigned section from logging in
             if profile.role == "student" and profile.section is None:
                 messages.error(request, "You are not assigned to a section yet. You cannot log in to the system.")
@@ -533,12 +563,13 @@ def forgot_password(request):
 
     # generate temporary password
     temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+    expiry_minutes = max(1, int(getattr(settings, 'TEMP_PASSWORD_EXPIRY_MINUTES', 5)))
 
     login_url = f"{get_system_base_url(request)}{reverse('AccountingSystem:login_view')}"
     subject = 'Temporary Password - ACLC Accounting System'
     message = (
         f"Hello {user.username},\n\nA temporary password has been generated for your account:\n\n"
-        f"{temp_password}\n\nPlease login and change your password immediately.\n"
+        f"{temp_password}\n\nThis temporary password expires in {expiry_minutes} minutes. Please login and change your password immediately.\n"
         f"Login URL: {login_url}\n\nIf you did not request this, contact support."
     )
     from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@example.com')
@@ -556,6 +587,7 @@ def forgot_password(request):
     # Email sent successfully — apply the temporary password
     user.set_password(temp_password)
     user.save()
+    mark_temporary_password(user)
     messages.success(request, f'A temporary password has been sent to {user.email}.')
     return redirect('AccountingSystem:login_view')
 
@@ -1580,6 +1612,7 @@ def change_user_password(request):
         user = User.objects.get(id=user_id)
         user.set_password(new_password)
         user.save()
+        mark_temporary_password(user)
         
         # Send email notification to user about password change
         if user.email:
@@ -1599,6 +1632,7 @@ Changed By: {admin_name}
 Change Date: {localdate().strftime('%B %d, %Y')}
 
 IMPORTANT: For security reasons, please login immediately and change this password to something only you know. You will be prompted to change it on your next login.
+This temporary password expires in {getattr(settings, 'TEMP_PASSWORD_EXPIRY_MINUTES', 5)} minutes.
 Login URL: {login_url}
 
 If you did not request this password change, please contact your administrator immediately.
@@ -1652,6 +1686,7 @@ def change_own_password(request):
         # Set new password
         user.set_password(new_password)
         user.save()
+        clear_temporary_password_state(user)
         
         # Update session to prevent logout
         update_session_auth_hash(request, user)
