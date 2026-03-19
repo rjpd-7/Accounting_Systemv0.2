@@ -92,6 +92,26 @@ def is_temporary_password_expired(profile):
     return timezone.now() >= profile.temporary_password_expires_at
 
 
+def get_user_role(user):
+    if user.is_superuser:
+        return 'admin'
+    profile = getattr(user, 'profile', None)
+    return profile.role if profile else 'student'
+
+
+def get_post_login_redirect_name(user):
+    role = get_user_role(user)
+    if role == 'admin':
+        return 'AccountingSystem:admin_dashboard'
+    if role == 'teacher':
+        return 'AccountingSystem:teacher_dashboard'
+    return 'AccountingSystem:student_dashboard'
+
+
+def get_post_login_redirect_url(user):
+    return reverse(get_post_login_redirect_name(user))
+
+
 # Helper function to send credentials email to new user
 def send_credentials_email(user, password):
     """
@@ -501,13 +521,12 @@ def login_view(request):
 
             login(request, user)
 
+            if profile.requires_password_change:
+                messages.warning(request, 'You must change your temporary password before continuing.')
+                return redirect('AccountingSystem:force_password_change')
+
             messages.success(request, "Login Successful")
-            role = profile.role if profile else ('admin' if user.is_superuser else 'student')
-            if role == "admin":
-                return redirect("AccountingSystem:admin_dashboard")
-            if role == "teacher":
-                return redirect("AccountingSystem:teacher_dashboard")
-            return redirect("AccountingSystem:student_dashboard")
+            return redirect(get_post_login_redirect_name(user))
         else:
             # Failed login -> increment attempts (use normalized key)
             attempts = cache.get(attempts_key, 0) + 1
@@ -561,6 +580,11 @@ def forgot_password(request):
         messages.error(request, 'No email associated with this account. Contact administrator.')
         return redirect('AccountingSystem:login_view')
 
+    profile = getattr(user, 'profile', None)
+    if user.is_superuser or (profile and profile.role == 'admin'):
+        messages.error(request, 'Administrator accounts cannot request temporary passwords. Contact another administrator for a manual reset.')
+        return redirect('AccountingSystem:login_view')
+
     # generate temporary password
     temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
     expiry_minutes = max(1, int(getattr(settings, 'TEMP_PASSWORD_EXPIRY_MINUTES', 5)))
@@ -590,6 +614,29 @@ def forgot_password(request):
     mark_temporary_password(user)
     messages.success(request, f'A temporary password has been sent to {user.email}.')
     return redirect('AccountingSystem:login_view')
+
+
+def force_password_change_view(request):
+    if not request.user.is_authenticated:
+        return redirect('AccountingSystem:login_view')
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user, defaults={'role': 'student'})
+    if is_temporary_password_expired(profile):
+        request.user.set_unusable_password()
+        request.user.save(update_fields=['password'])
+        clear_temporary_password_state(request.user)
+        logout(request)
+        messages.error(request, 'Your temporary password expired before you changed it. Request a new temporary password.')
+        return redirect('AccountingSystem:login_view')
+
+    if not profile.requires_password_change:
+        return redirect(get_post_login_redirect_name(request.user))
+
+    context = {
+        'expiry_minutes': max(1, int(getattr(settings, 'TEMP_PASSWORD_EXPIRY_MINUTES', 5))),
+        'redirect_url': get_post_login_redirect_url(request.user),
+    }
+    return render(request, 'Front_End/force_password_change.html', context)
 
 # Admin Home Page
 @role_required(['admin'])
@@ -1691,7 +1738,11 @@ def change_own_password(request):
         # Update session to prevent logout
         update_session_auth_hash(request, user)
         
-        return JsonResponse({'success': True, 'message': 'Password changed successfully'})
+        return JsonResponse({
+            'success': True,
+            'message': 'Password changed successfully',
+            'redirect_url': get_post_login_redirect_url(user),
+        })
     
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
