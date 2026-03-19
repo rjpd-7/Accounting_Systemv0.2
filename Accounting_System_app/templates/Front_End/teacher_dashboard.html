@@ -357,8 +357,9 @@
                 <small><i class="bi bi-info-circle"></i> You can only assign students to sections you manage. Unassigned students are always visible.</small>
             </div>
 
-            <form method="post" action="{% url 'AccountingSystem:assign_student_sections_bulk' %}">
+            <form id="teacherStudentSectionAssignmentForm" method="post" action="{% url 'AccountingSystem:assign_student_sections_bulk' %}">
                 {% csrf_token %}
+                <div id="teacherStudentSectionAssignmentAlert" style="display: none;"></div>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover align-middle">
                         <thead>
@@ -478,8 +479,9 @@
             <h3>My Account Groups</h3>
             <p class="text-muted">Assign account groups to yourself. All sections you manage will automatically have access to these account groups.</p>
 
-            <form method="post" action="{% url 'AccountingSystem:assign_account_groups_to_teacher' %}">
+            <form id="teacherAccountGroupsForm" method="post" action="{% url 'AccountingSystem:assign_account_groups_to_teacher' %}">
                 {% csrf_token %}
+                <div id="teacherAccountGroupsAlert" style="display: none;"></div>
                 <div class="row g-3">
                     <div class="col-12">
                         <div class="card">

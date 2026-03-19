@@ -669,17 +669,31 @@ def admin_create_student_section(request):
     section_name = (request.POST.get('section_name') or '').strip()
 
     if not section_name:
-        messages.error(request, "Section name is required.")
+        error_message = "Section name is required."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_message}, status=400)
+        messages.error(request, error_message)
         return redirect('AccountingSystem:admin_dashboard')
 
     if StudentSection.objects.filter(name__iexact=section_name).exists():
-        messages.error(request, f'Section "{section_name}" already exists.')
+        error_message = f'Section "{section_name}" already exists.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_message}, status=400)
+        messages.error(request, error_message)
         return redirect('AccountingSystem:admin_dashboard')
 
-    StudentSection.objects.create(name=section_name)
-    messages.success(request, f'Section "{section_name}" created successfully.')
-    return redirect('AccountingSystem:admin_dashboard')
+    section = StudentSection.objects.create(name=section_name)
+    success_message = f'Section "{section_name}" created successfully.'
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': success_message,
+            'section_id': section.id,
+            'section_name': section.name,
+        })
 
+    messages.success(request, success_message)
+    return redirect('AccountingSystem:admin_dashboard')
 @role_required(['admin'])
 @require_http_methods(["POST"])
 def admin_rename_student_section(request):
@@ -687,17 +701,26 @@ def admin_rename_student_section(request):
     new_section_name = (request.POST.get('new_section_name') or '').strip()
 
     if not section_id:
-        messages.error(request, 'Please select a section to rename.')
+        error_message = 'Please select a section to rename.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_message}, status=400)
+        messages.error(request, error_message)
         return redirect('AccountingSystem:admin_dashboard')
 
     if not new_section_name:
-        messages.error(request, 'New section name is required.')
+        error_message = 'New section name is required.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_message}, status=400)
+        messages.error(request, error_message)
         return redirect('AccountingSystem:admin_dashboard')
 
     section = get_object_or_404(StudentSection, id=section_id)
 
     if StudentSection.objects.filter(name__iexact=new_section_name).exclude(id=section.id).exists():
-        messages.error(request, f'Section "{new_section_name}" already exists.')
+        error_message = f'Section "{new_section_name}" already exists.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_message}, status=400)
+        messages.error(request, error_message)
         return redirect('AccountingSystem:admin_dashboard')
 
     old_name = section.name
@@ -705,7 +728,17 @@ def admin_rename_student_section(request):
     section.save(update_fields=['name'])
 
     # Student assignments remain intact because only the section name is changed.
-    messages.success(request, f'Section renamed from "{old_name}" to "{new_section_name}".')
+    success_message = f'Section renamed from "{old_name}" to "{new_section_name}".'
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': success_message,
+            'section_id': section.id,
+            'old_name': old_name,
+            'new_name': new_section_name,
+        })
+
+    messages.success(request, success_message)
     return redirect('AccountingSystem:admin_dashboard')
 
 @role_required(['admin'])
@@ -715,11 +748,17 @@ def admin_advance_section_students(request):
     to_section_id = request.POST.get('to_section_id')
 
     if not from_section_id or not to_section_id:
-        messages.error(request, 'Please select both current section and next section.')
+        error_message = 'Please select both current section and next section.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_message}, status=400)
+        messages.error(request, error_message)
         return redirect('AccountingSystem:admin_dashboard')
 
     if str(from_section_id) == str(to_section_id):
-        messages.error(request, 'Current section and next section must be different.')
+        error_message = 'Current section and next section must be different.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_message}, status=400)
+        messages.error(request, error_message)
         return redirect('AccountingSystem:admin_dashboard')
 
     from_section = get_object_or_404(StudentSection, id=from_section_id)
@@ -729,15 +768,29 @@ def admin_advance_section_students(request):
     moved_count = UserProfile.objects.filter(role='student', section=from_section).update(section=to_section)
 
     if moved_count == 0:
-        messages.info(request, f'No students were found in "{from_section.name}" to advance.')
+        info_message = f'No students were found in "{from_section.name}" to advance.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': info_message,
+                'moved_count': moved_count,
+                'from_section_id': from_section.id,
+                'to_section_id': to_section.id,
+            })
+        messages.info(request, info_message)
     else:
-        messages.success(
-            request,
-            f'Changed {moved_count} student(s) from "{from_section.name}" to "{to_section.name}" successfully.'
-        )
+        success_message = f'Changed {moved_count} student(s) from "{from_section.name}" to "{to_section.name}" successfully.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': success_message,
+                'moved_count': moved_count,
+                'from_section_id': from_section.id,
+                'to_section_id': to_section.id,
+            })
+        messages.success(request, success_message)
 
     return redirect('AccountingSystem:admin_dashboard')
-
 @role_required(['admin'])
 @require_http_methods(["POST"])
 def admin_assign_student_sections_bulk(request):
@@ -775,7 +828,15 @@ def admin_assign_student_sections_bulk(request):
             student.profile.save(update_fields=['section'])
             updated_count += 1
 
-    messages.success(request, f'Section assignments saved for {updated_count} student(s).')
+    success_message = f'Section assignments saved for {updated_count} student(s).'
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': success_message,
+            'updated_count': updated_count,
+        })
+
+    messages.success(request, success_message)
     return redirect('AccountingSystem:admin_dashboard')
 
 
@@ -856,7 +917,15 @@ def assign_student_sections_bulk(request):
             student.profile.save(update_fields=['section'])
             updated_count += 1
 
-    messages.success(request, f'Section assignments saved for {updated_count} student(s).')
+    success_message = f'Section assignments saved for {updated_count} student(s).'
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': success_message,
+            'updated_count': updated_count,
+        })
+
+    messages.success(request, success_message)
     return redirect('AccountingSystem:teacher_dashboard')
 
 
@@ -1013,10 +1082,14 @@ def assign_account_groups_to_teacher(request):
     if selected_group_ids:
         groups = AccountGroups.objects.filter(id__in=selected_group_ids)
         teacher.profile.account_groups.set(groups)
-        messages.success(request, f'{len(selected_group_ids)} account group(s) assigned to you. Your managed sections will automatically have access to these groups.')
+        success_message = f'{len(selected_group_ids)} account group(s) assigned to you. Your managed sections will automatically have access to these groups.'
     else:
-        messages.success(request, 'All account groups removed from your profile.')
-    
+        success_message = 'All account groups removed from your profile.'
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': success_message})
+
+    messages.success(request, success_message)
     return redirect('AccountingSystem:teacher_dashboard')
 
 @role_required(['admin'])

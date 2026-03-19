@@ -116,7 +116,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 
-    <title>Home Page</title>
+    <title>Home Page | ACLC Accounting System</title>
 </head>
 <body>
     <!------ Sidebar ------>
@@ -389,8 +389,11 @@
         <div class="user-management-section">
             <h3>Student Section Assignment</h3>
 
-            <form method="post" action="{% url 'AccountingSystem:admin_create_student_section' %}" class="row g-2 align-items-end mb-3">
+            <form id="adminCreateSectionForm" method="post" action="{% url 'AccountingSystem:admin_create_student_section' %}" class="row g-2 align-items-end mb-3">
                 {% csrf_token %}
+                <div class="col-12">
+                    <div id="adminCreateSectionAlert" style="display: none;"></div>
+                </div>
                 <div class="col-md-6">
                     <label for="section_name" class="form-label">Create New Section</label>
                     <input type="text" class="form-control" id="section_name" name="section_name" placeholder="e.g. Grade 12 - ABM A" required>
@@ -402,8 +405,11 @@
                 </div>
             </form>
 
-            <form method="post" action="{% url 'AccountingSystem:admin_rename_student_section' %}" class="row g-2 align-items-end mb-3">
+            <form id="adminRenameSectionForm" method="post" action="{% url 'AccountingSystem:admin_rename_student_section' %}" class="row g-2 align-items-end mb-3">
                 {% csrf_token %}
+                <div class="col-12">
+                    <div id="adminRenameSectionAlert" style="display: none;"></div>
+                </div>
                 <div class="col-md-4">
                     <label for="rename_section_id" class="form-label">Section to Rename</label>
                     <select class="form-select" id="rename_section_id" name="section_id" required>
@@ -428,8 +434,11 @@
             </form>
 
             <h3>Section Transfer</h3>
-            <form method="post" action="{% url 'AccountingSystem:admin_advance_section_students' %}" class="row g-2 align-items-end mb-3">
+            <form id="adminSectionTransferForm" method="post" action="{% url 'AccountingSystem:admin_advance_section_students' %}" class="row g-2 align-items-end mb-3">
                 {% csrf_token %}
+                <div class="col-12">
+                    <div id="adminSectionTransferAlert" style="display: none;"></div>
+                </div>
                 <div class="col-md-4">
                     <label for="from_section_id" class="form-label">Current Section</label>
                     <select class="form-select" id="from_section_id" name="from_section_id" required>
@@ -475,8 +484,9 @@
                 </div>
             </div>
 
-            <form method="post" action="{% url 'AccountingSystem:admin_assign_student_sections_bulk' %}">
+            <form id="adminStudentSectionAssignmentForm" method="post" action="{% url 'AccountingSystem:admin_assign_student_sections_bulk' %}">
                 {% csrf_token %}
+                <div id="adminStudentSectionAssignmentAlert" style="display: none;"></div>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover align-middle">
                         <thead>

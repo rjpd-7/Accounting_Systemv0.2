@@ -137,7 +137,170 @@ function initStudentFiltering() {
     }
 }
 
+function showStudentSectionAssignmentAlert(containerId, message, level) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        return;
+    }
+
+    const alertClass = level === 'success' ? 'alert-success' : 'alert-danger';
+    container.className = `alert ${alertClass} py-2 mb-3`;
+    container.textContent = message;
+    container.style.display = 'block';
+}
+
+function updateStudentSectionBadges(form) {
+    const rows = form.querySelectorAll('tr[data-section-id]');
+    rows.forEach(row => {
+        const assignmentSelect = row.querySelector('select[name^="section_for_"]');
+        const currentSectionCell = row.querySelector('td:nth-child(3)');
+        if (!assignmentSelect || !currentSectionCell) {
+            return;
+        }
+
+        const selectedValue = assignmentSelect.value;
+        const selectedOption = assignmentSelect.options[assignmentSelect.selectedIndex];
+        const sectionName = selectedOption ? selectedOption.textContent.trim() : 'Unassigned';
+
+        if (selectedValue) {
+            currentSectionCell.innerHTML = `<span class="badge bg-primary">${sectionName}</span>`;
+            row.setAttribute('data-section-id', selectedValue);
+        } else {
+            currentSectionCell.innerHTML = '<span class="badge bg-secondary">Unassigned</span>';
+            row.setAttribute('data-section-id', 'unassigned');
+        }
+    });
+}
+
+function initStudentSectionAssignmentForm() {
+    const form = document.getElementById('teacherStudentSectionAssignmentForm');
+    if (!form) {
+        return;
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton ? submitButton.innerHTML : '';
+
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = 'Saving...';
+        }
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: new FormData(form)
+        })
+            .then(async response => {
+                const data = await response.json().catch(() => ({}));
+                return { ok: response.ok, data };
+            })
+            .then(({ ok, data }) => {
+                if (!ok || !data.success) {
+                    showStudentSectionAssignmentAlert(
+                        'teacherStudentSectionAssignmentAlert',
+                        data.error || 'Failed to save section assignments.',
+                        'error'
+                    );
+                    return;
+                }
+
+                updateStudentSectionBadges(form);
+                applySectionFilter();
+                showStudentSectionAssignmentAlert(
+                    'teacherStudentSectionAssignmentAlert',
+                    data.message || 'Section assignments saved successfully.',
+                    'success'
+                );
+            })
+            .catch(() => {
+                showStudentSectionAssignmentAlert(
+                    'teacherStudentSectionAssignmentAlert',
+                    'An unexpected error occurred while saving section assignments.',
+                    'error'
+                );
+            })
+            .finally(() => {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
+                }
+            });
+    });
+}
+
+function initAccountGroupsForm() {
+    const form = document.getElementById('teacherAccountGroupsForm');
+    if (!form) {
+        return;
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton ? submitButton.innerHTML : '';
+
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = 'Saving...';
+        }
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: new FormData(form)
+        })
+            .then(async response => {
+                const data = await response.json().catch(() => ({}));
+                return { ok: response.ok, data };
+            })
+            .then(({ ok, data }) => {
+                if (!ok || !data.success) {
+                    showStudentSectionAssignmentAlert(
+                        'teacherAccountGroupsAlert',
+                        data.error || 'Failed to save account groups.',
+                        'error'
+                    );
+                    return;
+                }
+
+                showStudentSectionAssignmentAlert(
+                    'teacherAccountGroupsAlert',
+                    data.message || 'Account groups saved successfully.',
+                    'success'
+                );
+            })
+            .catch(() => {
+                showStudentSectionAssignmentAlert(
+                    'teacherAccountGroupsAlert',
+                    'An unexpected error occurred while saving account groups.',
+                    'error'
+                );
+            })
+            .finally(() => {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
+                }
+            });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     initOwnPasswordForm();
     initStudentFiltering();
+    initStudentSectionAssignmentForm();
+    initAccountGroupsForm();
 });
