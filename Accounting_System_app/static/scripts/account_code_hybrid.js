@@ -15,9 +15,9 @@ class HybridAccountCodeManager {
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000;
         this.pollingInterval = null;
-        this.pollingDelay = 500;
+        this.pollingDelay = 5000;
         this.ajaxAutoRefreshInterval = null;
-        this.ajaxAutoRefreshDelay = 500;
+        this.ajaxAutoRefreshDelay = 5000;
         this.currentAccountType = null;
         this.previewFetchPromise = null;
         this.pendingAccountType = null;
