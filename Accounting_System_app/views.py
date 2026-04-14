@@ -401,6 +401,27 @@ def _validate_account_balance_for_rows(entry_rows, exclude_header_id=None):
     return True, ''
 
 
+def _validate_unique_accounts_for_rows(entry_rows):
+    """Ensure each account appears at most once in a journal payload."""
+    seen = set()
+    duplicates = []
+
+    for row in entry_rows or []:
+        account = row.get('account') if isinstance(row, dict) else None
+        if not account:
+            continue
+        if account.id in seen:
+            duplicates.append(account.account_name)
+        else:
+            seen.add(account.id)
+
+    if duplicates:
+        unique_names = sorted(set(duplicates))
+        return False, f'Duplicate account selection is not allowed: {", ".join(unique_names)}.'
+
+    return True, ''
+
+
 def _build_account_balance_map(accounts_queryset):
     account_list = list(accounts_queryset)
     if not account_list:
@@ -2023,6 +2044,13 @@ def insert_journals(request):
                 'credit': _to_decimal(credit),
             })
 
+        is_unique_valid, unique_error = _validate_unique_accounts_for_rows(prepared_rows)
+        if not is_unique_valid:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': unique_error}, status=400)
+            messages.error(request, unique_error)
+            return redirect('AccountingSystem:journals')
+
         is_balance_valid, balance_error = _validate_account_balance_for_rows(prepared_rows)
         if not is_balance_valid:
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -2183,6 +2211,13 @@ def update_journal(request, id):
             'debit': _to_decimal(debit),
             'credit': _to_decimal(credit),
         })
+
+    is_unique_valid, unique_error = _validate_unique_accounts_for_rows(prepared_rows)
+    if not is_unique_valid:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': unique_error}, status=400)
+        messages.error(request, unique_error)
+        return redirect(reverse("AccountingSystem:journals"))
 
     is_balance_valid, balance_error = _validate_account_balance_for_rows(prepared_rows, exclude_header_id=header.id)
     if not is_balance_valid:
@@ -2782,6 +2817,13 @@ def update_journal_draft(request, id):
             'debit': _to_decimal(debit),
             'credit': _to_decimal(credit),
         })
+
+    is_unique_valid, unique_error = _validate_unique_accounts_for_rows(prepared_rows)
+    if not is_unique_valid:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': unique_error}, status=400)
+        messages.error(request, unique_error)
+        return redirect(reverse("AccountingSystem:journals"))
 
     is_balance_valid, balance_error = _validate_account_balance_for_rows(prepared_rows)
     if not is_balance_valid:

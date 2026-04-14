@@ -116,6 +116,78 @@ document.addEventListener("DOMContentLoaded", function () {
         if (typeInput) typeInput.value = type;
     }
 
+    function getTemplateAccountOptions() {
+        if (!allAccountsSelect) return [];
+        return Array.from(allAccountsSelect.options).map(function(opt) {
+            return {
+                value: opt.value,
+                text: opt.text,
+                type: opt.getAttribute('data-type') || '',
+                group: opt.getAttribute('data-group') || ''
+            };
+        });
+    }
+
+    function refreshUniqueAccountOptions() {
+        if (!journalEntryBody) return;
+        var selects = Array.from(journalEntryBody.querySelectorAll('select[name="account_name"]'));
+        if (!selects.length) return;
+
+        var templateOptions = getTemplateAccountOptions();
+        if (!templateOptions.length) return;
+
+        var templateValues = templateOptions.map(function(opt) { return opt.value; });
+        var usedValues = new Set();
+        var desiredValues = selects.map(function(sel) {
+            var currentValue = sel.value;
+            if (currentValue && templateValues.indexOf(currentValue) !== -1 && !usedValues.has(currentValue)) {
+                usedValues.add(currentValue);
+                return currentValue;
+            }
+            return '';
+        });
+
+        desiredValues = desiredValues.map(function(desired) {
+            if (desired) return desired;
+            var nextAvailable = templateValues.find(function(val) {
+                return !usedValues.has(val);
+            }) || '';
+            if (nextAvailable) usedValues.add(nextAvailable);
+            return nextAvailable;
+        });
+
+        selects.forEach(function(sel, index) {
+            var desiredValue = desiredValues[index] || '';
+            var selectedByOthers = new Set(
+                selects
+                    .filter(function(otherSel) { return otherSel !== sel; })
+                    .map(function(_, otherIndex) { return desiredValues[otherIndex]; })
+                    .filter(Boolean)
+            );
+
+            sel.innerHTML = '';
+            templateOptions.forEach(function(optData) {
+                if (selectedByOthers.has(optData.value) && optData.value !== desiredValue) {
+                    return;
+                }
+
+                var opt = document.createElement('option');
+                opt.value = optData.value;
+                opt.text = optData.text;
+                if (optData.type) opt.setAttribute('data-type', optData.type);
+                if (optData.group) opt.setAttribute('data-group', optData.group);
+                if (optData.value === desiredValue) opt.selected = true;
+                sel.appendChild(opt);
+            });
+
+            if (!sel.value && sel.options.length > 0) {
+                sel.selectedIndex = 0;
+            }
+
+            updateAccountTypeDisplay(sel);
+        });
+    }
+
     function calculateTotals() {
         var totalDebit = 0;
         var totalCredit = 0;
@@ -262,11 +334,13 @@ document.addEventListener("DOMContentLoaded", function () {
             if (sel) {
                 sel.addEventListener('change', function () {
                     updateAccountTypeDisplay(this);
+                    refreshUniqueAccountOptions();
                 });
                 updateAccountTypeDisplay(sel);
             }
             attachMutualExclusivity(row);
         });
+        refreshUniqueAccountOptions();
     }
 
     // add new row
@@ -291,10 +365,12 @@ document.addEventListener("DOMContentLoaded", function () {
             if (sel) {
                 sel.addEventListener('change', function() {
                     updateAccountTypeDisplay(this);
+                    refreshUniqueAccountOptions();
                 });
                 updateAccountTypeDisplay(sel);
             }
             attachMutualExclusivity(newRow);
+            refreshUniqueAccountOptions();
         });
     }
 
@@ -308,6 +384,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 var rows = journalEntryBody.querySelectorAll('tr');
                 if (rows.length > 1) {
                     row.remove();
+                    refreshUniqueAccountOptions();
                     calculateTotals();
                 }
             }
@@ -396,6 +473,7 @@ if (journalForm) {
                 if (firstRow) attachMutualExclusivity(firstRow);
                 var firstSel = firstRow ? firstRow.querySelector('select[name="account_name"]') : null;
                 if (firstSel) updateAccountTypeDisplay(firstSel);
+                refreshUniqueAccountOptions();
             }
 
             clearAmounts();

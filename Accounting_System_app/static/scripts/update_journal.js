@@ -108,6 +108,81 @@ document.addEventListener("DOMContentLoaded", function () {
         return opt ? (opt.getAttribute('data-type') || opt.getAttribute('data-type_edit') || "") : "";
     }
 
+    function getEditTemplateAccountOptions() {
+        if (!allAccountsSelect) return [];
+        return Array.from(allAccountsSelect.options).map(function(opt) {
+            return {
+                value: opt.value,
+                text: opt.text,
+                type: opt.getAttribute('data-type') || opt.getAttribute('data-type_edit') || '',
+                group: opt.getAttribute('data-group') || ''
+            };
+        });
+    }
+
+    function refreshEditUniqueAccountOptions() {
+        if (!journalEntryBody) return;
+        var selects = Array.from(journalEntryBody.querySelectorAll('select[name="edit_account_name"], select.edit_account_name'));
+        if (!selects.length) return;
+
+        var templateOptions = getEditTemplateAccountOptions();
+        if (!templateOptions.length) return;
+
+        var templateValues = templateOptions.map(function(opt) { return opt.value; });
+        var usedValues = new Set();
+        var desiredValues = selects.map(function(sel) {
+            var currentValue = sel.value;
+            if (currentValue && templateValues.indexOf(currentValue) !== -1 && !usedValues.has(currentValue)) {
+                usedValues.add(currentValue);
+                return currentValue;
+            }
+            return '';
+        });
+
+        desiredValues = desiredValues.map(function(desired) {
+            if (desired) return desired;
+            var nextAvailable = templateValues.find(function(val) {
+                return !usedValues.has(val);
+            }) || '';
+            if (nextAvailable) usedValues.add(nextAvailable);
+            return nextAvailable;
+        });
+
+        selects.forEach(function(sel, index) {
+            var desiredValue = desiredValues[index] || '';
+            var selectedByOthers = new Set(
+                selects
+                    .filter(function(otherSel) { return otherSel !== sel; })
+                    .map(function(_, otherIndex) { return desiredValues[otherIndex]; })
+                    .filter(Boolean)
+            );
+
+            sel.innerHTML = '';
+            templateOptions.forEach(function(optData) {
+                if (selectedByOthers.has(optData.value) && optData.value !== desiredValue) {
+                    return;
+                }
+
+                var opt = document.createElement('option');
+                opt.value = optData.value;
+                opt.text = optData.text;
+                if (optData.type) {
+                    opt.setAttribute('data-type_edit', optData.type);
+                    opt.setAttribute('data-type', optData.type);
+                }
+                if (optData.group) opt.setAttribute('data-group', optData.group);
+                if (optData.value === desiredValue) opt.selected = true;
+                sel.appendChild(opt);
+            });
+
+            if (!sel.value && sel.options.length > 0) {
+                sel.selectedIndex = 0;
+            }
+
+            updateEditAccountTypeAndRestrict(sel);
+        });
+    }
+
     // Update account type display and (optionally) restrict — keeps existing behavior
     function updateEditAccountTypeAndRestrict(selectElem) {
         if (!selectElem) return;
@@ -271,6 +346,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // ensure change updates display and restrictions
             sel.addEventListener('change', function () {
                 updateEditAccountTypeAndRestrict(this);
+                refreshEditUniqueAccountOptions();
             });
             // set display now
             updateEditAccountTypeAndRestrict(sel);
@@ -284,6 +360,7 @@ document.addEventListener("DOMContentLoaded", function () {
         journalEntryBody.querySelectorAll('tr').forEach(function (r) {
             window.applyEditRowBehavior(r);
         });
+        refreshEditUniqueAccountOptions();
         calculateEditTotals();
     };
 
@@ -319,6 +396,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!t) return;
             if (t.matches('select[name="edit_account_name"], select.edit_account_name')) {
                 updateEditAccountTypeAndRestrict(t);
+                refreshEditUniqueAccountOptions();
             }
         });
     }
@@ -330,6 +408,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         // also ensure numeric restrictions & mutual exclusivity applied to existing inputs
         window.applyEditBehaviorToAllRows();
+        refreshEditUniqueAccountOptions();
         calculateEditTotals();
     }
 
@@ -355,6 +434,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // trigger change so display updates based on the selected option (if any)
             var sel = newRow.querySelector('select[name="edit_account_name"], select.edit_account_name');
             if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+            refreshEditUniqueAccountOptions();
         });
     }
 
@@ -365,6 +445,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 var row = e.target.closest('tr');
                 if (row && !row.classList.contains('fixed-row')) {
                     row.remove();
+                    refreshEditUniqueAccountOptions();
                     calculateEditTotals();
                 }
             }
@@ -491,6 +572,8 @@ document.addEventListener("DOMContentLoaded", function () {
             calculateEditTotals();
         }
 
+        refreshEditUniqueAccountOptions();
+
         if (editForm) {
             editForm.dataset.originalEntries = JSON.stringify(originalEntries);
         }
@@ -576,6 +659,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // reapply restrictions on first row
             const firstSelect = journalEntryBody.querySelector('select[name="edit_account_name"], select.edit_account_name');
             if (firstSelect) updateEditAccountTypeAndRestrict(firstSelect);
+            refreshEditUniqueAccountOptions();
         });
     }
 
