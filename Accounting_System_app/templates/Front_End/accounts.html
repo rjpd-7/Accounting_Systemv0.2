@@ -331,12 +331,9 @@
                                 <td>
                                     <div class="account-code-group">
                                         <input id="account_code" type="text" name="account_code" required class="form-control" readonly>
-                                        <small class="text-muted">
-                                            <span id="account-socket-status" class="socket-status disconnected">🟡</span>
-                                        </small>
                                     </div>
                                 </td>
-                                <td><input id="account_name" type="text" name="account_name" required class="form-control"></td>
+                                <td><input id="account_name" type="text" name="account_name" required class="form-control" ></td>
                                 <td>
                                     <select name="account_type" id="account_type" required class="form-select">
                                         <option value="">-- Select Type --</option>
@@ -357,6 +354,13 @@
                                             <option value="" disabled>No Accounts Groups Created</option>
                                         {% endfor %}
                                     </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <small class="text-muted">
+                                        <span id="account-socket-status" class="socket-status disconnected">🟡</span>
+                                    </small>
                                 </td>
                             </tr>
                         </tbody>

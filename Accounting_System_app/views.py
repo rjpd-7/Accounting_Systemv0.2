@@ -1395,7 +1395,7 @@ def create_account(request):
     account_type_submit = request.POST.get('account_type', '').strip()
     account_description_submit = request.POST.get('account_description', '').strip()
     account_group_id = request.POST.get('account_group')
-
+    
     if not account_name_submit:
         messages.error(request, "Account name is required.")
         return HttpResponseRedirect(reverse("AccountingSystem:accounts"))
@@ -1993,6 +1993,7 @@ def insert_journals(request):
         date_submit = request.POST['entry-date']
         account_group = request.POST["account_group"]
         account_ids = request.POST.getlist('account_name')
+        
         debits = request.POST.getlist('debit')
         credits = request.POST.getlist('credit')
         description = request.POST['journal_description']
