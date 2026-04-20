@@ -128,6 +128,23 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    function hasAvailableInsertAccountForNewRow() {
+        if (!journalEntryBody) return false;
+
+        var templateOptions = getTemplateAccountOptions();
+        if (!templateOptions.length) return false;
+
+        var selectedValues = new Set(
+            Array.from(journalEntryBody.querySelectorAll('select[name="account_name"]'))
+                .map(function(sel) { return sel.value; })
+                .filter(Boolean)
+        );
+
+        return templateOptions.some(function(opt) {
+            return !selectedValues.has(opt.value);
+        });
+    }
+
     function refreshUniqueAccountOptions() {
         if (!journalEntryBody) return;
         var selects = Array.from(journalEntryBody.querySelectorAll('select[name="account_name"]'));
@@ -347,6 +364,13 @@ document.addEventListener("DOMContentLoaded", function () {
     if (addRowBtn) {
         addRowBtn.addEventListener('click', function () {
             if (!journalEntryBody) return;
+            refreshUniqueAccountOptions();
+
+            if (!hasAvailableInsertAccountForNewRow()) {
+                alert('All accounts are already in a row.');
+                return;
+            }
+
             var newRow = document.createElement('tr');
             var optionsHtml = allAccountsSelect ? allAccountsSelect.innerHTML : '';
             var selectHtml = '<select name="account_name" class="form-select" required>' + optionsHtml + '</select>';
