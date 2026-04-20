@@ -3829,6 +3829,194 @@ def ledger_account_transactions(request, account_id):
     })
 
 
+def _get_ledger_allowed_group_ids_for_user(user):
+    """Return list of allowed group IDs for teachers/students; None means unrestricted (admin)."""
+    if not hasattr(user, 'profile'):
+        return None
+
+    user_profile = user.profile
+    if user_profile.role == 'student':
+        user_section = user_profile.section
+        if user_section:
+            account_groups = get_account_groups_for_section(user_section)
+            return list(account_groups.values_list('id', flat=True))
+        return []
+
+    if user_profile.role == 'admin':
+        return None
+
+    user_account_groups = user_profile.account_groups.all()
+    return list(user_account_groups.values_list('id', flat=True))
+
+
+def _next_month_label(month_label):
+    year, month = month_label.split('-')
+    y = int(year)
+    m = int(month) + 1
+    if m > 12:
+        m = 1
+        y += 1
+    return f"{y}-{str(m).zfill(2)}"
+
+
+def _linear_regression_forecast(values, steps):
+    if not values or steps <= 0:
+        return []
+
+    n = len(values)
+    if n == 1:
+        return [values[0]] * steps
+
+    sum_x = 0.0
+    sum_y = 0.0
+    sum_xy = 0.0
+    sum_xx = 0.0
+
+    for i, value in enumerate(values):
+        x = float(i)
+        y = float(value)
+        sum_x += x
+        sum_y += y
+        sum_xy += x * y
+        sum_xx += x * x
+
+    denominator = (n * sum_xx) - (sum_x * sum_x)
+    slope = 0.0 if denominator == 0 else ((n * sum_xy) - (sum_x * sum_y)) / denominator
+    intercept = (sum_y - (slope * sum_x)) / n
+
+    predictions = []
+    for i in range(steps):
+        x = float(n + i)
+        predictions.append((slope * x) + intercept)
+    return predictions
+
+
+@require_http_methods(["GET"])
+def ledger_group_forecast(request, group_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required.'}, status=401)
+
+    group = get_object_or_404(AccountGroups, pk=group_id)
+
+    allowed_group_ids = _get_ledger_allowed_group_ids_for_user(request.user)
+    if allowed_group_ids is not None and group_id not in allowed_group_ids:
+        return JsonResponse({'success': False, 'error': 'You are not allowed to access this account group.'}, status=403)
+
+    projection_months = request.GET.get('projection_months', '3')
+    try:
+        projection_months = int(projection_months)
+    except (TypeError, ValueError):
+        projection_months = 3
+    projection_months = max(1, min(projection_months, 12))
+
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    accounts = list(
+        ChartOfAccounts.objects.filter(group_name_id=group_id).order_by('account_code', 'id')
+    )
+
+    entries = JournalEntry.objects.select_related(
+        'account',
+        'journal_header',
+        'journal_header__user',
+        'journal_header__user__profile'
+    ).filter(account__in=accounts)
+
+    user_role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    if user_role == 'student':
+        entries = entries.filter(
+            Q(journal_header__user=request.user) |
+            Q(journal_header__collaborators__collaborator=request.user)
+        ).distinct()
+    elif user_role == 'teacher':
+        managed_sections = request.user.managed_sections.all()
+        if managed_sections.exists():
+            entries = entries.filter(
+                Q(journal_header__user=request.user) |
+                Q(journal_header__collaborators__collaborator=request.user) |
+                Q(journal_header__user__profile__role='student', journal_header__user__profile__section__in=managed_sections)
+            ).distinct()
+        else:
+            entries = entries.filter(
+                Q(journal_header__user=request.user) |
+                Q(journal_header__collaborators__collaborator=request.user)
+            ).distinct()
+
+    try:
+        if start_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+            entries = entries.filter(journal_header__entry_date__gte=start_date)
+        if end_str:
+            end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+            entries = entries.filter(journal_header__entry_date__lte=end_date)
+    except (ValueError, TypeError):
+        pass
+
+    monthly_by_account = {acc.id: {} for acc in accounts}
+    all_history_months = set()
+
+    for entry in entries:
+        if not entry.journal_header or not entry.journal_header.entry_date:
+            continue
+
+        month_label = entry.journal_header.entry_date.strftime('%Y-%m')
+        net_value = float(entry.debit or 0) - float(entry.credit or 0)
+
+        if entry.account_id not in monthly_by_account:
+            monthly_by_account[entry.account_id] = {}
+        monthly_by_account[entry.account_id][month_label] = monthly_by_account[entry.account_id].get(month_label, 0.0) + net_value
+        all_history_months.add(month_label)
+
+    history_labels = sorted(list(all_history_months))
+    projection_labels = []
+
+    if history_labels:
+        current_label = history_labels[-1]
+        for _ in range(projection_months):
+            current_label = _next_month_label(current_label)
+            projection_labels.append(current_label)
+
+    accounts_payload = []
+    for acc in accounts:
+        account_months = monthly_by_account.get(acc.id, {})
+        historical = [round(account_months.get(label, 0.0), 2) for label in history_labels]
+
+        projected = []
+        if history_labels:
+            projected = [round(value, 2) for value in _linear_regression_forecast(historical, len(projection_labels))]
+
+        projected_by_month = []
+        for idx, month in enumerate(projection_labels):
+            projected_by_month.append({
+                'month': month,
+                'value': projected[idx] if idx < len(projected) else 0.0,
+            })
+
+        accounts_payload.append({
+            'account_id': acc.id,
+            'account_code': acc.account_code,
+            'account_name': acc.account_name,
+            'historical': historical,
+            'projected': projected,
+            'projected_by_month': projected_by_month,
+        })
+
+    return JsonResponse({
+        'success': True,
+        'group': {
+            'id': group.id,
+            'name': group.group_name,
+        },
+        'history_labels': history_labels,
+        'projection_labels': projection_labels,
+        'labels': history_labels + projection_labels,
+        'projection_months': projection_months,
+        'has_history': bool(history_labels),
+        'accounts': accounts_payload,
+    })
+
+
 # Trial Balance within the General Ledger
 def trial_balance_json(request):
     start_str = request.GET.get('start_date')

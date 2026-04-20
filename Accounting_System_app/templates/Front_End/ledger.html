@@ -326,8 +326,17 @@
                         <p class="text-muted mb-2">Historical lines are monthly net movement (Debit - Credit). Forecast is a basic linear regression projection for the next 3 months.</p>
                         <div id="groupForecastStatus" class="small text-secondary mb-3"></div>
                         <canvas id="groupForecastChart" height="120"></canvas>
+                        <div class="table-responsive mt-4">
+                            <table class="table table-sm table-bordered align-middle">
+                                <thead class="table-light" id="groupForecastTableHead"></thead>
+                                <tbody id="groupForecastTableBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                     <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-primary" id="exportGroupForecastPngBtn">
+                            <i class="bi bi-image"></i> Export Graph as PNG
+                        </button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     </div>
                 </div>
@@ -372,6 +381,7 @@
     <script src="scripts/scripts.js"></script>
     <script>
         var ledgerTransactionsUrlTemplate = "{% url 'AccountingSystem:ledger_account_transactions' 0 %}";
+        var ledgerGroupForecastUrlTemplate = "{% url 'AccountingSystem:ledger_group_forecast' 0 %}";
     </script>
     <script src="{% static 'scripts/ledger.js' %}"></script>
     <script src="{% static 'scripts/GL_account_group_filter.js' %}"></script>

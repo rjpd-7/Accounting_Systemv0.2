@@ -41,6 +41,7 @@ urlpatterns = [
      path("approve_journal_draft/<int:id>/", views.approve_journal_draft, name="approve_journal_draft"),
      path("approve_all_user_drafts/<int:user_id>/", views.approve_all_user_drafts, name="approve_all_user_drafts"),
      path("ledger/account/<int:account_id>/transactions/", views.ledger_account_transactions, name="ledger_account_transactions"),
+     path("ledger/group/<int:group_id>/forecast/", views.ledger_group_forecast, name="ledger_group_forecast"),
      path('trial-balance/json/', views.trial_balance_json, name='trial_balance_json'),
      path('journal_pdf/<int:id>/', views.journal_pdf, name='journal_pdf'),
      path('check_username_email_availability/', views.check_username_email_availability, name='check_username_email_availability'),
